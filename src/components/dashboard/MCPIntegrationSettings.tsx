@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Trash2, FileText, CreditCard, Link2 } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2, Loader2 } from "lucide-react";
 import { mockUploadedFiles } from "@/data/mockData";
 import {
   AlertDialog,
@@ -155,10 +155,59 @@ function PaymentProviderItem({ label, description, defaultConnected = false }: P
 
 export function MCPIntegrationSettings() {
   const [files, setFiles] = useState(mockUploadedFiles);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const removeFile = (id: string) => {
     setFiles((f) => f.filter((file) => file.id !== id));
   };
+
+  const simulateUpload = useCallback((fileList: FileList) => {
+    Array.from(fileList).forEach((file) => {
+      const tempId = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setUploadingFiles((prev) => [...prev, tempId]);
+
+      // Simulate upload delay
+      setTimeout(() => {
+        setUploadingFiles((prev) => prev.filter((id) => id !== tempId));
+        setFiles((prev) => [
+          ...prev,
+          {
+            id: tempId,
+            name: file.name,
+            size: `${(file.size / 1024).toFixed(0)} KB`,
+            uploadedAt: "Just now",
+          },
+        ]);
+      }, 2000);
+    });
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      simulateUpload(e.dataTransfer.files);
+    }
+  }, [simulateUpload]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      simulateUpload(e.target.files);
+      e.target.value = "";
+    }
+  }, [simulateUpload]);
 
   return (
     <motion.div
@@ -217,17 +266,58 @@ export function MCPIntegrationSettings() {
         </div>
 
         <div className="p-5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.doc,.txt"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
           <motion.div
-            className="border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center cursor-pointer hover:border-primary/30 transition-colors"
+            className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center cursor-pointer transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/30"
+            }`}
             whileTap={{ scale: 0.98 }}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            animate={isDragging ? { scale: 1.01 } : { scale: 1 }}
+            transition={{ duration: 0.2 }}
           >
-            <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-            <p className="text-sm font-medium text-card-foreground">Drop files here</p>
+            <Upload className={`w-8 h-8 mb-2 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+            <p className="text-sm font-medium text-card-foreground">
+              {isDragging ? "Drop to upload" : "Drop files here or click to browse"}
+            </p>
             <p className="text-xs text-muted-foreground">PDF, DOCX up to 10MB</p>
           </motion.div>
         </div>
 
         <div className="px-5 pb-3 divide-y divide-border">
+          <AnimatePresence>
+            {uploadingFiles.map((id) => (
+              <motion.div
+                key={id}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center justify-between py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-card-foreground">Uploading…</p>
+                    <p className="text-xs text-muted-foreground">Processing file</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
           {files.map((file) => (
             <div key={file.id} className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">
