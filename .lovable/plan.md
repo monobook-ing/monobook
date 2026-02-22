@@ -1,46 +1,47 @@
 
-# Sidebar User Footer with Popup Menu
+
+# File Preview Mode with Delete Confirmation
 
 ## Overview
-Add a user section at the bottom of the desktop sidebar showing user name, plan, and avatar (like the Claude reference). Clicking it opens a popover menu with options like Settings, Upgrade plan, Get help, and Log out.
+When clicking a file name or icon in the Knowledge Base section, a full-screen preview overlay will appear showing the file title, a close button, and a 3-dot menu with a "Delete" option. Deleting triggers a confirmation dialog using the existing `AlertDialog` component.
 
 ## What will be built
 
-**Sidebar footer** (bottom of desktop sidebar):
-- Avatar circle with initials (e.g., "SA" for StayAI)
-- User name ("StayAI Hotel") and plan label ("Pro plan")
-- ChevronsUpDown icon on the right
-- Clickable - opens a popover above
+**Full-screen preview overlay:**
+- Fixed overlay covering the entire screen with a semi-transparent backdrop
+- Top bar with: file name (left), 3-dot menu button and close (X) button (right)
+- Center area showing a file preview placeholder (file icon + file details, since these are mock files)
+- Smooth open/close animation using framer-motion
 
-**Popover menu** (appears on click):
-- Email at top
-- Menu items: Settings, Get help, Upgrade plan, Log out
-- Separated by dividers matching the reference screenshot
-- Rounded corners, shadow, clean styling
+**3-dot menu (using Popover):**
+- Single menu item: "Delete" with a Trash icon, styled in destructive red
+
+**Delete confirmation (reusing AlertDialog):**
+- Title: "Delete file?"
+- Description: "Are you sure you want to delete {filename}? This action cannot be undone."
+- Cancel and Delete buttons (Delete in destructive style)
 
 ## Technical Details
 
-### File: `src/pages/DashboardLayout.tsx`
+### File: `src/components/dashboard/MCPIntegrationSettings.tsx`
 
-1. **Imports**: Add `Popover`, `PopoverContent`, `PopoverTrigger` from UI, plus `ChevronsUpDown`, `LogOut`, `CircleHelp`, `ArrowUpCircle` icons from lucide-react.
+1. **New state**: Add `previewFile` state to track which file is being previewed (file object or null).
 
-2. **Sidebar structure change**: Wrap the existing `<nav>` in a flex column with `flex-1` so the user footer sits at the bottom using `mt-auto`.
+2. **Make file rows clickable**: On lines 321-339, add `onClick` to the file name/icon area (the left side `div`) to set `previewFile`.
 
-3. **User footer section**: Add a clickable trigger at the bottom of the sidebar `<aside>`:
-   - Avatar with initials in a dark circle
-   - Name + plan text
-   - ChevronsUpDown icon aligned right
-   - Wrapped in a `PopoverTrigger`
+3. **Remove inline delete button**: The delete button moves into the preview's 3-dot menu instead. (Or keep both for quick access -- keep the existing trash icon AND add delete in preview.)
 
-4. **Popover content**: Menu items including:
-   - Email text (e.g., "admin@stayai.com")
-   - Separator
-   - Settings (navigates to /settings)
-   - Get help
-   - Separator
-   - Upgrade plan
-   - Separator
-   - Log out
-   - Each item has an icon + label, min 44px touch target
+4. **Preview overlay component** (inline in same file):
+   - `AnimatePresence` + `motion.div` for the full-screen overlay
+   - Fixed position, `z-50`, dark background
+   - Header bar: file name, `MoreVertical` (3-dot) icon opening a `Popover`, `X` close button
+   - Body: centered file icon + name + size display
+   - `MoreVertical` popover contains a "Delete" button
 
-5. **Styling**: Glass-consistent, matching existing sidebar aesthetic with `rounded-2xl` popover, `hover:bg-secondary` on items.
+5. **Delete flow**:
+   - Clicking "Delete" in the 3-dot menu opens the existing `AlertDialog`
+   - On confirm: calls `removeFile(id)`, closes preview, closes dialog
+   - Reuses the same `AlertDialog` pattern already in the file (see `PaymentProviderItem`)
+
+6. **New imports**: Add `MoreVertical`, `X` from lucide-react (X already imported). Add `Popover`/`PopoverContent`/`PopoverTrigger`.
+
