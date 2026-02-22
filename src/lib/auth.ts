@@ -1,3 +1,4 @@
+import { type Property } from "@/data/mockPropertyData";
 export const API_BASE = "https://api-fexi.onrender.com";
 
 export type UserMe = {
@@ -5,6 +6,25 @@ export type UserMe = {
   first_name: string;
   last_name: string;
   default_account_id: string;
+};
+
+export type ApiProperty = {
+  id: string;
+  name: string;
+  street?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  floor?: string | null;
+  section?: string | null;
+  property_number?: string | null;
+};
+
+type PropertiesResponse = {
+  items: ApiProperty[];
 };
 
 export class AuthApiError extends Error {
@@ -38,6 +58,45 @@ const isValidUserMe = (value: unknown): value is UserMe => {
   );
 };
 
+const asOptionalString = (value: unknown) => {
+  return typeof value === "string" ? value : "";
+};
+
+const asOptionalNumber = (value: unknown) => {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+};
+
+const isApiProperty = (value: unknown): value is ApiProperty => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.id === "string" && typeof candidate.name === "string";
+};
+
+const isValidPropertiesResponse = (value: unknown): value is PropertiesResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiProperty);
+};
+
+const mapApiProperty = (item: ApiProperty): Property => {
+  return {
+    id: item.id,
+    name: item.name,
+    address: {
+      street: asOptionalString(item.street),
+      city: asOptionalString(item.city),
+      state: asOptionalString(item.state),
+      postalCode: asOptionalString(item.postal_code),
+      country: asOptionalString(item.country),
+      lat: asOptionalNumber(item.lat),
+      lng: asOptionalNumber(item.lng),
+      floor: asOptionalString(item.floor) || undefined,
+      section: asOptionalString(item.section) || undefined,
+      propertyNumber: asOptionalString(item.property_number) || undefined,
+    },
+  };
+};
+
 export const isRetryableError = (error: unknown) => {
   if (error instanceof AuthApiError) {
     return error.status === 0 || error.status >= 500;
@@ -68,6 +127,26 @@ export const fetchMe = async (accessToken: string): Promise<UserMe> => {
   }
 
   return data;
+};
+
+export const fetchProperties = async (accessToken: string): Promise<Property[]> => {
+  const res = await fetch(`${API_BASE}/v1.0/properties`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidPropertiesResponse(data)) {
+    throw new AuthApiError("Invalid properties response", res.status);
+  }
+
+  return data.items.map(mapApiProperty);
 };
 
 export const fetchMeWithRetry = async (

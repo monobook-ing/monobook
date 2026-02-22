@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AuthApiError,
   clearAuthStorage,
+  fetchProperties,
   fetchMe,
   fetchMeWithRetry,
   hydrateSessionFromStorage,
@@ -49,6 +50,84 @@ describe("auth helpers", () => {
       name: "AuthApiError",
       message: "Unauthorized",
       status: 401,
+    });
+  });
+
+  it("fetchProperties sends bearer token and maps api fields", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "prop-1",
+              name: "Mountain Lodge Retreat",
+              street: "789 Alpine Road",
+              city: "Aspen",
+              state: "CO",
+              postal_code: "81611",
+              country: "United States",
+              lat: 39.1911,
+              lng: -106.8175,
+              floor: "Ground",
+              section: "Main Lodge",
+              property_number: "ML-01",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await fetchProperties("jwt_key");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api-fexi.onrender.com/v1.0/properties",
+      {
+        method: "GET",
+        headers: { Authorization: "Bearer jwt_key" },
+      }
+    );
+    expect(result).toEqual([
+      {
+        id: "prop-1",
+        name: "Mountain Lodge Retreat",
+        address: {
+          street: "789 Alpine Road",
+          city: "Aspen",
+          state: "CO",
+          postalCode: "81611",
+          country: "United States",
+          lat: 39.1911,
+          lng: -106.8175,
+          floor: "Ground",
+          section: "Main Lodge",
+          propertyNumber: "ML-01",
+        },
+      },
+    ]);
+  });
+
+  it("fetchProperties throws normalized AuthApiError on non-200", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Unauthorized" }), { status: 401 })
+    );
+
+    await expect(fetchProperties("bad")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Unauthorized",
+      status: 401,
+    });
+  });
+
+  it("fetchProperties throws when payload shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ nope: [] }), { status: 200 })
+    );
+
+    await expect(fetchProperties("jwt_key")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid properties response",
+      status: 200,
     });
   });
 
