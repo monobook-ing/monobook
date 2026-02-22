@@ -1,83 +1,92 @@
 
-
-# Property (Hotel/Building) Entity with Sidebar Selector
+# Dynamic Pricing by Date and Guest Count
 
 ## Overview
-Add an optional "Property" entity so rooms can be grouped under a hotel/building. A property switcher dropdown will appear in the sidebar header, allowing users to switch between properties. The rooms page will filter by the selected property. A "Manage Properties" option lets users add/edit properties.
+Add a pricing management section to each room's detail sheet, allowing hosts to set different prices per day and per guest count. Includes a calendar-based date picker showing price per day, a guest-tier pricing table, and the ability to edit/override prices.
 
 ## What will be built
 
-### 1. Property data model and mock data
-- New `Property` interface: id, name, address, image (optional), roomCount (derived)
-- 3 mock properties: "Sunset Beach Resort", "Downtown City Hotel", "Mountain Lodge Retreat"
-- Add optional `propertyId` field to `ManagedRoom` interface
-- Assign existing mock rooms to different properties
-- Add an "All Properties" option for viewing everything
+### 1. Pricing data model
+- New `RoomPricing` interface with:
+  - `basePrice`: the default per-night price (existing `pricePerNight`)
+  - `dateOverrides`: a map of date string to custom price (e.g. `{ "2026-02-25": 350 }`)
+  - `guestPricing`: array of `{ minGuests, maxGuests, pricePerNight }` tiers (e.g. 1-2 guests = $289, 3-4 guests = $339)
+- Add optional `pricing` field to `ManagedRoom` interface
+- Populate mock data with sample date overrides and guest tiers for existing rooms
 
-### 2. Sidebar property switcher
-- Replace the static "StayAI" header in the sidebar with a clickable property selector
-- Uses a `Popover` showing a list of properties + "All Properties" option
-- Each property row shows name and room count
-- "Manage Properties" link at the bottom of the popover
-- Selected property shows its name and a `ChevronsUpDown` icon
-- The StayAI branding moves to a smaller line or stays as the app name above
+### 2. Pricing section in Room Detail Sheet
+Located between the current price display and amenities section:
 
-### 3. Property context shared across pages
-- Selected property stored in `DashboardLayout` state and passed via React context (or URL search param)
-- `RoomManagement` filters rooms by selected property (or shows all)
-- Other pages can optionally use the context later
+- **"Pricing" card** with a collapsible/expandable section:
+  - **Calendar view**: A `DayPicker` calendar showing the next 2 months. Days with custom prices are highlighted with the price displayed below the day number. Clicking a day opens an inline editor to set/change the override price for that date.
+  - **Guest pricing table**: A simple table/list showing price tiers by guest count (e.g. "1-2 guests: $289/night", "3-4 guests: $339/night"). Each row is editable with an edit button.
+  - **Base price editor**: Ability to change the base (default) price inline.
 
-### 4. Manage Properties dialog
-- Simple dialog accessible from the popover's "Manage Properties" button
-- Lists properties with edit/delete options
-- "Add Property" form with name and address fields
+### 3. Price display updates
+- Room cards in the grid will continue showing `pricePerNight` (base price) with a "from" prefix if date/guest overrides exist
+- The detail sheet price area will show "from $X/night" when overrides exist
 
 ## Technical Details
 
-### New file: `src/data/mockPropertyData.ts`
-- `Property` interface: `{ id, name, address, image? }`
-- 3 mock properties with IDs like "prop-1", "prop-2", "prop-3"
-
-### New file: `src/contexts/PropertyContext.tsx`
-- React context providing `{ selectedPropertyId, setSelectedPropertyId, properties }`
-- Provider wraps the dashboard layout
-- "all" as default value (show all properties)
-
 ### Modified: `src/data/mockRoomData.ts`
-- Add optional `propertyId?: string` to `ManagedRoom` interface
-- Assign propertyId to each mock room (room-1, room-2 to "prop-1"; room-3 to "prop-2"; room-4 to "prop-3")
-
-### Modified: `src/pages/DashboardLayout.tsx`
-- Wrap content with `PropertyProvider`
-- Replace the static StayAI header block with a property switcher:
-  - Clickable button showing selected property name (or "All Properties")
-  - Popover listing all properties + "All Properties" option
-  - "Manage Properties" button at bottom opening a dialog
-- Keep StayAI branding as a small label above the switcher
-- On mobile: property name shown in a compact selector at the top of the page or in the header
+- Add `RoomPricing` interface:
+```text
+interface GuestTier { minGuests: number; maxGuests: number; pricePerNight: number }
+interface RoomPricing {
+  dateOverrides: Record<string, number>;  // "YYYY-MM-DD" -> price
+  guestTiers: GuestTier[];
+}
+```
+- Add optional `pricing?: RoomPricing` to `ManagedRoom`
+- Add sample pricing to 2-3 mock rooms (weekend surcharges, holiday prices, guest tiers)
 
 ### Modified: `src/components/dashboard/RoomManagement.tsx`
-- Import and consume `PropertyContext`
-- Filter displayed rooms by `selectedPropertyId` (skip filter if "all")
-- When adding a room, auto-assign the current `selectedPropertyId` (if not "all")
-- Show property name badge on room cards when viewing "All Properties"
+- Import `Calendar` component, `Popover`, `PopoverTrigger`, `PopoverContent`, and `format` from date-fns
+- Add a new **"Pricing" section** in the room detail sheet (between the price display and amenities):
+  - Calendar with `react-day-picker` showing custom-priced days with colored dots/badges
+  - Click a day to set/edit its price via a small popover with an input field
+  - Guest tier list below the calendar with add/edit/delete capability
+  - Base price inline editor
+- Update the price display line to show "from" prefix when overrides exist
+- Update room card price to show "from $X" when the room has pricing overrides
 
-### Modified: `src/App.tsx`
-- No route changes needed (properties managed via dialog, not a separate page)
-
-### Component structure for sidebar switcher
+### UI layout in the detail sheet
 ```text
-Sidebar Header
-  [StayAI logo + name]          (smaller, stays as branding)
-  [Property Switcher Button]    (shows current property + chevron)
-    -> Popover
-       - "All Properties" option
-       - List of properties (name + room count)
-       - Separator
-       - "Manage Properties" button -> opens Dialog
+[Existing header, property selector, description]
+
+[$289/night]  or  [from $289/night]   [4 guests]
+
+PRICING
++------------------------------------------+
+| Base price: $289/night        [Edit]     |
+|                                          |
+| Calendar (react-day-picker)              |
+| [Feb 2026         ]  [Mar 2026        ] |
+|  Days with overrides shown in primary    |
+|  color with price label                  |
+|  Click day -> popover to set price       |
+|                                          |
+| Guest pricing                            |
+|  1-2 guests   $289/night    [Edit][Del] |
+|  3-4 guests   $339/night    [Edit][Del] |
+|  5-6 guests   $389/night    [Edit][Del] |
+|  [+ Add tier]                            |
++------------------------------------------+
+
+AMENITIES
+[existing amenities section]
 ```
 
-### Manage Properties Dialog
-- List view of properties with name, address, and delete button
-- "Add Property" section at bottom with name + address inputs
-- Simple inline editing (click to edit name/address)
+### Calendar day rendering
+- Default days: normal style
+- Days with price overrides: primary-colored background with small price text below
+- Past days: disabled/greyed out
+- Clicking a day opens a `Popover` with:
+  - Current price (or "Base: $X")
+  - Input to set override price
+  - "Save" and "Remove override" buttons
+
+### Guest tier editing
+- Each tier row shows range and price with edit/delete buttons
+- "Add tier" button at bottom opens inline inputs for min guests, max guests, and price
+- Validation: tiers should not overlap
