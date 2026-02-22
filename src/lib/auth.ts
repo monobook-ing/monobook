@@ -330,6 +330,30 @@ export const fetchRooms = async (
   return data.items.map(mapApiRoomToManagedRoom);
 };
 
+export const fetchRoomById = async (
+  accessToken: string,
+  propertyId: string,
+  roomId: string
+): Promise<ManagedRoom> => {
+  const res = await fetch(`${API_BASE}/v1.0/properties/${propertyId}/rooms/${roomId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiRoom(data)) {
+    throw new AuthApiError("Invalid room response", res.status);
+  }
+
+  return mapApiRoomToManagedRoom(data);
+};
+
 export const fetchMeWithRetry = async (
   accessToken: string,
   attempts = 3,
