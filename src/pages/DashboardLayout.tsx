@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
 import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
 import { clearAuthStorage, hydrateSessionFromStorage, readUserMe, type UserMe } from "@/lib/auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 
 const emptyAddress: PropertyAddress = { street: "", city: "", state: "", postalCode: "", country: "" };
@@ -135,7 +136,15 @@ function ManagePropertiesDialog({ open, onOpenChange }: { open: boolean; onOpenC
   );
 }
 
-export function PropertySwitcher() {
+export function PropertySwitcher({
+  className,
+  compact = false,
+  testIdPrefix = "property-switcher",
+}: {
+  className?: string;
+  compact?: boolean;
+  testIdPrefix?: string;
+}) {
   const { selectedPropertyId, setSelectedPropertyId, properties, isPropertiesLoading, propertiesError } = useProperty();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -148,13 +157,16 @@ export function PropertySwitcher() {
     <>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
-          <button data-testid="property-switcher-trigger" className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors text-left min-h-[44px]">
+          <button
+            data-testid={`${testIdPrefix}-trigger`}
+            className={`w-full flex items-center gap-2.5 rounded-xl hover:bg-secondary transition-colors text-left min-h-[44px] ${compact ? "px-2.5 py-2" : "px-3 py-2.5"} ${className ?? ""}`}
+          >
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
               {isPropertiesLoading ? (
-                <div className="space-y-1" data-testid="property-switcher-trigger-skeleton">
+                <div className="space-y-1" data-testid={`${testIdPrefix}-trigger-skeleton`}>
                   <Skeleton className="h-4 w-28" />
                   <Skeleton className="h-3 w-20" />
                 </div>
@@ -168,7 +180,7 @@ export function PropertySwitcher() {
             <ChevronsUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
           </button>
         </PopoverTrigger>
-        <PopoverContent side="bottom" align="start" className="w-56 rounded-2xl p-1.5">
+        <PopoverContent side="bottom" align="start" className={`w-56 rounded-2xl ${compact ? "p-1" : "p-1.5"}`}>
           <button
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[40px] ${selectedPropertyId === "all" ? "bg-secondary font-medium" : ""}`}
             onClick={() => { setSelectedPropertyId("all"); setPopoverOpen(false); }}
@@ -179,7 +191,7 @@ export function PropertySwitcher() {
           </button>
           <Separator className="my-1" />
           {isPropertiesLoading && (
-            <div className="space-y-1 py-1" data-testid="property-switcher-menu-skeleton">
+            <div className="space-y-1 py-1" data-testid={`${testIdPrefix}-menu-skeleton`}>
               {Array.from({ length: 4 }).map((_, idx) => (
                 <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5 min-h-[40px]">
                   <Skeleton className="h-4 w-4 rounded-sm" />
@@ -201,7 +213,7 @@ export function PropertySwitcher() {
           ))}
           <Separator className="my-1" />
           <button
-            data-testid="property-switcher-manage"
+            data-testid={`${testIdPrefix}-manage`}
             aria-disabled={isManageDisabled}
             disabled={isManageDisabled}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors text-muted-foreground min-h-[40px] opacity-60 cursor-not-allowed"
@@ -225,6 +237,8 @@ export function PropertySwitcher() {
 function DashboardInner() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { selectedPropertyId } = useProperty();
+  const isMobile = useIsMobile();
   const activeTab = navItems.find((item) => item.id === location.pathname)?.id || "/dashboard";
   const me = readUserMe();
 
@@ -328,6 +342,11 @@ function DashboardInner() {
       {/* Main Content */}
       <main className="flex-1 md:ml-64 pb-24 md:pb-6">
         <div className="max-w-4xl mx-auto p-4 md:p-8">
+          {isMobile && selectedPropertyId === "all" && (
+            <div className="mb-4" data-testid="mobile-empty-property-switcher">
+              <PropertySwitcher compact testIdPrefix="mobile-property-switcher" />
+            </div>
+          )}
           <Outlet />
         </div>
       </main>
