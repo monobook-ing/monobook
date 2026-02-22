@@ -1,7 +1,15 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, DollarSign, BarChart3, Percent } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { mockDashboardMetrics, mockBookings } from "@/data/mockData";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const metrics = [
   {
@@ -40,13 +48,28 @@ const metrics = [
 ];
 
 export function DashboardHome() {
+  const [period, setPeriod] = useState("month");
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">Dashboard</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[130px] h-9 rounded-xl text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            <SelectItem value="week">Week</SelectItem>
+            <SelectItem value="month">Month</SelectItem>
+            <SelectItem value="year">Year</SelectItem>
+            <SelectItem value="custom">Custom</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <p className="text-sm text-muted-foreground mb-6">Your AI agent performance overview</p>
 
       {/* Metrics Grid */}
