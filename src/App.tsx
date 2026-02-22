@@ -10,6 +10,7 @@ import { DashboardHome } from "@/components/dashboard/DashboardHome";
 import { InventoryCalendar } from "@/components/dashboard/InventoryCalendar";
 import { MCPIntegrationSettings } from "@/components/dashboard/MCPIntegrationSettings";
 import { AuditLog } from "@/components/dashboard/AuditLog";
+import { RoomManagement } from "@/components/dashboard/RoomManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHome />} />
             <Route path="/inventory" element={<InventoryCalendar />} />
+            <Route path="/rooms" element={<RoomManagement />} />
             <Route path="/settings" element={<MCPIntegrationSettings />} />
             <Route path="/audit" element={<AuditLog />} />
           </Route>
