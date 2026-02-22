@@ -36,7 +36,7 @@ export default function Dashboard() {
             <MessageSquare className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="font-bold text-foreground text-sm tracking-tight">StayAI</h2>
+            <h2 className="font-bold text-foreground text-sm tracking-tight">monobook.ing</h2>
             <p className="text-[10px] text-muted-foreground">Hotel Intelligence</p>
           </div>
         </div>
