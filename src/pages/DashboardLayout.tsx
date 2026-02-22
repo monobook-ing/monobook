@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
 import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
 import { hydrateSessionFromStorage } from "@/lib/auth";
@@ -134,10 +135,11 @@ function ManagePropertiesDialog({ open, onOpenChange }: { open: boolean; onOpenC
   );
 }
 
-function PropertySwitcher() {
-  const { selectedPropertyId, setSelectedPropertyId, properties } = useProperty();
+export function PropertySwitcher() {
+  const { selectedPropertyId, setSelectedPropertyId, properties, isPropertiesLoading, propertiesError } = useProperty();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const isManageDisabled = true;
 
   const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
   const label = selectedProperty?.name || "All Properties";
@@ -146,13 +148,22 @@ function PropertySwitcher() {
     <>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
-          <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors text-left min-h-[44px]">
+          <button data-testid="property-switcher-trigger" className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors text-left min-h-[44px]">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate leading-tight">{label}</p>
-              {selectedProperty && <p className="text-[10px] text-muted-foreground truncate">{formatAddressShort(selectedProperty.address)}</p>}
+              {isPropertiesLoading ? (
+                <div className="space-y-1" data-testid="property-switcher-trigger-skeleton">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-foreground truncate leading-tight">{label}</p>
+                  {selectedProperty && <p className="text-[10px] text-muted-foreground truncate">{formatAddressShort(selectedProperty.address)}</p>}
+                </>
+              )}
             </div>
             <ChevronsUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
           </button>
@@ -167,7 +178,17 @@ function PropertySwitcher() {
             {selectedPropertyId === "all" && <Check className="w-4 h-4 text-primary" />}
           </button>
           <Separator className="my-1" />
-          {properties.map((p) => (
+          {isPropertiesLoading && (
+            <div className="space-y-1 py-1" data-testid="property-switcher-menu-skeleton">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5 min-h-[40px]">
+                  <Skeleton className="h-4 w-4 rounded-sm" />
+                  <Skeleton className="h-4 flex-1" />
+                </div>
+              ))}
+            </div>
+          )}
+          {!isPropertiesLoading && !propertiesError && properties.map((p) => (
             <button
               key={p.id}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[40px] ${selectedPropertyId === p.id ? "bg-secondary font-medium" : ""}`}
@@ -180,11 +201,19 @@ function PropertySwitcher() {
           ))}
           <Separator className="my-1" />
           <button
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors text-muted-foreground min-h-[40px]"
-            onClick={() => { setManageOpen(true); setPopoverOpen(false); }}
+            data-testid="property-switcher-manage"
+            aria-disabled={isManageDisabled}
+            disabled={isManageDisabled}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors text-muted-foreground min-h-[40px] opacity-60 cursor-not-allowed"
+            onClick={() => {
+              if (isManageDisabled) return;
+              setManageOpen(true);
+              setPopoverOpen(false);
+            }}
           >
             <Settings className="w-4 h-4" />
-            Manage Properties
+            <span className="flex-1 text-left">Manage Properties</span>
+            <span className="text-[10px] uppercase tracking-wide">Read-only</span>
           </button>
         </PopoverContent>
       </Popover>

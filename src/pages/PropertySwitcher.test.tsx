@@ -1,0 +1,84 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PropertyProvider } from "@/contexts/PropertyContext";
+import { PropertySwitcher } from "@/pages/DashboardLayout";
+
+const fetchPropertiesMock = vi.hoisted(() => vi.fn());
+const readAccessTokenMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/auth", () => ({
+  fetchProperties: fetchPropertiesMock,
+  readAccessToken: readAccessTokenMock,
+  hydrateSessionFromStorage: vi.fn(),
+}));
+
+const renderSwitcher = () =>
+  render(
+    <PropertyProvider>
+      <PropertySwitcher />
+    </PropertyProvider>
+  );
+
+describe("PropertySwitcher", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    fetchPropertiesMock.mockReset();
+    readAccessTokenMock.mockReset();
+    readAccessTokenMock.mockReturnValue("jwt_key");
+  });
+
+  it("shows skeleton in trigger and menu while properties are loading", () => {
+    fetchPropertiesMock.mockImplementation(() => new Promise(() => {}));
+
+    renderSwitcher();
+
+    expect(screen.getByTestId("property-switcher-trigger-skeleton")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
+    expect(screen.getByTestId("property-switcher-menu-skeleton")).toBeInTheDocument();
+  });
+
+  it("renders API properties after successful fetch", async () => {
+    fetchPropertiesMock.mockResolvedValue([
+      {
+        id: "prop-1",
+        name: "Mountain Lodge Retreat",
+        address: {
+          street: "789 Alpine Road",
+          city: "Aspen",
+          state: "CO",
+          postalCode: "81611",
+          country: "United States",
+        },
+      },
+    ]);
+
+    renderSwitcher();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("property-switcher-trigger-skeleton")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
+    expect(await screen.findByText("Mountain Lodge Retreat")).toBeInTheDocument();
+  });
+
+  it("keeps only All Properties on fetch failure and disables manage action", async () => {
+    fetchPropertiesMock.mockRejectedValue(new Error("failed"));
+
+    renderSwitcher();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("property-switcher-trigger-skeleton")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
+
+    expect(screen.getAllByText("All Properties").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Mountain Lodge Retreat")).not.toBeInTheDocument();
+
+    const manageButton = screen.getByTestId("property-switcher-manage");
+    expect(manageButton).toBeDisabled();
+    expect(manageButton).toHaveTextContent("Read-only");
+  });
+});
