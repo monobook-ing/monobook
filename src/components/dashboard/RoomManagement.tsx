@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, BedDouble, Users, RefreshCw, ExternalLink, Trash2, X, Link2, Plug, PenLine, Loader2, Wifi, Waves, Wind, UtensilsCrossed, Car, Tv, Bath, Dumbbell, Sparkles, Eye, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { mockRooms as initialRooms, mockScrapedRoom, type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { useProperty } from "@/contexts/PropertyContext";
@@ -29,9 +30,32 @@ const sourceBadge = (source: ManagedRoom["source"]) => {
   return <Badge variant="outline" className={s.cls}>{s.label}</Badge>;
 };
 
+function RoomCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <Skeleton className="h-40 w-full rounded-none" />
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="h-3.5 w-1/3" />
+          </div>
+          <Skeleton className="h-5 w-20" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-10" />
+        </div>
+        <Skeleton className="h-3.5 w-40" />
+      </CardContent>
+    </Card>
+  );
+}
+
 export function RoomManagement() {
   const { selectedPropertyId, properties } = useProperty();
   const [rooms, setRooms] = useState<ManagedRoom[]>(initialRooms);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<ManagedRoom | null>(null);
   const [deleteRoom, setDeleteRoom] = useState<ManagedRoom | null>(null);
@@ -46,6 +70,11 @@ export function RoomManagement() {
 
   // Connected platforms mock
   const [connectedPlatforms, setConnectedPlatforms] = useState({ airbnb: false, booking: false });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsLoadingRooms(false), 900);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const handleScrape = () => {
     if (!scrapeUrl.trim()) return;
@@ -112,44 +141,52 @@ export function RoomManagement() {
 
       {/* Room Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {filteredRooms.map((room) => (
-          <motion.div key={room.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
-            <Card className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow group" onClick={() => setSelectedRoom(room)}>
-              {room.images[0] ? (
-                <div className="h-40 overflow-hidden">
-                  <img src={room.images[0]} alt={room.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-              ) : (
-                <div className="h-40 bg-muted flex items-center justify-center"><BedDouble className="w-10 h-10 text-muted-foreground" /></div>
-              )}
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground truncate">{room.name}</h3>
-                    <p className="text-xs text-muted-foreground">{room.type}</p>
+        {isLoadingRooms ? (
+          Array.from({ length: 4 }).map((_, idx) => (
+            <motion.div key={`room-skeleton-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <RoomCardSkeleton />
+            </motion.div>
+          ))
+        ) : (
+          filteredRooms.map((room) => (
+            <motion.div key={room.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+              <Card className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow group" onClick={() => setSelectedRoom(room)}>
+                {room.images[0] ? (
+                  <div className="h-40 overflow-hidden">
+                    <img src={room.images[0]} alt={room.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   </div>
-                  {sourceBadge(room.source)}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-foreground">{hasOverrides(room.pricing) && <span className="text-xs font-normal text-muted-foreground">from </span>}${room.pricePerNight}<span className="text-muted-foreground font-normal">/night</span></span>
-                  <span className="flex items-center gap-1 text-muted-foreground"><Users className="w-3.5 h-3.5" />{room.maxGuests}</span>
-                </div>
-                {selectedPropertyId === "all" && room.propertyId && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Building2 className="w-3 h-3" />
-                    <span className="truncate">{getPropertyName(room.propertyId)}</span>
-                  </div>
+                ) : (
+                  <div className="h-40 bg-muted flex items-center justify-center"><BedDouble className="w-10 h-10 text-muted-foreground" /></div>
                 )}
-                {room.syncEnabled && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <RefreshCw className="w-3 h-3" />
-                    {room.lastSynced ? `Synced ${format(new Date(room.lastSynced), "MMM d, HH:mm")}` : "Sync enabled"}
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-foreground truncate">{room.name}</h3>
+                      <p className="text-xs text-muted-foreground">{room.type}</p>
+                    </div>
+                    {sourceBadge(room.source)}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-foreground">{hasOverrides(room.pricing) && <span className="text-xs font-normal text-muted-foreground">from </span>}${room.pricePerNight}<span className="text-muted-foreground font-normal">/night</span></span>
+                    <span className="flex items-center gap-1 text-muted-foreground"><Users className="w-3.5 h-3.5" />{room.maxGuests}</span>
+                  </div>
+                  {selectedPropertyId === "all" && room.propertyId && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Building2 className="w-3 h-3" />
+                      <span className="truncate">{getPropertyName(room.propertyId)}</span>
+                    </div>
+                  )}
+                  {room.syncEnabled && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <RefreshCw className="w-3 h-3" />
+                      {room.lastSynced ? `Synced ${format(new Date(room.lastSynced), "MMM d, HH:mm")}` : "Sync enabled"}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))
+        )}
       </div>
 
       {/* Add Room Dialog */}
