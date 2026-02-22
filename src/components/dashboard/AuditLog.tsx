@@ -3,8 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { mockAuditLog, type AuditLogEntry } from "@/data/mockData";
-import { CheckCircle2, XCircle, Clock, Terminal } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const typeFilters = ["all", "mcp", "chatGPT", "claude", "gemini", "widget"] as const;
 
@@ -33,9 +37,21 @@ const statusConfig = {
 export function AuditLog() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
-  const filtered = activeFilter === "all"
-    ? mockAuditLog
-    : mockAuditLog.filter((e) => e.type === activeFilter);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  const filtered = mockAuditLog
+    .filter((e) => activeFilter === "all" || e.type === activeFilter)
+    .filter((e) => {
+      const entryDate = new Date(e.date);
+      if (dateFrom && entryDate < dateFrom) return false;
+      if (dateTo) {
+        const toEnd = new Date(dateTo);
+        toEnd.setHours(23, 59, 59, 999);
+        if (entryDate > toEnd) return false;
+      }
+      return true;
+    });
 
   return (
     <div className="space-y-6">
@@ -44,8 +60,8 @@ export function AuditLog() {
         <p className="text-sm text-muted-foreground mt-1">API & tool call history across all integrations</p>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Filter chips + date range */}
+      <div className="flex items-center gap-2 flex-wrap">
         {typeFilters.map((f) => (
           <motion.button
             key={f}
@@ -60,6 +76,36 @@ export function AuditLog() {
             {f === "all" ? "All" : typeLabels[f as AuditLogEntry["type"]]}
           </motion.button>
         ))}
+
+        <div className="ml-auto flex items-center gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateFrom && "text-muted-foreground")}>
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {dateFrom ? format(dateFrom, "MMM d") : "From"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateTo && "text-muted-foreground")}>
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {dateTo ? format(dateTo, "MMM d") : "To"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          {(dateFrom || dateTo) && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full px-2" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Log entries */}
