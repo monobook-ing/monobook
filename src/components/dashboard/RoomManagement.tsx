@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Plus,
@@ -28,8 +28,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { useProperty } from "@/contexts/PropertyContext";
-import { fetchRooms, readAccessToken } from "@/lib/auth";
+import { fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 const amenityIcons: Record<string, React.ElementType> = {
   WiFi: Wifi,
@@ -90,12 +91,64 @@ function RoomCardSkeleton() {
   );
 }
 
+function RoomDetailSkeleton() {
+  return (
+    <>
+      <Skeleton className="h-56 w-full rounded-none" />
+      <div className="p-5 space-y-5" data-testid="room-detail-loading-state">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+        </div>
+        <div className="border rounded-xl p-4 space-y-2">
+          <Skeleton className="h-3.5 w-20" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+        <Skeleton className="h-4 w-full" />
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-8 w-36" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+        <div className="border rounded-xl p-4 space-y-3">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-40 w-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+          </div>
+        </div>
+        <div>
+          <Skeleton className="h-3.5 w-20 mb-2" />
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Skeleton key={`room-detail-amenity-${idx}`} className="h-6 w-20" />
+            ))}
+          </div>
+        </div>
+        <div className="border rounded-xl p-4 space-y-3">
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-3.5 w-40" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function RoomManagement() {
   const { selectedPropertyId, properties } = useProperty();
   const [rooms, setRooms] = useState<ManagedRoom[]>([]);
   const [isRoomsLoading, setIsRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedRoomPropertyId, setSelectedRoomPropertyId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<ManagedRoom | null>(null);
+  const [isRoomDetailLoading, setIsRoomDetailLoading] = useState(false);
+  const [roomDetailError, setRoomDetailError] = useState<string | null>(null);
+  const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = true;
 
   useEffect(() => {
@@ -145,18 +198,65 @@ export function RoomManagement() {
     };
   }, [selectedPropertyId]);
 
-  useEffect(() => {
-    if (!selectedRoom) return;
-    const refreshedSelectedRoom = rooms.find((room) => room.id === selectedRoom.id) ?? null;
-    if (!refreshedSelectedRoom) {
-      setSelectedRoom(null);
+  const loadRoomDetail = useCallback(async (propertyId: string, roomId: string) => {
+    const requestId = roomDetailRequestIdRef.current + 1;
+    roomDetailRequestIdRef.current = requestId;
+
+    setIsRoomDetailLoading(true);
+    setRoomDetailError(null);
+    setSelectedRoom(null);
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      const message = "You are not authenticated. Please sign in again to load room details.";
+      if (roomDetailRequestIdRef.current !== requestId) return;
+      setRoomDetailError(message);
+      setIsRoomDetailLoading(false);
+      toast.error(message);
       return;
     }
 
-    if (refreshedSelectedRoom !== selectedRoom) {
-      setSelectedRoom(refreshedSelectedRoom);
+    try {
+      const room = await fetchRoomById(accessToken, propertyId, roomId);
+      if (roomDetailRequestIdRef.current !== requestId) return;
+      setSelectedRoom(room);
+    } catch (error) {
+      if (roomDetailRequestIdRef.current !== requestId) return;
+      const message = error instanceof Error ? error.message : "Failed to fetch room details";
+      setRoomDetailError(message);
+      toast.error(message);
+    } finally {
+      if (roomDetailRequestIdRef.current === requestId) {
+        setIsRoomDetailLoading(false);
+      }
     }
-  }, [rooms, selectedRoom]);
+  }, []);
+
+  useEffect(() => {
+    if (selectedPropertyId === "all") {
+      roomDetailRequestIdRef.current += 1;
+      setSelectedRoomId(null);
+      setSelectedRoomPropertyId(null);
+      setSelectedRoom(null);
+      setIsRoomDetailLoading(false);
+      setRoomDetailError(null);
+      return;
+    }
+
+    if (!selectedRoomId || !selectedRoomPropertyId) {
+      return;
+    }
+
+    const roomStillPresent = rooms.some((room) => room.id === selectedRoomId);
+    if (!roomStillPresent && !isRoomsLoading) {
+      roomDetailRequestIdRef.current += 1;
+      setSelectedRoomId(null);
+      setSelectedRoomPropertyId(null);
+      setSelectedRoom(null);
+      setIsRoomDetailLoading(false);
+      setRoomDetailError(null);
+    }
+  }, [isRoomsLoading, rooms, selectedPropertyId, selectedRoomId, selectedRoomPropertyId]);
 
   const filteredRooms =
     selectedPropertyId === "all"
@@ -164,6 +264,40 @@ export function RoomManagement() {
       : rooms.filter((room) => room.propertyId === selectedPropertyId);
 
   const getPropertyName = (id?: string) => properties.find((property) => property.id === id)?.name;
+
+  const openRoomDetails = (room: ManagedRoom) => {
+    const propertyId =
+      room.propertyId && room.propertyId !== "all"
+        ? room.propertyId
+        : selectedPropertyId !== "all"
+          ? selectedPropertyId
+          : null;
+
+    if (!propertyId) {
+      toast.error("Could not determine property for this room.");
+      return;
+    }
+
+    setSelectedRoomId(room.id);
+    setSelectedRoomPropertyId(propertyId);
+    loadRoomDetail(propertyId, room.id);
+  };
+
+  const closeRoomDetails = () => {
+    roomDetailRequestIdRef.current += 1;
+    setSelectedRoomId(null);
+    setSelectedRoomPropertyId(null);
+    setSelectedRoom(null);
+    setIsRoomDetailLoading(false);
+    setRoomDetailError(null);
+  };
+
+  const retryRoomDetails = () => {
+    if (!selectedRoomId || !selectedRoomPropertyId) {
+      return;
+    }
+    loadRoomDetail(selectedRoomPropertyId, selectedRoomId);
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -238,7 +372,7 @@ export function RoomManagement() {
             >
               <Card
                 className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow group"
-                onClick={() => setSelectedRoom(room)}
+                onClick={() => openRoomDetails(room)}
               >
                 {room.images[0] ? (
                   <div className="h-40 overflow-hidden">
@@ -296,13 +430,25 @@ export function RoomManagement() {
       )}
 
       <Sheet
-        open={!!selectedRoom}
+        open={!!selectedRoomId}
         onOpenChange={(open) => {
-          if (!open) setSelectedRoom(null);
+          if (!open) closeRoomDetails();
         }}
       >
         <SheetContent className="sm:max-w-lg overflow-y-auto p-0">
-          {selectedRoom && (
+          {isRoomDetailLoading && <RoomDetailSkeleton />}
+
+          {!isRoomDetailLoading && roomDetailError && (
+            <div className="p-5 space-y-4" data-testid="room-detail-error-state">
+              <h3 className="text-sm font-semibold text-foreground">Could not load room details</h3>
+              <p className="text-sm text-muted-foreground">{roomDetailError}</p>
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={retryRoomDetails}>
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {!isRoomDetailLoading && !roomDetailError && selectedRoom && (
             <>
               <div className="relative">
                 {selectedRoom.images[0] ? (
