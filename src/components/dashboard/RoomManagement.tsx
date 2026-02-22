@@ -435,7 +435,7 @@ export function RoomManagement() {
           if (!open) closeRoomDetails();
         }}
       >
-        <SheetContent className="sm:max-w-lg overflow-y-auto p-0">
+        <SheetContent className="w-full max-w-full sm:max-w-lg overflow-y-auto p-0">
           {isRoomDetailLoading && <RoomDetailSkeleton />}
 
           {!isRoomDetailLoading && roomDetailError && (
