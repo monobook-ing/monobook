@@ -18,30 +18,39 @@ function ToggleItem({ label, description, defaultOn = false }: ToggleItemProps) 
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <motion.button
-        className="relative w-[56px] h-[34px] rounded-full flex items-center min-w-[56px] min-h-[44px] cursor-pointer"
+        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer"
         onClick={() => setOn(!on)}
         whileTap={{ scale: 0.92 }}
       >
-        {/* Track */}
+        {/* Outer border ring (iOS 26 Liquid Glass) */}
         <motion.div
-          className="absolute inset-0 rounded-full border"
+          className="absolute inset-0 rounded-full"
           animate={{
-            backgroundColor: on ? "hsl(142 58% 49%)" : "hsl(0 0% 0% / 0.06)",
-            borderColor: on ? "hsl(142 58% 49% / 0.3)" : "hsl(0 0% 0% / 0.08)",
+            boxShadow: on
+              ? "inset 0 0 0 2.5px hsl(142 50% 42%)"
+              : "inset 0 0 0 2px hsl(0 0% 0% / 0.08)",
           }}
           transition={{ duration: 0.25, ease: "easeInOut" }}
-          style={{
-            backdropFilter: on ? "none" : "blur(12px)",
-            WebkitBackdropFilter: on ? "none" : "blur(12px)",
+        />
+        {/* Track fill */}
+        <motion.div
+          className="absolute rounded-full"
+          style={{ inset: "3px" }}
+          animate={{
+            backgroundColor: on ? "hsl(142 55% 55%)" : "hsl(0 0% 0% / 0.04)",
           }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
         />
         {/* Thumb */}
         <motion.div
-          className="absolute w-[28px] h-[28px] rounded-full bg-card"
+          className="absolute rounded-full bg-white"
           style={{
-            boxShadow: "0 2px 6px hsl(0 0% 0% / 0.15), 0 0 0 0.5px hsl(0 0% 0% / 0.04)",
+            width: "26px",
+            height: "26px",
+            top: "5px",
+            boxShadow: "0 1px 4px hsl(0 0% 0% / 0.18), 0 0 0 0.5px hsl(0 0% 0% / 0.04)",
           }}
-          animate={{ x: on ? 25 : 3 }}
+          animate={{ left: on ? "31px" : "5px" }}
           transition={{ type: "spring", stiffness: 500, damping: 35 }}
         />
       </motion.button>
