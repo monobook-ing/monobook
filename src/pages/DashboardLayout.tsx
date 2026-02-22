@@ -273,7 +273,7 @@ function DashboardInner() {
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <MessageSquare className="w-4 h-4 text-primary-foreground" />
           </div>
-          <h2 className="font-bold text-foreground text-xs tracking-tight">StayAI</h2>
+          <h2 className="font-bold text-foreground text-md tracking-tight">monobook.ing</h2>
         </div>
 
         {/* Property Switcher */}
