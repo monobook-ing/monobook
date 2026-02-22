@@ -22,7 +22,7 @@ export default function Index() {
           <MessageSquare className="w-8 h-8 text-primary-foreground" />
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">StayAI</h1>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">monobook.ing</h1>
         <p className="text-muted-foreground mb-10">
           AI-powered hotel booking platform with agentic checkout
         </p>
