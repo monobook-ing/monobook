@@ -110,7 +110,7 @@ export function AuditLog() {
 
       {/* Log entries */}
       <div className="rounded-2xl bg-card apple-shadow overflow-hidden">
-        <ScrollArea className="max-h-[600px]">
+        <ScrollArea className="">
           <div className="divide-y divide-border">
             <AnimatePresence mode="popLayout">
               {filtered.map((entry, i) => {
