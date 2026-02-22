@@ -187,6 +187,18 @@ export const saveUserMe = (me: UserMe) => {
 
 export const readAccessToken = () => localStorage.getItem("access_token");
 
+export const readUserMe = (): UserMe | null => {
+  const raw = localStorage.getItem("user");
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    return isValidUserMe(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 export const clearAuthStorage = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("user");

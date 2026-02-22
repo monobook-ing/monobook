@@ -7,6 +7,7 @@ import {
   fetchMeWithRetry,
   hydrateSessionFromStorage,
   readAccessToken,
+  readUserMe,
   saveAccessToken,
   saveUserMe,
 } from "@/lib/auth";
@@ -172,6 +173,28 @@ describe("auth helpers", () => {
     clearAuthStorage();
     expect(localStorage.getItem("access_token")).toBeNull();
     expect(localStorage.getItem("user")).toBeNull();
+  });
+
+  it("readUserMe returns parsed payload for valid persisted user", () => {
+    localStorage.setItem("user", JSON.stringify(sampleMe));
+
+    expect(readUserMe()).toEqual(sampleMe);
+  });
+
+  it("readUserMe returns null when persisted user is missing", () => {
+    expect(readUserMe()).toBeNull();
+  });
+
+  it("readUserMe returns null for invalid JSON", () => {
+    localStorage.setItem("user", "{invalid");
+
+    expect(readUserMe()).toBeNull();
+  });
+
+  it("readUserMe returns null for invalid payload shape", () => {
+    localStorage.setItem("user", JSON.stringify({ email: "a@b.com" }));
+
+    expect(readUserMe()).toBeNull();
   });
 
   it("hydrateSessionFromStorage reports missing token", async () => {
