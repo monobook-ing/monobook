@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import type { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { mockAuditLog, type AuditLogEntry } from "@/data/mockData";
 import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon } from "lucide-react";
@@ -37,16 +38,15 @@ const statusConfig = {
 export function AuditLog() {
   const [activeFilter, setActiveFilter] = useState<string>("all");
 
-  const [dateFrom, setDateFrom] = useState<Date | undefined>();
-  const [dateTo, setDateTo] = useState<Date | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const filtered = mockAuditLog
     .filter((e) => activeFilter === "all" || e.type === activeFilter)
     .filter((e) => {
       const entryDate = new Date(e.date);
-      if (dateFrom && entryDate < dateFrom) return false;
-      if (dateTo) {
-        const toEnd = new Date(dateTo);
+      if (dateRange?.from && entryDate < dateRange.from) return false;
+      if (dateRange?.to) {
+        const toEnd = new Date(dateRange.to);
         toEnd.setHours(23, 59, 59, 999);
         if (entryDate > toEnd) return false;
       }
@@ -80,28 +80,28 @@ export function AuditLog() {
         <div className="ml-auto flex items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateFrom && "text-muted-foreground")}>
+              <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateRange && "text-muted-foreground")}>
                 <CalendarIcon className="w-3.5 h-3.5" />
-                {dateFrom ? format(dateFrom, "MMM d") : "From"}
+                {dateRange?.from
+                  ? dateRange.to
+                    ? `${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d")}`
+                    : format(dateRange.from, "MMM d")
+                  : "Date range"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" />
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
             </PopoverContent>
           </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateTo && "text-muted-foreground")}>
-                <CalendarIcon className="w-3.5 h-3.5" />
-                {dateTo ? format(dateTo, "MMM d") : "To"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          {(dateFrom || dateTo) && (
-            <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full px-2" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+          {dateRange && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full px-2" onClick={() => setDateRange(undefined)}>
               Clear
             </Button>
           )}
