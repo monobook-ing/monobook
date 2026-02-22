@@ -1,4 +1,5 @@
 import { type Property } from "@/data/mockPropertyData";
+import { type ManagedRoom } from "@/data/mockRoomData";
 export const API_BASE = "https://api-fexi.onrender.com";
 
 export type UserMe = {
@@ -25,6 +26,43 @@ export type ApiProperty = {
 
 type PropertiesResponse = {
   items: ApiProperty[];
+};
+
+export type ApiGuestTier = {
+  id: string;
+  min_guests: number;
+  max_guests: number;
+  price_per_night: number;
+};
+
+export type ApiDateOverride = {
+  id: string;
+  date: string;
+  price: number;
+};
+
+export type ApiRoom = {
+  id: string;
+  property_id: string;
+  name: string;
+  type: string;
+  description: string;
+  images: string[];
+  price_per_night: number;
+  max_guests: number;
+  bed_config: string;
+  amenities: string[];
+  source: string;
+  source_url?: string | null;
+  sync_enabled: boolean;
+  last_synced?: string | null;
+  status: "active" | "draft" | "archived";
+  guest_tiers?: ApiGuestTier[] | null;
+  date_overrides?: ApiDateOverride[] | null;
+};
+
+type RoomsResponse = {
+  items: ApiRoom[];
 };
 
 export class AuthApiError extends Error {
@@ -72,10 +110,83 @@ const isApiProperty = (value: unknown): value is ApiProperty => {
   return typeof candidate.id === "string" && typeof candidate.name === "string";
 };
 
+const isApiGuestTier = (value: unknown): value is ApiGuestTier => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.min_guests === "number" &&
+    Number.isFinite(candidate.min_guests) &&
+    typeof candidate.max_guests === "number" &&
+    Number.isFinite(candidate.max_guests) &&
+    typeof candidate.price_per_night === "number" &&
+    Number.isFinite(candidate.price_per_night)
+  );
+};
+
+const isApiDateOverride = (value: unknown): value is ApiDateOverride => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.date === "string" &&
+    typeof candidate.price === "number" &&
+    Number.isFinite(candidate.price)
+  );
+};
+
+const isApiRoom = (value: unknown): value is ApiRoom => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  const guestTiers = candidate.guest_tiers;
+  const dateOverrides = candidate.date_overrides;
+
+  const hasValidGuestTiers =
+    guestTiers == null ||
+    (Array.isArray(guestTiers) && guestTiers.every(isApiGuestTier));
+
+  const hasValidDateOverrides =
+    dateOverrides == null ||
+    (Array.isArray(dateOverrides) && dateOverrides.every(isApiDateOverride));
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.type === "string" &&
+    typeof candidate.description === "string" &&
+    Array.isArray(candidate.images) &&
+    candidate.images.every((item) => typeof item === "string") &&
+    typeof candidate.price_per_night === "number" &&
+    Number.isFinite(candidate.price_per_night) &&
+    typeof candidate.max_guests === "number" &&
+    Number.isFinite(candidate.max_guests) &&
+    typeof candidate.bed_config === "string" &&
+    Array.isArray(candidate.amenities) &&
+    candidate.amenities.every((item) => typeof item === "string") &&
+    typeof candidate.source === "string" &&
+    (candidate.source_url == null || typeof candidate.source_url === "string") &&
+    typeof candidate.sync_enabled === "boolean" &&
+    (candidate.last_synced == null || typeof candidate.last_synced === "string") &&
+    (candidate.status === "active" ||
+      candidate.status === "draft" ||
+      candidate.status === "archived") &&
+    hasValidGuestTiers &&
+    hasValidDateOverrides
+  );
+};
+
 const isValidPropertiesResponse = (value: unknown): value is PropertiesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return Array.isArray(candidate.items) && candidate.items.every(isApiProperty);
+};
+
+const isValidRoomsResponse = (value: unknown): value is RoomsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiRoom);
 };
 
 const mapApiProperty = (item: ApiProperty): Property => {
@@ -93,6 +204,53 @@ const mapApiProperty = (item: ApiProperty): Property => {
       floor: asOptionalString(item.floor) || undefined,
       section: asOptionalString(item.section) || undefined,
       propertyNumber: asOptionalString(item.property_number) || undefined,
+    },
+  };
+};
+
+const mapApiRoomSource = (source: string): ManagedRoom["source"] => {
+  if (source === "airbnb" || source === "booking" || source === "manual") {
+    return source;
+  }
+
+  return "manual";
+};
+
+const mapApiRoomToManagedRoom = (item: ApiRoom): ManagedRoom => {
+  const guestTiers =
+    item.guest_tiers?.map((tier) => ({
+      minGuests: tier.min_guests,
+      maxGuests: tier.max_guests,
+      pricePerNight: tier.price_per_night,
+    })) ?? [];
+
+  const dateOverrides = (item.date_overrides ?? []).reduce<Record<string, number>>(
+    (acc, override) => {
+      acc[override.date] = override.price;
+      return acc;
+    },
+    {}
+  );
+
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    name: item.name,
+    type: item.type,
+    description: item.description,
+    images: item.images,
+    pricePerNight: item.price_per_night,
+    maxGuests: item.max_guests,
+    bedConfig: item.bed_config,
+    amenities: item.amenities,
+    source: mapApiRoomSource(item.source),
+    sourceUrl: item.source_url ?? undefined,
+    syncEnabled: item.sync_enabled,
+    lastSynced: item.last_synced ?? undefined,
+    status: item.status,
+    pricing: {
+      guestTiers,
+      dateOverrides,
     },
   };
 };
@@ -147,6 +305,29 @@ export const fetchProperties = async (accessToken: string): Promise<Property[]> 
   }
 
   return data.items.map(mapApiProperty);
+};
+
+export const fetchRooms = async (
+  accessToken: string,
+  propertyId: string
+): Promise<ManagedRoom[]> => {
+  const res = await fetch(`${API_BASE}/v1.0/properties/${propertyId}/rooms`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidRoomsResponse(data)) {
+    throw new AuthApiError("Invalid rooms response", res.status);
+  }
+
+  return data.items.map(mapApiRoomToManagedRoom);
 };
 
 export const fetchMeWithRetry = async (
