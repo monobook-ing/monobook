@@ -1,11 +1,25 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, User, CreditCard, BedDouble, Clock, X } from "lucide-react";
 import { mockRooms } from "@/data/mockData";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+interface BookingDetail {
+  id: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  status: "confirmed" | "pending" | "ai-pending";
+  roomName: string;
+  roomType: string;
+}
 
 export function InventoryCalendar() {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
   const isMobile = useIsMobile();
   const dayCount = isMobile ? 7 : 14;
   const roomColWidth = isMobile ? 80 : 120;
@@ -49,6 +63,29 @@ export function InventoryCalendar() {
     confirmed: "bg-primary/80 text-primary-foreground",
     pending: "bg-accent text-accent-foreground",
     "ai-pending": "bg-success/70 text-success-foreground",
+  };
+
+  const statusLabels: Record<string, string> = {
+    confirmed: "Confirmed",
+    pending: "Pending",
+    "ai-pending": "AI Pending",
+  };
+
+  const statusBadgeVariant: Record<string, string> = {
+    confirmed: "bg-primary/15 text-primary border-primary/20",
+    pending: "bg-accent text-accent-foreground border-accent/20",
+    "ai-pending": "bg-success/15 text-success border-success/20",
+  };
+
+  const getNights = (checkIn: string, checkOut: string) => {
+    const d1 = new Date(checkIn);
+    const d2 = new Date(checkOut);
+    return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   };
 
   return (
@@ -130,6 +167,13 @@ export function InventoryCalendar() {
                         width: `calc(${(span.span / dates.length) * (100 - roomColPct)}% - 4px)`,
                       }}
                       whileHover={{ scale: 1.02 }}
+                      onClick={() =>
+                        setSelectedBooking({
+                          ...b,
+                          roomName: room.name,
+                          roomType: room.type,
+                        })
+                      }
                       title={`${b.guestName}: ${b.checkIn} → ${b.checkOut}`}
                     >
                       {b.guestName}
@@ -157,6 +201,84 @@ export function InventoryCalendar() {
           Pending
         </div>
       </div>
+
+      {/* Booking Detail Dialog */}
+      <Dialog open={!!selectedBooking} onOpenChange={(o) => { if (!o) setSelectedBooking(null); }}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          {selectedBooking && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-lg">Booking Details</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-2">
+                {/* Status */}
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className={`${statusBadgeVariant[selectedBooking.status]} text-xs px-2.5 py-0.5`}>
+                    {statusLabels[selectedBooking.status]}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">ID: {selectedBooking.id}</span>
+                </div>
+
+                <Separator />
+
+                {/* Guest */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{selectedBooking.guestName}</p>
+                    <p className="text-xs text-muted-foreground">Guest</p>
+                  </div>
+                </div>
+
+                {/* Room */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <BedDouble className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{selectedBooking.roomName}</p>
+                    <p className="text-xs text-muted-foreground">{selectedBooking.roomType}</p>
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <CalendarDays className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Check-in</p>
+                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBooking.checkIn)}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Check-out</p>
+                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBooking.checkOut)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nights */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Clock className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{getNights(selectedBooking.checkIn, selectedBooking.checkOut)} nights</p>
+                    <p className="text-xs text-muted-foreground">Duration</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
