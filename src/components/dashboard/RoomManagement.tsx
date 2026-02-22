@@ -18,13 +18,13 @@ import {
   Sparkles,
   Eye,
   Building2,
-  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { useProperty } from "@/contexts/PropertyContext";
@@ -67,6 +67,28 @@ const formatRoomsError = (error: string) => {
 
   return error;
 };
+
+function RoomCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      <Skeleton className="h-40 w-full rounded-none" />
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="h-3.5 w-1/3" />
+          </div>
+          <Skeleton className="h-5 w-20" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-10" />
+        </div>
+        <Skeleton className="h-3.5 w-40" />
+      </CardContent>
+    </Card>
+  );
+}
 
 export function RoomManagement() {
   const { selectedPropertyId, properties } = useProperty();
@@ -177,12 +199,9 @@ export function RoomManagement() {
       {selectedPropertyId !== "all" && isRoomsLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="rooms-loading-state">
           {Array.from({ length: 4 }).map((_, idx) => (
-            <Card key={idx} className="rounded-xl">
-              <CardContent className="p-6 flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Loading rooms…</span>
-              </CardContent>
-            </Card>
+            <motion.div key={`room-skeleton-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <RoomCardSkeleton />
+            </motion.div>
           ))}
         </div>
       )}
