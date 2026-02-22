@@ -18,16 +18,31 @@ function ToggleItem({ label, description, defaultOn = false }: ToggleItemProps) 
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       <motion.button
-        className={`relative w-[51px] h-[31px] rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center ${
-          on ? "bg-success" : "bg-secondary"
-        }`}
+        className="relative w-[56px] h-[34px] rounded-full flex items-center min-w-[56px] min-h-[44px] cursor-pointer"
         onClick={() => setOn(!on)}
-        whileTap={{ scale: 0.95 }}
+        whileTap={{ scale: 0.92 }}
       >
+        {/* Track */}
         <motion.div
-          className="absolute w-[27px] h-[27px] rounded-full bg-card apple-shadow"
-          animate={{ x: on ? 22 : 2 }}
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          className="absolute inset-0 rounded-full border"
+          animate={{
+            backgroundColor: on ? "hsl(142 58% 49%)" : "hsl(0 0% 0% / 0.06)",
+            borderColor: on ? "hsl(142 58% 49% / 0.3)" : "hsl(0 0% 0% / 0.08)",
+          }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+          style={{
+            backdropFilter: on ? "none" : "blur(12px)",
+            WebkitBackdropFilter: on ? "none" : "blur(12px)",
+          }}
+        />
+        {/* Thumb */}
+        <motion.div
+          className="absolute w-[28px] h-[28px] rounded-full bg-card"
+          style={{
+            boxShadow: "0 2px 6px hsl(0 0% 0% / 0.15), 0 0 0 0.5px hsl(0 0% 0% / 0.04)",
+          }}
+          animate={{ x: on ? 25 : 3 }}
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
         />
       </motion.button>
     </div>
