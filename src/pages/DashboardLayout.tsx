@@ -4,8 +4,8 @@ import { LayoutDashboard, CalendarDays, Settings, MessageSquare } from "lucide-r
 
 const navItems = [
   { id: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "/dashboard/inventory", label: "Inventory", icon: CalendarDays },
-  { id: "/dashboard/settings", label: "Settings", icon: Settings },
+  { id: "/inventory", label: "Inventory", icon: CalendarDays },
+  { id: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function DashboardLayout() {

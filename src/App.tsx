@@ -22,10 +22,10 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/widget" element={<GuestWidget />} />
-          <Route path="/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="inventory" element={<InventoryCalendar />} />
-            <Route path="settings" element={<MCPIntegrationSettings />} />
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<DashboardHome />} />
+            <Route path="/inventory" element={<InventoryCalendar />} />
+            <Route path="/settings" element={<MCPIntegrationSettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
