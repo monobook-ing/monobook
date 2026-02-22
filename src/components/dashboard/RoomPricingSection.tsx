@@ -16,9 +16,17 @@ interface RoomPricingSectionProps {
   maxGuests: number;
   onPricingChange: (pricing: RoomPricing) => void;
   onBasePriceChange: (price: number) => void;
+  readOnly?: boolean;
 }
 
-export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingChange, onBasePriceChange }: RoomPricingSectionProps) {
+export function RoomPricingSection({
+  pricing,
+  basePrice,
+  maxGuests,
+  onPricingChange,
+  onBasePriceChange,
+  readOnly = false,
+}: RoomPricingSectionProps) {
   const [editingBase, setEditingBase] = useState(false);
   const [baseDraft, setBaseDraft] = useState(String(basePrice));
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -37,6 +45,7 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
   const overrideDates = Object.keys(pricing.dateOverrides).map((d) => new Date(d + "T00:00:00"));
 
   const handleDayClick = (day: Date) => {
+    if (readOnly) return;
     if (isBefore(day, today)) return;
     const key = format(day, "yyyy-MM-dd");
     setSelectedDay(day);
@@ -100,7 +109,7 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
       {/* Base price */}
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">Base price</span>
-        {editingBase ? (
+        {editingBase && !readOnly ? (
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-muted-foreground">$</span>
             <Input
@@ -119,7 +128,11 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
             </Button>
           </div>
         ) : (
-          <button onClick={() => { setBaseDraft(String(basePrice)); setEditingBase(true); }} className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
+          <button
+            disabled={readOnly}
+            onClick={() => { setBaseDraft(String(basePrice)); setEditingBase(true); }}
+            className="text-sm font-semibold text-foreground hover:text-primary transition-colors disabled:cursor-not-allowed disabled:text-muted-foreground"
+          >
             ${basePrice}/night <Pencil className="w-3 h-3 inline ml-1 text-muted-foreground" />
           </button>
         )}
@@ -127,8 +140,14 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
 
       {/* Calendar */}
       <div>
-        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> Date overrides — click a day to set custom price</p>
-        <Popover open={!!selectedDay} onOpenChange={(o) => { if (!o) setSelectedDay(null); }}>
+        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+          <CalendarDays className="w-3.5 h-3.5" />
+          {readOnly ? "Date overrides" : "Date overrides — click a day to set custom price"}
+        </p>
+        <Popover
+          open={!readOnly && !!selectedDay}
+          onOpenChange={(o) => { if (!o) setSelectedDay(null); }}
+        >
           <PopoverTrigger asChild>
             <div>
               <DayPicker
@@ -180,7 +199,7 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
               />
             </div>
           </PopoverTrigger>
-          {selectedDay && (
+          {!readOnly && selectedDay && (
             <PopoverContent className="w-56 p-3 space-y-2" side="top" align="center">
               <p className="text-xs font-medium text-foreground">{format(selectedDay, "EEEE, MMM d, yyyy")}</p>
               <p className="text-xs text-muted-foreground">Base: ${basePrice}/night</p>
@@ -227,10 +246,10 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
                   <span className="text-muted-foreground">{tier.minGuests}–{tier.maxGuests} guests</span>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-foreground">${tier.pricePerNight}/night</span>
-                    <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => { setEditingTierId(idx); setEditTierDraft({ min: String(tier.minGuests), max: String(tier.maxGuests), price: String(tier.pricePerNight) }); }}>
+                    <Button size="icon" variant="ghost" className="h-5 w-5" disabled={readOnly} onClick={() => { setEditingTierId(idx); setEditTierDraft({ min: String(tier.minGuests), max: String(tier.maxGuests), price: String(tier.pricePerNight) }); }}>
                       <Pencil className="w-3 h-3" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" onClick={() => deleteTier(idx)}>
+                    <Button size="icon" variant="ghost" className="h-5 w-5 text-destructive" disabled={readOnly} onClick={() => deleteTier(idx)}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
@@ -239,7 +258,7 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
             </div>
           ))}
 
-          {addingTier ? (
+          {!readOnly && addingTier ? (
             <div className="flex items-center gap-1.5 bg-muted/50 rounded-lg px-3 py-1.5">
               <Input type="number" value={tierDraft.min} onChange={(e) => setTierDraft((d) => ({ ...d, min: e.target.value }))} className="w-12 h-6 text-xs rounded" placeholder="Min" />
               <span className="text-xs text-muted-foreground">–</span>
@@ -249,11 +268,12 @@ export function RoomPricingSection({ pricing, basePrice, maxGuests, onPricingCha
               <Button size="icon" variant="ghost" className="h-5 w-5" onClick={addTier}><Check className="w-3 h-3" /></Button>
               <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => setAddingTier(false)}><X className="w-3 h-3" /></Button>
             </div>
-          ) : (
+          ) : !readOnly ? (
             <Button variant="ghost" size="sm" className="text-xs gap-1 h-7 rounded-lg" onClick={() => setAddingTier(true)}>
               <Plus className="w-3 h-3" /> Add tier
             </Button>
-          )}
+          ) : null
+          }
         </div>
       </div>
     </div>
