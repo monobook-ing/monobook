@@ -50,7 +50,7 @@ export default function Index() {
             className="w-full flex items-center justify-between px-6 py-4 rounded-2xl bg-card apple-shadow min-h-[44px]"
             whileTap={{ scale: 0.97 }}
             whileHover={{ scale: 1.01 }}
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/auth")}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
