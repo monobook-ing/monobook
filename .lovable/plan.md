@@ -1,27 +1,39 @@
 
+# Audit Log Page
 
-## Rename "Stripe Account" to "Payment Providers" and Add Multiple Providers
+## Overview
+Add a new "Audit Log" page accessible from the dashboard navigation. It will display a chronological list of API/tool call records, each containing conversation_id, type, tool name, text, date, and status. Data will be mock-based, matching the existing project pattern.
 
-### Changes
+## What will be built
 
-**File: `src/components/dashboard/MCPIntegrationSettings.tsx`**
+A new `/audit` route with a filterable, scrollable audit log table showing records like:
 
-Replace the current single "Stripe Account" card with a new "Payment Providers" section styled like the PMS Sync section (iOS Settings grouped list with toggles):
+| Field | Description |
+|-------|-------------|
+| conversation_id | Unique conversation identifier (e.g., `conv_abc123`) |
+| type | Source system: `mcp`, `chatGPT`, `claude`, `gemini`, `widget` |
+| tool_name | Name of the tool/function called (e.g., `search_rooms`, `create_booking`) |
+| text | Brief description of what happened |
+| date | Timestamp of the call |
+| status | `success`, `error`, `pending` |
 
-- Rename header from "Stripe Account" to "Payment Providers"
-- Update description to "Connect payment providers to process bookings"
-- Convert from a single "Connect Stripe" button to a grouped list with iOS 26 Liquid Glass toggles (reusing the existing `ToggleItem` component) for each provider:
-  - **Stripe** - "Card payments & Apple Pay"
-  - **JP Morgan** - "Enterprise payment processing"
-  - **iPay** - "Mobile & online payments"
-  - **LiqPay** - "Ukrainian payment gateway"
-  - **MonoBank** - "Direct bank integration"
-- Use the `CreditCard` icon (from lucide-react) instead of `Wifi` to better represent payments
-- Keep the same card styling (rounded-2xl, bg-card, apple-shadow, bordered header) consistent with the PMS Sync section above it
+The page will include:
+- Filter chips to filter by type (MCP, ChatGPT, Claude, Gemini, Widget)
+- Each log entry displayed as a card row with color-coded type badge and status indicator
+- Mobile-friendly layout consistent with existing pages
 
-### Technical Details
+## Technical Details
 
-- Only `MCPIntegrationSettings.tsx` needs to be modified
-- No new components or dependencies required -- reuses existing `ToggleItem` with the Liquid Glass toggle
-- Stripe will default to `defaultOn` since it was previously the primary provider
+### 1. Mock Data (`src/data/mockData.ts`)
+- Add `AuditLogEntry` interface and `mockAuditLog` array with ~10-12 sample entries covering all types
 
+### 2. New Component (`src/components/dashboard/AuditLog.tsx`)
+- Scrollable list of audit log entries
+- Filter bar with type chips (all, mcp, chatGPT, claude, gemini, widget)
+- Each entry shows: type badge, tool name, text, conversation_id (truncated), date, status badge
+- Uses existing design patterns: `rounded-2xl bg-card apple-shadow`, `motion.div` animations
+
+### 3. Route & Navigation Updates
+- Add `/audit` route in `src/App.tsx` inside the `DashboardLayout` group
+- Add "Audit Log" nav item in `src/pages/DashboardLayout.tsx` with `ScrollText` icon from lucide-react
+- Position it after Settings in the nav order
