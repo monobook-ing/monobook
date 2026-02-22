@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
 import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
-import { hydrateSessionFromStorage } from "@/lib/auth";
+import { hydrateSessionFromStorage, readUserMe, type UserMe } from "@/lib/auth";
 import { toast } from "sonner";
 
 const emptyAddress: PropertyAddress = { street: "", city: "", state: "", postalCode: "", country: "" };
@@ -226,6 +226,26 @@ function DashboardInner() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = navItems.find((item) => item.id === location.pathname)?.id || "/dashboard";
+  const me = readUserMe();
+
+  const buildDisplayName = (user: UserMe | null) => {
+    if (!user) return "StayAI Hotel";
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
+    return fullName || "StayAI Hotel";
+  };
+
+  const buildAvatarInitials = (user: UserMe | null) => {
+    if (!user) return "SA";
+    const initials = [user.first_name, user.last_name]
+      .map((part) => part.trim().charAt(0))
+      .join("")
+      .toUpperCase();
+    return initials || "SA";
+  };
+
+  const displayName = buildDisplayName(me);
+  const displayEmail = me?.email || "admin@stayai.com";
+  const avatarInitials = buildAvatarInitials(me);
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -266,10 +286,10 @@ function DashboardInner() {
           <PopoverTrigger asChild>
             <button className="mt-auto flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">SA</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">{avatarInitials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-foreground leading-tight">StayAI Hotel</p>
+                <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
                 <p className="text-[10px] text-muted-foreground">Pro plan</p>
               </div>
               <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
@@ -277,7 +297,7 @@ function DashboardInner() {
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-56 rounded-2xl p-1.5">
             <div className="px-3 py-2">
-              <p className="text-xs text-muted-foreground">admin@stayai.com</p>
+              <p className="text-xs text-muted-foreground">{displayEmail}</p>
             </div>
             <Separator />
             <button onClick={() => navigate("/settings")} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
