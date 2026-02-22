@@ -1,47 +1,91 @@
 
 
-# File Preview Mode with Delete Confirmation
+# Room Management Page
 
 ## Overview
-When clicking a file name or icon in the Knowledge Base section, a full-screen preview overlay will appear showing the file title, a close button, and a 3-dot menu with a "Delete" option. Deleting triggers a confirmation dialog using the existing `AlertDialog` component.
+A new "Rooms" page in the dashboard sidebar for managing room/property listings. Each room has images (with a main image), description, amenities, pricing, and more -- inspired by Booking.com and Airbnb listing detail pages. Includes the ability to add rooms by connecting to Airbnb/Booking.com or pasting a URL for AI-powered scraping and import, plus a sync toggle per room.
 
 ## What will be built
 
-**Full-screen preview overlay:**
-- Fixed overlay covering the entire screen with a semi-transparent backdrop
-- Top bar with: file name (left), 3-dot menu button and close (X) button (right)
-- Center area showing a file preview placeholder (file icon + file details, since these are mock files)
-- Smooth open/close animation using framer-motion
+### 1. Room listing page (`/rooms`)
+- Grid of room cards showing main image, name, type, price, sync status badge
+- "Add Room" button in the header
+- Each card is clickable to open a detail/edit view
 
-**3-dot menu (using Popover):**
-- Single menu item: "Delete" with a Trash icon, styled in destructive red
+### 2. Room detail view (inline expandable or separate view)
+- **Image gallery**: Main hero image with smaller thumbnail grid (up to 5 images), click to view full-screen
+- **Details section**: Room name, type, description, price per night, max guests, bed configuration
+- **Amenities**: Tag/badge list (WiFi, Pool, AC, Kitchen, Parking, etc.)
+- **Source info**: Shows if imported from Airbnb/Booking.com with sync status and last synced date
+- **Actions**: Edit, Delete, Toggle sync on/off
 
-**Delete confirmation (reusing AlertDialog):**
-- Title: "Delete file?"
-- Description: "Are you sure you want to delete {filename}? This action cannot be undone."
-- Cancel and Delete buttons (Delete in destructive style)
+### 3. Add Room dialog
+Three import methods presented as tabs/cards:
+- **Paste Link**: Input field for Airbnb/Booking.com URL + "Import" button. Shows a mock AI scraping animation, then populates the room form with scraped data
+- **Connect Platform**: Buttons to "Connect Airbnb" and "Connect Booking.com" (mock OAuth flow showing connected state)
+- **Manual Entry**: Form with all fields to fill in manually
+
+### 4. Sync feature
+- Per-room sync toggle (on/off)
+- "Last synced" timestamp display
+- "Sync now" button per room
+- Visual badge showing source platform (Airbnb/Booking.com/Manual)
 
 ## Technical Details
 
-### File: `src/components/dashboard/MCPIntegrationSettings.tsx`
+### New files
 
-1. **New state**: Add `previewFile` state to track which file is being previewed (file object or null).
+**`src/components/dashboard/RoomManagement.tsx`**
+- Main page component with room grid, add room dialog, and room detail view
+- Uses existing UI components: Card, Dialog, Button, Input, Tabs, Badge, Switch, AlertDialog
+- framer-motion for animations (consistent with rest of app)
+- State management with useState for rooms list, selected room, dialog open state
 
-2. **Make file rows clickable**: On lines 321-339, add `onClick` to the file name/icon area (the left side `div`) to set `previewFile`.
+**`src/data/mockRoomData.ts`**
+- Extended room data model with images array, description, amenities, pricing, source info, sync status
+- 3-4 pre-populated mock rooms with realistic data
 
-3. **Remove inline delete button**: The delete button moves into the preview's 3-dot menu instead. (Or keep both for quick access -- keep the existing trash icon AND add delete in preview.)
+### Modified files
 
-4. **Preview overlay component** (inline in same file):
-   - `AnimatePresence` + `motion.div` for the full-screen overlay
-   - Fixed position, `z-50`, dark background
-   - Header bar: file name, `MoreVertical` (3-dot) icon opening a `Popover`, `X` close button
-   - Body: centered file icon + name + size display
-   - `MoreVertical` popover contains a "Delete" button
+**`src/pages/DashboardLayout.tsx`**
+- Add "Rooms" nav item with `BedDouble` icon between Inventory and Settings
+- Route: `/rooms`
 
-5. **Delete flow**:
-   - Clicking "Delete" in the 3-dot menu opens the existing `AlertDialog`
-   - On confirm: calls `removeFile(id)`, closes preview, closes dialog
-   - Reuses the same `AlertDialog` pattern already in the file (see `PaymentProviderItem`)
+**`src/App.tsx`**
+- Add route: `<Route path="/rooms" element={<RoomManagement />} />`
 
-6. **New imports**: Add `MoreVertical`, `X` from lucide-react (X already imported). Add `Popover`/`PopoverContent`/`PopoverTrigger`.
+### Data model
+
+```text
+ManagedRoom {
+  id: string
+  name: string
+  type: string (e.g. "Deluxe Suite", "Standard Room")
+  description: string
+  images: string[] (URLs or asset paths, first = main)
+  pricePerNight: number
+  maxGuests: number
+  bedConfig: string (e.g. "1 King Bed", "2 Queen Beds")
+  amenities: string[]
+  source: "airbnb" | "booking" | "manual"
+  sourceUrl?: string
+  syncEnabled: boolean
+  lastSynced?: string (ISO date)
+  status: "active" | "draft" | "archived"
+}
+```
+
+### Add Room flow (Paste Link)
+1. User pastes a URL (e.g. airbnb.com/rooms/12345)
+2. Mock loading animation with "AI is scraping the listing..." text
+3. After 2 seconds, form auto-fills with mock scraped data
+4. User reviews and clicks "Import Room"
+5. Room added to the list with source badge and sync enabled
+
+### Component structure
+- `RoomManagement` (main page)
+  - Room grid (cards)
+  - `AddRoomDialog` (Dialog with Tabs: Paste Link / Connect / Manual)
+  - `RoomDetailSheet` (Sheet/overlay showing full room details with image gallery)
+  - Delete confirmation (reuses AlertDialog)
 
