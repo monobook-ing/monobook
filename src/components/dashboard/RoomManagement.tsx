@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { mockRooms as initialRooms, mockScrapedRoom, type ManagedRoom } from "@/data/mockRoomData";
+import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { useProperty } from "@/contexts/PropertyContext";
 import { format } from "date-fns";
 
@@ -130,7 +131,7 @@ export function RoomManagement() {
                   {sourceBadge(room.source)}
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-foreground">${room.pricePerNight}<span className="text-muted-foreground font-normal">/night</span></span>
+                  <span className="font-semibold text-foreground">{hasOverrides(room.pricing) && <span className="text-xs font-normal text-muted-foreground">from </span>}${room.pricePerNight}<span className="text-muted-foreground font-normal">/night</span></span>
                   <span className="flex items-center gap-1 text-muted-foreground"><Users className="w-3.5 h-3.5" />{room.maxGuests}</span>
                 </div>
                 {selectedPropertyId === "all" && room.propertyId && (
@@ -287,9 +288,24 @@ export function RoomManagement() {
                 <p className="text-sm text-muted-foreground leading-relaxed">{selectedRoom.description}</p>
 
                 <div className="flex items-center gap-4 text-sm">
-                  <span className="text-xl font-bold text-foreground">${selectedRoom.pricePerNight}<span className="text-sm font-normal text-muted-foreground">/night</span></span>
+                  <span className="text-xl font-bold text-foreground">{hasOverrides(selectedRoom.pricing) && <span className="text-sm font-normal text-muted-foreground">from </span>}${selectedRoom.pricePerNight}<span className="text-sm font-normal text-muted-foreground">/night</span></span>
                   <span className="flex items-center gap-1 text-muted-foreground"><Users className="w-4 h-4" />{selectedRoom.maxGuests} guests</span>
                 </div>
+
+                {/* Pricing */}
+                <RoomPricingSection
+                  pricing={selectedRoom.pricing || { dateOverrides: {}, guestTiers: [] }}
+                  basePrice={selectedRoom.pricePerNight}
+                  maxGuests={selectedRoom.maxGuests}
+                  onPricingChange={(newPricing) => {
+                    setRooms((prev) => prev.map((r) => r.id === selectedRoom.id ? { ...r, pricing: newPricing } : r));
+                    setSelectedRoom((r) => r ? { ...r, pricing: newPricing } : null);
+                  }}
+                  onBasePriceChange={(price) => {
+                    setRooms((prev) => prev.map((r) => r.id === selectedRoom.id ? { ...r, pricePerNight: price } : r));
+                    setSelectedRoom((r) => r ? { ...r, pricePerNight: price } : null);
+                  }}
+                />
 
                 {/* Amenities */}
                 <div>
