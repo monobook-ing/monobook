@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AuthApiError, fetchAuditEntries, fetchRoomById, fetchRooms } from "@/lib/auth";
+import {
+  AuthApiError,
+  fetchAuditEntries,
+  fetchMe,
+  fetchRoomById,
+  fetchRooms,
+  readUserMe,
+} from "@/lib/auth";
 
 const validRoomsPayload = {
   items: [
@@ -148,6 +155,77 @@ describe("fetchRooms", () => {
     expect(localStorage.getItem("access_token")).toBeNull();
     expect(localStorage.getItem("user")).toBeNull();
     expect(replaceSpy).toHaveBeenCalledWith("/auth");
+  });
+});
+
+describe("fetchMe", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("normalizes camelCase fields and nullable names from API payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          email: "owner@example.com",
+          firstName: null,
+          lastName: null,
+          defaultAccountId: "acct-1",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const me = await fetchMe("jwt");
+
+    expect(me).toEqual({
+      email: "owner@example.com",
+      first_name: "",
+      last_name: "",
+      default_account_id: "acct-1",
+    });
+  });
+
+  it("accepts wrapped payloads and extracts user profile", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          user: {
+            email: "owner@example.com",
+            first_name: "Owner",
+            last_name: "One",
+            default_account_id: "acct-1",
+          },
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchMe("jwt")).resolves.toEqual({
+      email: "owner@example.com",
+      first_name: "Owner",
+      last_name: "One",
+      default_account_id: "acct-1",
+    });
+  });
+
+  it("rejects payloads that do not include a valid email", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          first_name: "Owner",
+          last_name: "One",
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchMe("jwt")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid user profile response",
+      status: 200,
+    });
   });
 });
 
@@ -335,5 +413,30 @@ describe("fetchAuditEntries", () => {
         status: 403,
       })
     );
+  });
+});
+
+describe("readUserMe", () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it("normalizes legacy cached camelCase user payload", () => {
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        email: "owner@example.com",
+        firstName: "Owner",
+        lastName: "One",
+        defaultAccountId: "acct-1",
+      })
+    );
+
+    expect(readUserMe()).toEqual({
+      email: "owner@example.com",
+      first_name: "Owner",
+      last_name: "One",
+      default_account_id: "acct-1",
+    });
   });
 });
