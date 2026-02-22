@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import GuestWidget from "./pages/GuestWidget";
-import Dashboard from "./pages/Dashboard";
+import DashboardLayout from "./pages/DashboardLayout";
+import { DashboardHome } from "@/components/dashboard/DashboardHome";
+import { InventoryCalendar } from "@/components/dashboard/InventoryCalendar";
+import { MCPIntegrationSettings } from "@/components/dashboard/MCPIntegrationSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,7 +22,11 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/widget" element={<GuestWidget />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<DashboardHome />} />
+            <Route path="inventory" element={<InventoryCalendar />} />
+            <Route path="settings" element={<MCPIntegrationSettings />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
