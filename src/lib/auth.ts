@@ -106,6 +106,35 @@ export class AuthApiError extends Error {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type AuthRequestOptions = {
+  skipAutoLogoutOn401?: boolean;
+};
+
+const isAuthEndpoint = (url: string) => {
+  return url.includes("/v1.0/signin/");
+};
+
+const requestWithAuthInterceptor = async (
+  url: string,
+  init: RequestInit,
+  options?: AuthRequestOptions
+) => {
+  const firstResponse = await fetch(url, init);
+  if (firstResponse.status !== 401) {
+    return firstResponse;
+  }
+
+  const secondResponse = await fetch(url, init);
+  if (secondResponse.status === 401) {
+    const skipAutoLogout = options?.skipAutoLogoutOn401 ?? isAuthEndpoint(url);
+    if (!skipAutoLogout) {
+      logoutAndRedirectToAuth();
+    }
+  }
+
+  return secondResponse;
+};
+
 const parseError = async (res: Response): Promise<AuthApiError> => {
   const body = await res.json().catch(() => null);
   const message =
@@ -336,7 +365,7 @@ export const isAuthInvalidError = (error: unknown) => {
 };
 
 export const fetchMe = async (accessToken: string): Promise<UserMe> => {
-  const res = await fetch(`${API_BASE}/v1.0/users/me`, {
+  const res = await requestWithAuthInterceptor(`${API_BASE}/v1.0/users/me`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -356,7 +385,7 @@ export const fetchMe = async (accessToken: string): Promise<UserMe> => {
 };
 
 export const fetchProperties = async (accessToken: string): Promise<Property[]> => {
-  const res = await fetch(`${API_BASE}/v1.0/properties`, {
+  const res = await requestWithAuthInterceptor(`${API_BASE}/v1.0/properties`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -379,7 +408,7 @@ export const fetchRooms = async (
   accessToken: string,
   propertyId: string
 ): Promise<ManagedRoom[]> => {
-  const res = await fetch(`${API_BASE}/v1.0/properties/${propertyId}/rooms`, {
+  const res = await requestWithAuthInterceptor(`${API_BASE}/v1.0/properties/${propertyId}/rooms`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -403,7 +432,7 @@ export const fetchRoomById = async (
   propertyId: string,
   roomId: string
 ): Promise<ManagedRoom> => {
-  const res = await fetch(`${API_BASE}/v1.0/properties/${propertyId}/rooms/${roomId}`, {
+  const res = await requestWithAuthInterceptor(`${API_BASE}/v1.0/properties/${propertyId}/rooms/${roomId}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -441,7 +470,7 @@ export const fetchAuditEntries = async (
   const query = params.toString();
   const url = `${API_BASE}/v1.0/properties/${propertyId}/audit${query ? `?${query}` : ""}`;
 
-  const res = await fetch(url, {
+  const res = await requestWithAuthInterceptor(url, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -516,6 +545,13 @@ export const readUserMe = (): UserMe | null => {
 export const clearAuthStorage = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("user");
+};
+
+export const logoutAndRedirectToAuth = () => {
+  clearAuthStorage();
+  if (typeof window !== "undefined") {
+    window.location.replace("/auth");
+  }
 };
 
 export type SessionHydrationResult =

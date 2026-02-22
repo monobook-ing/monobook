@@ -95,4 +95,30 @@ describe("DashboardLayout footer host card", () => {
     fireEvent.click(screen.getByText("StayAI Hotel"));
     expect(await screen.findByText("admin@stayai.com")).toBeInTheDocument();
   });
+
+  it("logs out and redirects to auth when clicking logout", async () => {
+    localStorage.setItem("access_token", "jwt_key");
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        email: "microsaas.farm@gmail.com",
+        first_name: "microsaas.farm",
+        last_name: "MicroSaas Farm",
+        default_account_id: "bc3acf90-710f-4066-baec-1998a4ce61a0",
+      })
+    );
+
+    renderLayout();
+
+    await waitFor(() => {
+      expect(screen.getByText("microsaas.farm MicroSaas Farm")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("microsaas.farm MicroSaas Farm"));
+    fireEvent.click(await screen.findByText("Log out"));
+
+    expect(await screen.findByText("auth")).toBeInTheDocument();
+    expect(localStorage.getItem("access_token")).toBeNull();
+    expect(localStorage.getItem("user")).toBeNull();
+  });
 });

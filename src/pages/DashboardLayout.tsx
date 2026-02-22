@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
 import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
-import { hydrateSessionFromStorage, readUserMe, type UserMe } from "@/lib/auth";
+import { clearAuthStorage, hydrateSessionFromStorage, readUserMe, type UserMe } from "@/lib/auth";
 import { toast } from "sonner";
 
 const emptyAddress: PropertyAddress = { street: "", city: "", state: "", postalCode: "", country: "" };
@@ -246,6 +246,10 @@ function DashboardInner() {
   const displayName = buildDisplayName(me);
   const displayEmail = me?.email || "admin@stayai.com";
   const avatarInitials = buildAvatarInitials(me);
+  const handleLogout = () => {
+    clearAuthStorage();
+    navigate("/auth", { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -311,7 +315,10 @@ function DashboardInner() {
               <ArrowUpCircle className="w-4 h-4" /> Upgrade plan
             </button>
             <Separator />
-            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary text-destructive transition-colors min-h-[44px]">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary text-destructive transition-colors min-h-[44px]"
+            >
               <LogOut className="w-4 h-4" /> Log out
             </button>
           </PopoverContent>
