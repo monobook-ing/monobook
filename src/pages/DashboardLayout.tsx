@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
-import type { Property } from "@/data/mockPropertyData";
+import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
+
+const emptyAddress: PropertyAddress = { street: "", city: "", state: "", postalCode: "", country: "" };
 
 const navItems = [
   { id: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -20,56 +22,90 @@ const navItems = [
   { id: "/audit", label: "Audit Log", icon: ScrollText },
 ];
 
+function AddressFields({ value, onChange, size = "default" }: { value: PropertyAddress; onChange: (a: PropertyAddress) => void; size?: "default" | "sm" }) {
+  const cls = size === "sm" ? "h-8 rounded-lg text-sm" : "rounded-xl";
+  const update = (field: keyof PropertyAddress, v: string) => onChange({ ...value, [field]: v });
+  const updateNum = (field: "lat" | "lng", v: string) => onChange({ ...value, [field]: v ? parseFloat(v) : undefined });
+
+  return (
+    <div className="space-y-1.5">
+      <Input value={value.street} onChange={(e) => update("street", e.target.value)} placeholder="Street address" className={cls} />
+      <div className="grid grid-cols-2 gap-1.5">
+        <Input value={value.city} onChange={(e) => update("city", e.target.value)} placeholder="City" className={cls} />
+        <Input value={value.state} onChange={(e) => update("state", e.target.value)} placeholder="State/Region" className={cls} />
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Input value={value.postalCode} onChange={(e) => update("postalCode", e.target.value)} placeholder="Postal code" className={cls} />
+        <Input value={value.country} onChange={(e) => update("country", e.target.value)} placeholder="Country" className={cls} />
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Input type="number" step="any" value={value.lat ?? ""} onChange={(e) => updateNum("lat", e.target.value)} placeholder="Latitude" className={cls} />
+        <Input type="number" step="any" value={value.lng ?? ""} onChange={(e) => updateNum("lng", e.target.value)} placeholder="Longitude" className={cls} />
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        <Input value={value.floor ?? ""} onChange={(e) => update("floor", e.target.value)} placeholder="Floor" className={cls} />
+        <Input value={value.section ?? ""} onChange={(e) => update("section", e.target.value)} placeholder="Section" className={cls} />
+        <Input value={value.propertyNumber ?? ""} onChange={(e) => update("propertyNumber", e.target.value)} placeholder="Unit #" className={cls} />
+      </div>
+    </div>
+  );
+}
+
 function ManagePropertiesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { properties, setProperties } = useProperty();
   const [newName, setNewName] = useState("");
-  const [newAddress, setNewAddress] = useState("");
+  const [newAddress, setNewAddress] = useState<PropertyAddress>({ ...emptyAddress });
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editAddress, setEditAddress] = useState("");
+  const [editAddress, setEditAddress] = useState<PropertyAddress>({ ...emptyAddress });
 
   const addProperty = () => {
     if (!newName.trim()) return;
-    const prop: Property = { id: `prop-${Date.now()}`, name: newName.trim(), address: newAddress.trim() };
+    const prop: Property = { id: `prop-${Date.now()}`, name: newName.trim(), address: { ...newAddress } };
     setProperties((prev) => [...prev, prop]);
     setNewName("");
-    setNewAddress("");
+    setNewAddress({ ...emptyAddress });
   };
 
   const deleteProperty = (id: string) => setProperties((prev) => prev.filter((p) => p.id !== id));
 
-  const startEdit = (p: Property) => { setEditId(p.id); setEditName(p.name); setEditAddress(p.address); };
+  const startEdit = (p: Property) => { setEditId(p.id); setEditName(p.name); setEditAddress({ ...p.address }); };
   const saveEdit = () => {
     if (!editId || !editName.trim()) return;
-    setProperties((prev) => prev.map((p) => p.id === editId ? { ...p, name: editName.trim(), address: editAddress.trim() } : p));
+    setProperties((prev) => prev.map((p) => p.id === editId ? { ...p, name: editName.trim(), address: { ...editAddress } } : p));
     setEditId(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
+      <DialogContent className="sm:max-w-lg rounded-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage Properties</DialogTitle>
           <DialogDescription>Add, edit, or remove your properties</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 mt-2">
           {properties.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 p-2.5 border rounded-xl">
+            <div key={p.id} className="p-2.5 border rounded-xl">
               {editId === p.id ? (
-                <div className="flex-1 space-y-1.5">
-                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-8 rounded-lg text-sm" />
-                  <Input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="h-8 rounded-lg text-sm" placeholder="Address" />
+                <div className="space-y-1.5">
+                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="h-8 rounded-lg text-sm" placeholder="Name" />
+                  <AddressFields value={editAddress} onChange={setEditAddress} size="sm" />
                   <div className="flex gap-1.5">
                     <Button size="sm" className="h-7 rounded-lg text-xs" onClick={saveEdit}>Save</Button>
                     <Button size="sm" variant="ghost" className="h-7 rounded-lg text-xs" onClick={() => setEditId(null)}>Cancel</Button>
                   </div>
                 </div>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{p.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{p.address}</p>
+                    <p className="text-xs text-muted-foreground truncate">{formatAddressShort(p.address)}</p>
+                    {(p.address.floor || p.address.section || p.address.propertyNumber) && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {[p.address.floor && `Floor: ${p.address.floor}`, p.address.section && `Section: ${p.address.section}`, p.address.propertyNumber && `#${p.address.propertyNumber}`].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                   </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => startEdit(p)}>
                     <Pencil className="w-3.5 h-3.5" />
@@ -77,7 +113,7 @@ function ManagePropertiesDialog({ open, onOpenChange }: { open: boolean; onOpenC
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={() => deleteProperty(p.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
-                </>
+                </div>
               )}
             </div>
           ))}
@@ -86,7 +122,7 @@ function ManagePropertiesDialog({ open, onOpenChange }: { open: boolean; onOpenC
         <div className="space-y-2">
           <Label className="text-xs font-semibold">Add Property</Label>
           <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Property name" className="rounded-xl" />
-          <Input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="Address" className="rounded-xl" />
+          <AddressFields value={newAddress} onChange={setNewAddress} />
           <Button onClick={addProperty} disabled={!newName.trim()} className="w-full rounded-xl gap-1.5" size="sm">
             <Plus className="w-3.5 h-3.5" /> Add Property
           </Button>
@@ -114,7 +150,7 @@ function PropertySwitcher() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground truncate leading-tight">{label}</p>
-              {selectedProperty && <p className="text-[10px] text-muted-foreground truncate">{selectedProperty.address.split(",")[0]}</p>}
+              {selectedProperty && <p className="text-[10px] text-muted-foreground truncate">{formatAddressShort(selectedProperty.address)}</p>}
             </div>
             <ChevronsUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
           </button>
