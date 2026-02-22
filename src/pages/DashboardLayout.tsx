@@ -1,6 +1,9 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   { id: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -28,7 +31,7 @@ export default function DashboardLayout() {
             <p className="text-[10px] text-muted-foreground">Hotel Intelligence</p>
           </div>
         </div>
-        <nav className="space-y-1">
+        <nav className="space-y-1 flex-1">
           {navItems.map((item) => (
             <motion.button
               key={item.id}
@@ -45,6 +48,42 @@ export default function DashboardLayout() {
             </motion.button>
           ))}
         </nav>
+
+        {/* User Footer */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="mt-auto flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">SA</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium text-foreground leading-tight">StayAI Hotel</p>
+                <p className="text-[10px] text-muted-foreground">Pro plan</p>
+              </div>
+              <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-56 rounded-2xl p-1.5">
+            <div className="px-3 py-2">
+              <p className="text-xs text-muted-foreground">admin@stayai.com</p>
+            </div>
+            <Separator />
+            <button onClick={() => navigate("/settings")} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+              <Settings className="w-4 h-4" /> Settings
+            </button>
+            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+              <CircleHelp className="w-4 h-4" /> Get help
+            </button>
+            <Separator />
+            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+              <ArrowUpCircle className="w-4 h-4" /> Upgrade plan
+            </button>
+            <Separator />
+            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary text-destructive transition-colors min-h-[44px]">
+              <LogOut className="w-4 h-4" /> Log out
+            </button>
+          </PopoverContent>
+        </Popover>
       </aside>
 
       {/* Main Content */}
