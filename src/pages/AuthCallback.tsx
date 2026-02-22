@@ -3,8 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Loader2, MessageSquare, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-
-const API_BASE = "https://api-fexi.onrender.com";
+import {
+  API_BASE,
+  clearAuthStorage,
+  fetchMeWithRetry,
+  isAuthInvalidError,
+  saveAccessToken,
+  saveUserMe,
+} from "@/lib/auth";
 
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
@@ -40,11 +46,23 @@ export default function AuthCallback() {
         }
 
         const data = await res.json();
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        const accessToken = data?.access_token;
+
+        if (!accessToken || typeof accessToken !== "string") {
+          throw new Error("Google sign-in did not return a valid access token");
+        }
+
+        saveAccessToken(accessToken);
+        const me = await fetchMeWithRetry(accessToken, 3, 400);
+        saveUserMe(me);
+
         toast.success("Signed in successfully!");
         navigate("/dashboard", { replace: true });
       } catch (err) {
+        if (isAuthInvalidError(err)) {
+          clearAuthStorage();
+        }
+
         setError(
           err instanceof Error ? err.message : "Something went wrong"
         );

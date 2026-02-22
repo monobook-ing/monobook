@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
 import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
+import { hydrateSessionFromStorage } from "@/lib/auth";
+import { toast } from "sonner";
 
 const emptyAddress: PropertyAddress = { street: "", city: "", state: "", postalCode: "", country: "" };
 
@@ -297,6 +299,44 @@ function DashboardInner() {
 }
 
 export default function DashboardLayout() {
+  const navigate = useNavigate();
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrateAuth = async () => {
+      const result = await hydrateSessionFromStorage();
+      if (!active) return;
+
+      if (result.status === "missing_token") {
+        navigate("/auth", { replace: true });
+        return;
+      }
+
+      if (result.status === "ready") {
+        setAuthReady(true);
+      } else {
+        toast.error("Your session expired. Please sign in again.");
+        navigate("/auth", { replace: true });
+      }
+    };
+
+    hydrateAuth();
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-6">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+      </div>
+    );
+  }
+
   return (
     <PropertyProvider>
       <DashboardInner />
