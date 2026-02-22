@@ -65,6 +65,35 @@ type RoomsResponse = {
   items: ApiRoom[];
 };
 
+export type ApiAuditEntry = {
+  id: string;
+  property_id: string;
+  conversation_id: string;
+  source: string;
+  tool_name: string;
+  description: string;
+  status: string;
+  request_payload?: unknown;
+  response_payload?: unknown;
+  created_at: string;
+};
+
+export type AuditEntriesResponse = {
+  items: ApiAuditEntry[];
+  next_cursor: string | null;
+};
+
+export type AuditEntry = {
+  id: string;
+  propertyId: string;
+  conversationId: string;
+  source: string;
+  toolName: string;
+  description: string;
+  status: string;
+  createdAt: string;
+};
+
 export class AuthApiError extends Error {
   status: number;
 
@@ -189,6 +218,32 @@ const isValidRoomsResponse = (value: unknown): value is RoomsResponse => {
   return Array.isArray(candidate.items) && candidate.items.every(isApiRoom);
 };
 
+const isApiAuditEntry = (value: unknown): value is ApiAuditEntry => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.conversation_id === "string" &&
+    typeof candidate.source === "string" &&
+    typeof candidate.tool_name === "string" &&
+    typeof candidate.description === "string" &&
+    typeof candidate.status === "string" &&
+    typeof candidate.created_at === "string"
+  );
+};
+
+const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    Array.isArray(candidate.items) &&
+    candidate.items.every(isApiAuditEntry) &&
+    (candidate.next_cursor === null || typeof candidate.next_cursor === "string")
+  );
+};
+
 const mapApiProperty = (item: ApiProperty): Property => {
   return {
     id: item.id,
@@ -252,6 +307,19 @@ const mapApiRoomToManagedRoom = (item: ApiRoom): ManagedRoom => {
       guestTiers,
       dateOverrides,
     },
+  };
+};
+
+const mapApiAuditEntry = (item: ApiAuditEntry): AuditEntry => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    conversationId: item.conversation_id,
+    source: item.source,
+    toolName: item.tool_name,
+    description: item.description,
+    status: item.status,
+    createdAt: item.created_at,
   };
 };
 
@@ -352,6 +420,47 @@ export const fetchRoomById = async (
   }
 
   return mapApiRoomToManagedRoom(data);
+};
+
+export const fetchAuditEntries = async (
+  accessToken: string,
+  propertyId: string,
+  options?: { source?: string; limit?: number; cursor?: string | null }
+): Promise<{ items: AuditEntry[]; nextCursor: string | null }> => {
+  const params = new URLSearchParams();
+  if (options?.source) {
+    params.set("source", options.source);
+  }
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    params.set("limit", String(options.limit));
+  }
+  if (typeof options?.cursor === "string" && options.cursor.length > 0) {
+    params.set("cursor", options.cursor);
+  }
+
+  const query = params.toString();
+  const url = `${API_BASE}/v1.0/properties/${propertyId}/audit${query ? `?${query}` : ""}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidAuditEntriesResponse(data)) {
+    throw new AuthApiError("Invalid audit log response", res.status);
+  }
+
+  return {
+    items: data.items.map(mapApiAuditEntry),
+    nextCursor: data.next_cursor,
+  };
 };
 
 export const fetchMeWithRetry = async (

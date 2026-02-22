@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AuthApiError, fetchRoomById, fetchRooms } from "@/lib/auth";
+import { AuthApiError, fetchAuditEntries, fetchRoomById, fetchRooms } from "@/lib/auth";
 
 describe("fetchRooms", () => {
   afterEach(() => {
@@ -177,6 +177,103 @@ describe("fetchRoomById", () => {
     );
 
     await expect(fetchRoomById("jwt", "prop-1", "room-1")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+});
+
+describe("fetchAuditEntries", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid API audit payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "audit-1",
+              property_id: "prop-1",
+              conversation_id: "conv-1",
+              source: "mcp",
+              tool_name: "search_rooms",
+              description: "Searched available rooms",
+              status: "success",
+              request_payload: null,
+              response_payload: null,
+              created_at: "2026-02-22T14:32:00Z",
+            },
+          ],
+          next_cursor: "next-1",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await fetchAuditEntries("jwt", "prop-1");
+
+    expect(result).toEqual({
+      items: [
+        {
+          id: "audit-1",
+          propertyId: "prop-1",
+          conversationId: "conv-1",
+          source: "mcp",
+          toolName: "search_rooms",
+          description: "Searched available rooms",
+          status: "success",
+          createdAt: "2026-02-22T14:32:00Z",
+        },
+      ],
+      nextCursor: "next-1",
+    });
+  });
+
+  it("applies source, limit, and cursor query params", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200 })
+    );
+
+    await fetchAuditEntries("jwt", "prop-1", {
+      source: "mcp",
+      limit: 10,
+      cursor: "cursor-1",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/audit?source=mcp&limit=10&cursor=cursor-1"),
+      expect.objectContaining({
+        method: "GET",
+      })
+    );
+  });
+
+  it("throws when audit payload shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [{ id: "audit-1" }], next_cursor: null }), {
+        status: 200,
+      })
+    );
+
+    await expect(fetchAuditEntries("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid audit log response",
+      status: 200,
+    });
+  });
+
+  it("throws parsed API error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(fetchAuditEntries("jwt", "prop-1")).rejects.toEqual(
       expect.objectContaining<AuthApiError>({
         name: "AuthApiError",
         message: "forbidden",
