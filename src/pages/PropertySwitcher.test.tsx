@@ -5,10 +5,12 @@ import { PropertySwitcher } from "@/pages/DashboardLayout";
 
 const fetchPropertiesMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const readUserMeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({
   fetchProperties: fetchPropertiesMock,
   readAccessToken: readAccessTokenMock,
+  readUserMe: readUserMeMock,
   hydrateSessionFromStorage: vi.fn(),
 }));
 
@@ -24,7 +26,15 @@ describe("PropertySwitcher", () => {
     vi.restoreAllMocks();
     fetchPropertiesMock.mockReset();
     readAccessTokenMock.mockReset();
+    readUserMeMock.mockReset();
+    localStorage.clear();
     readAccessTokenMock.mockReturnValue("jwt_key");
+    readUserMeMock.mockReturnValue({
+      email: "owner@example.com",
+      first_name: "Owner",
+      last_name: "One",
+      default_account_id: "acct-1",
+    });
   });
 
   it("shows skeleton in trigger and menu while properties are loading", () => {
@@ -80,5 +90,57 @@ describe("PropertySwitcher", () => {
     const manageButton = screen.getByTestId("property-switcher-manage");
     expect(manageButton).toBeDisabled();
     expect(manageButton).toHaveTextContent("Read-only");
+  });
+
+  it("persists property selection changes and restores on startup", async () => {
+    fetchPropertiesMock.mockResolvedValue([
+      {
+        id: "prop-1",
+        name: "Mountain Lodge Retreat",
+        address: {
+          street: "789 Alpine Road",
+          city: "Aspen",
+          state: "CO",
+          postalCode: "81611",
+          country: "United States",
+        },
+      },
+      {
+        id: "prop-2",
+        name: "City Loft",
+        address: {
+          street: "123 Main St",
+          city: "Austin",
+          state: "TX",
+          postalCode: "73301",
+          country: "United States",
+        },
+      },
+    ]);
+
+    const { unmount } = renderSwitcher();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("property-switcher-trigger-skeleton")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
+    fireEvent.click(screen.getByText("City Loft"));
+    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("prop-2");
+    expect(screen.getByText("City Loft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
+    fireEvent.click(screen.getAllByText("All Properties")[0]);
+    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("all");
+    expect(screen.getByText("All Properties")).toBeInTheDocument();
+
+    localStorage.setItem("selected_property_id:acct-1", "prop-2");
+    unmount();
+    renderSwitcher();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("property-switcher-trigger-skeleton")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("City Loft")).toBeInTheDocument();
   });
 });
