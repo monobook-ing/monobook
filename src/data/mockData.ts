@@ -208,6 +208,31 @@ export const mockRooms: Room[] = [
   },
 ];
 
+export interface AuditLogEntry {
+  id: string;
+  conversationId: string;
+  type: "mcp" | "chatGPT" | "claude" | "gemini" | "widget";
+  toolName: string;
+  text: string;
+  date: string;
+  status: "success" | "error" | "pending";
+}
+
+export const mockAuditLog: AuditLogEntry[] = [
+  { id: "a1", conversationId: "conv_abc123", type: "mcp", toolName: "search_rooms", text: "Searched available rooms for March 15-20", date: "2026-02-22T14:32:00", status: "success" },
+  { id: "a2", conversationId: "conv_abc123", type: "mcp", toolName: "create_booking", text: "Created booking for Sarah Chen, Room 301", date: "2026-02-22T14:33:12", status: "success" },
+  { id: "a3", conversationId: "conv_def456", type: "chatGPT", toolName: "check_availability", text: "Checked availability for Deluxe Suite", date: "2026-02-22T12:15:00", status: "success" },
+  { id: "a4", conversationId: "conv_ghi789", type: "claude", toolName: "get_pricing", text: "Retrieved pricing for Penthouse Suite", date: "2026-02-22T11:45:30", status: "success" },
+  { id: "a5", conversationId: "conv_jkl012", type: "gemini", toolName: "search_rooms", text: "Searched rooms with sea view amenity", date: "2026-02-22T10:20:00", status: "error" },
+  { id: "a6", conversationId: "conv_mno345", type: "widget", toolName: "create_booking", text: "Guest initiated booking via widget", date: "2026-02-21T18:05:00", status: "success" },
+  { id: "a7", conversationId: "conv_pqr678", type: "chatGPT", toolName: "cancel_booking", text: "Cancelled booking b4 for Alex Thompson", date: "2026-02-21T16:40:00", status: "pending" },
+  { id: "a8", conversationId: "conv_stu901", type: "claude", toolName: "update_booking", text: "Extended checkout date to April 5", date: "2026-02-21T15:12:00", status: "success" },
+  { id: "a9", conversationId: "conv_vwx234", type: "mcp", toolName: "get_guest_info", text: "Retrieved guest profile for Yuki Tanaka", date: "2026-02-21T14:00:00", status: "success" },
+  { id: "a10", conversationId: "conv_yza567", type: "gemini", toolName: "search_rooms", text: "Searched available rooms for April", date: "2026-02-21T11:30:00", status: "success" },
+  { id: "a11", conversationId: "conv_bcd890", type: "widget", toolName: "check_availability", text: "Widget availability check for Mountain Suite", date: "2026-02-20T20:15:00", status: "success" },
+  { id: "a12", conversationId: "conv_efg123", type: "chatGPT", toolName: "create_booking", text: "Failed to create booking — room unavailable", date: "2026-02-20T17:45:00", status: "error" },
+];
+
 export const mockUploadedFiles = [
   { id: "f1", name: "Hotel_Policy_2026.pdf", size: "2.4 MB", uploadedAt: "2026-02-10" },
   { id: "f2", name: "WiFi_Instructions.docx", size: "145 KB", uploadedAt: "2026-02-12" },
