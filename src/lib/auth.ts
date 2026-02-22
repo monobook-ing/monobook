@@ -142,16 +142,69 @@ const parseError = async (res: Response): Promise<AuthApiError> => {
   return new AuthApiError(message, res.status);
 };
 
-const isValidUserMe = (value: unknown): value is UserMe => {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return Boolean(value) && typeof value === "object";
+};
 
-  return (
-    typeof candidate.email === "string" &&
-    typeof candidate.first_name === "string" &&
-    typeof candidate.last_name === "string" &&
-    typeof candidate.default_account_id === "string"
-  );
+const readStringField = (candidate: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = candidate[key];
+    if (typeof value === "string") {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+};
+
+const hasAnyUserMeField = (candidate: Record<string, unknown>) => {
+  return [
+    "email",
+    "email_address",
+    "emailAddress",
+    "first_name",
+    "firstName",
+    "last_name",
+    "lastName",
+    "default_account_id",
+    "defaultAccountId",
+  ].some((key) => key in candidate);
+};
+
+const extractUserMeCandidate = (value: unknown): Record<string, unknown> | null => {
+  if (!isRecord(value)) return null;
+
+  if (isRecord(value.user)) return value.user;
+  if (isRecord(value.data) && hasAnyUserMeField(value.data)) return value.data;
+
+  return value;
+};
+
+const normalizeUserMe = (value: unknown): UserMe | null => {
+  const candidate = extractUserMeCandidate(value);
+  if (!candidate) return null;
+
+  const email = readStringField(candidate, ["email", "email_address", "emailAddress"]);
+  if (!email) return null;
+
+  const firstName =
+    readStringField(candidate, ["first_name", "firstName", "given_name", "givenName"]) ?? "";
+  const lastName =
+    readStringField(candidate, ["last_name", "lastName", "family_name", "familyName"]) ?? "";
+  const defaultAccountId =
+    readStringField(candidate, [
+      "default_account_id",
+      "defaultAccountId",
+      "account_id",
+      "accountId",
+    ]) ?? "";
+
+  return {
+    email,
+    first_name: firstName,
+    last_name: lastName,
+    default_account_id: defaultAccountId,
+  };
 };
 
 const asOptionalString = (value: unknown) => {
@@ -377,11 +430,12 @@ export const fetchMe = async (accessToken: string): Promise<UserMe> => {
   }
 
   const data = await res.json().catch(() => null);
-  if (!isValidUserMe(data)) {
+  const normalized = normalizeUserMe(data);
+  if (!normalized) {
     throw new AuthApiError("Invalid user profile response", res.status);
   }
 
-  return data;
+  return normalized;
 };
 
 export const fetchProperties = async (accessToken: string): Promise<Property[]> => {
@@ -536,7 +590,7 @@ export const readUserMe = (): UserMe | null => {
 
   try {
     const parsed = JSON.parse(raw);
-    return isValidUserMe(parsed) ? parsed : null;
+    return normalizeUserMe(parsed);
   } catch {
     return null;
   }
