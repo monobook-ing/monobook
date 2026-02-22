@@ -1,11 +1,12 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, MessageSquare } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare } from "lucide-react";
 
 const navItems = [
   { id: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "/inventory", label: "Inventory", icon: CalendarDays },
   { id: "/settings", label: "Settings", icon: Settings },
+  { id: "/audit", label: "Audit Log", icon: ScrollText },
 ];
 
 export default function DashboardLayout() {
