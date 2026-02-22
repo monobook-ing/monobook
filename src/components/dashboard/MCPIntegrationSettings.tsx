@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil, Camera } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -169,6 +169,7 @@ interface HostProfile {
   yearsHosting: number;
   superhost: boolean;
   avatarInitials: string;
+  avatarUrl?: string;
 }
 
 const defaultHost: HostProfile = {
@@ -187,6 +188,20 @@ function HostDetailsSection() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(host);
   const [syncing, setSyncing] = useState<"airbnb" | "booking" | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const url = ev.target?.result as string;
+      setHost((prev) => ({ ...prev, avatarUrl: url }));
+      setEditForm((prev) => ({ ...prev, avatarUrl: url }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const saveEdit = () => {
     setHost(editForm);
@@ -225,6 +240,26 @@ function HostDetailsSection() {
       <div className="p-5">
         {editing ? (
           <div className="space-y-3">
+            {/* Avatar upload in edit mode */}
+            <div className="flex items-center gap-4">
+              <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+                <Avatar className="h-16 w-16">
+                  {editForm.avatarUrl ? (
+                    <img src={editForm.avatarUrl} alt={editForm.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{editForm.avatarInitials}</AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium text-foreground text-sm">Profile photo</p>
+                <p>Click to upload a new photo</p>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label className="text-xs">Name</Label>
@@ -248,9 +283,18 @@ function HostDetailsSection() {
           <div className="space-y-4">
             {/* Profile card inspired by Airbnb */}
             <div className="flex items-start gap-4">
-              <Avatar className="h-16 w-16 shrink-0">
-                <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{host.avatarInitials}</AvatarFallback>
-              </Avatar>
+              <div className="relative group cursor-pointer" onClick={() => { if (!editing) { setEditForm(host); setEditing(true); } }}>
+                <Avatar className="h-16 w-16 shrink-0">
+                  {host.avatarUrl ? (
+                    <img src={host.avatarUrl} alt={host.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{host.avatarInitials}</AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg font-semibold text-foreground">{host.name}</h3>
