@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Trash2, FileText, CreditCard, Link2, Loader2 } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { mockUploadedFiles } from "@/data/mockData";
 import {
   AlertDialog,
@@ -157,10 +158,20 @@ export function MCPIntegrationSettings() {
   const [files, setFiles] = useState(mockUploadedFiles);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const [previewFile, setPreviewFile] = useState<typeof mockUploadedFiles[number] | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const removeFile = (id: string) => {
     setFiles((f) => f.filter((file) => file.id !== id));
+  };
+
+  const handleDeleteFromPreview = () => {
+    if (previewFile) {
+      removeFile(previewFile.id);
+      setPreviewFile(null);
+      setShowDeleteDialog(false);
+    }
   };
 
   const simulateUpload = useCallback((fileList: FileList) => {
@@ -320,12 +331,15 @@ export function MCPIntegrationSettings() {
           </AnimatePresence>
           {files.map((file) => (
             <div key={file.id} className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center">
+              <div
+                className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                onClick={() => setPreviewFile(file)}
+              >
+                <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4 text-muted-foreground" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-card-foreground">{file.name}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-card-foreground truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{file.size} · {file.uploadedAt}</p>
                 </div>
               </div>
@@ -340,6 +354,81 @@ export function MCPIntegrationSettings() {
           ))}
         </div>
       </div>
+
+      {/* File Preview Overlay */}
+      <AnimatePresence>
+        {previewFile && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground truncate">{previewFile.name}</h2>
+              <div className="flex items-center gap-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <motion.button
+                      className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-secondary transition-colors"
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <MoreVertical className="w-5 h-5 text-muted-foreground" />
+                    </motion.button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-48 rounded-xl p-1.5">
+                    <button
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors min-h-[44px]"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </PopoverContent>
+                </Popover>
+                <motion.button
+                  className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-secondary transition-colors"
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setPreviewFile(null)}
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+              <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center">
+                <FileText className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <p className="text-base font-semibold text-foreground">{previewFile.name}</p>
+                <p className="text-sm text-muted-foreground mt-1">{previewFile.size} · Uploaded {previewFile.uploadedAt}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete file?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {previewFile?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFromPreview} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }
