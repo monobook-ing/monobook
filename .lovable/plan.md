@@ -1,91 +1,83 @@
 
 
-# Room Management Page
+# Property (Hotel/Building) Entity with Sidebar Selector
 
 ## Overview
-A new "Rooms" page in the dashboard sidebar for managing room/property listings. Each room has images (with a main image), description, amenities, pricing, and more -- inspired by Booking.com and Airbnb listing detail pages. Includes the ability to add rooms by connecting to Airbnb/Booking.com or pasting a URL for AI-powered scraping and import, plus a sync toggle per room.
+Add an optional "Property" entity so rooms can be grouped under a hotel/building. A property switcher dropdown will appear in the sidebar header, allowing users to switch between properties. The rooms page will filter by the selected property. A "Manage Properties" option lets users add/edit properties.
 
 ## What will be built
 
-### 1. Room listing page (`/rooms`)
-- Grid of room cards showing main image, name, type, price, sync status badge
-- "Add Room" button in the header
-- Each card is clickable to open a detail/edit view
+### 1. Property data model and mock data
+- New `Property` interface: id, name, address, image (optional), roomCount (derived)
+- 3 mock properties: "Sunset Beach Resort", "Downtown City Hotel", "Mountain Lodge Retreat"
+- Add optional `propertyId` field to `ManagedRoom` interface
+- Assign existing mock rooms to different properties
+- Add an "All Properties" option for viewing everything
 
-### 2. Room detail view (inline expandable or separate view)
-- **Image gallery**: Main hero image with smaller thumbnail grid (up to 5 images), click to view full-screen
-- **Details section**: Room name, type, description, price per night, max guests, bed configuration
-- **Amenities**: Tag/badge list (WiFi, Pool, AC, Kitchen, Parking, etc.)
-- **Source info**: Shows if imported from Airbnb/Booking.com with sync status and last synced date
-- **Actions**: Edit, Delete, Toggle sync on/off
+### 2. Sidebar property switcher
+- Replace the static "StayAI" header in the sidebar with a clickable property selector
+- Uses a `Popover` showing a list of properties + "All Properties" option
+- Each property row shows name and room count
+- "Manage Properties" link at the bottom of the popover
+- Selected property shows its name and a `ChevronsUpDown` icon
+- The StayAI branding moves to a smaller line or stays as the app name above
 
-### 3. Add Room dialog
-Three import methods presented as tabs/cards:
-- **Paste Link**: Input field for Airbnb/Booking.com URL + "Import" button. Shows a mock AI scraping animation, then populates the room form with scraped data
-- **Connect Platform**: Buttons to "Connect Airbnb" and "Connect Booking.com" (mock OAuth flow showing connected state)
-- **Manual Entry**: Form with all fields to fill in manually
+### 3. Property context shared across pages
+- Selected property stored in `DashboardLayout` state and passed via React context (or URL search param)
+- `RoomManagement` filters rooms by selected property (or shows all)
+- Other pages can optionally use the context later
 
-### 4. Sync feature
-- Per-room sync toggle (on/off)
-- "Last synced" timestamp display
-- "Sync now" button per room
-- Visual badge showing source platform (Airbnb/Booking.com/Manual)
+### 4. Manage Properties dialog
+- Simple dialog accessible from the popover's "Manage Properties" button
+- Lists properties with edit/delete options
+- "Add Property" form with name and address fields
 
 ## Technical Details
 
-### New files
+### New file: `src/data/mockPropertyData.ts`
+- `Property` interface: `{ id, name, address, image? }`
+- 3 mock properties with IDs like "prop-1", "prop-2", "prop-3"
 
-**`src/components/dashboard/RoomManagement.tsx`**
-- Main page component with room grid, add room dialog, and room detail view
-- Uses existing UI components: Card, Dialog, Button, Input, Tabs, Badge, Switch, AlertDialog
-- framer-motion for animations (consistent with rest of app)
-- State management with useState for rooms list, selected room, dialog open state
+### New file: `src/contexts/PropertyContext.tsx`
+- React context providing `{ selectedPropertyId, setSelectedPropertyId, properties }`
+- Provider wraps the dashboard layout
+- "all" as default value (show all properties)
 
-**`src/data/mockRoomData.ts`**
-- Extended room data model with images array, description, amenities, pricing, source info, sync status
-- 3-4 pre-populated mock rooms with realistic data
+### Modified: `src/data/mockRoomData.ts`
+- Add optional `propertyId?: string` to `ManagedRoom` interface
+- Assign propertyId to each mock room (room-1, room-2 to "prop-1"; room-3 to "prop-2"; room-4 to "prop-3")
 
-### Modified files
+### Modified: `src/pages/DashboardLayout.tsx`
+- Wrap content with `PropertyProvider`
+- Replace the static StayAI header block with a property switcher:
+  - Clickable button showing selected property name (or "All Properties")
+  - Popover listing all properties + "All Properties" option
+  - "Manage Properties" button at bottom opening a dialog
+- Keep StayAI branding as a small label above the switcher
+- On mobile: property name shown in a compact selector at the top of the page or in the header
 
-**`src/pages/DashboardLayout.tsx`**
-- Add "Rooms" nav item with `BedDouble` icon between Inventory and Settings
-- Route: `/rooms`
+### Modified: `src/components/dashboard/RoomManagement.tsx`
+- Import and consume `PropertyContext`
+- Filter displayed rooms by `selectedPropertyId` (skip filter if "all")
+- When adding a room, auto-assign the current `selectedPropertyId` (if not "all")
+- Show property name badge on room cards when viewing "All Properties"
 
-**`src/App.tsx`**
-- Add route: `<Route path="/rooms" element={<RoomManagement />} />`
+### Modified: `src/App.tsx`
+- No route changes needed (properties managed via dialog, not a separate page)
 
-### Data model
-
+### Component structure for sidebar switcher
 ```text
-ManagedRoom {
-  id: string
-  name: string
-  type: string (e.g. "Deluxe Suite", "Standard Room")
-  description: string
-  images: string[] (URLs or asset paths, first = main)
-  pricePerNight: number
-  maxGuests: number
-  bedConfig: string (e.g. "1 King Bed", "2 Queen Beds")
-  amenities: string[]
-  source: "airbnb" | "booking" | "manual"
-  sourceUrl?: string
-  syncEnabled: boolean
-  lastSynced?: string (ISO date)
-  status: "active" | "draft" | "archived"
-}
+Sidebar Header
+  [StayAI logo + name]          (smaller, stays as branding)
+  [Property Switcher Button]    (shows current property + chevron)
+    -> Popover
+       - "All Properties" option
+       - List of properties (name + room count)
+       - Separator
+       - "Manage Properties" button -> opens Dialog
 ```
 
-### Add Room flow (Paste Link)
-1. User pastes a URL (e.g. airbnb.com/rooms/12345)
-2. Mock loading animation with "AI is scraping the listing..." text
-3. After 2 seconds, form auto-fills with mock scraped data
-4. User reviews and clicks "Import Room"
-5. Room added to the list with source badge and sync enabled
-
-### Component structure
-- `RoomManagement` (main page)
-  - Room grid (cards)
-  - `AddRoomDialog` (Dialog with Tabs: Paste Link / Connect / Manual)
-  - `RoomDetailSheet` (Sheet/overlay showing full room details with image gallery)
-  - Delete confirmation (reuses AlertDialog)
-
+### Manage Properties Dialog
+- List view of properties with name, address, and delete button
+- "Add Property" section at bottom with name + address inputs
+- Simple inline editing (click to edit name/address)
