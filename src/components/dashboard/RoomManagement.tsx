@@ -262,6 +262,28 @@ export function RoomManagement() {
                   </div>
                 </SheetHeader>
 
+                {/* Property */}
+                <div className="border rounded-xl p-4">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Property</h4>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <select
+                      value={selectedRoom.propertyId || ""}
+                      onChange={(e) => {
+                        const newPropertyId = e.target.value || undefined;
+                        setRooms((prev) => prev.map((r) => r.id === selectedRoom.id ? { ...r, propertyId: newPropertyId } : r));
+                        setSelectedRoom((r) => r ? { ...r, propertyId: newPropertyId } : null);
+                      }}
+                      className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="">Unassigned</option>
+                      {properties.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <p className="text-sm text-muted-foreground leading-relaxed">{selectedRoom.description}</p>
 
                 <div className="flex items-center gap-4 text-sm">
