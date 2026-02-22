@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, BedDouble, Users, RefreshCw, ExternalLink, Trash2, X, Link2, Plug, PenLine, Loader2, Wifi, Waves, Wind, UtensilsCrossed, Car, Tv, Bath, Dumbbell, Sparkles, Eye } from "lucide-react";
+import { Plus, BedDouble, Users, RefreshCw, ExternalLink, Trash2, X, Link2, Plug, PenLine, Loader2, Wifi, Waves, Wind, UtensilsCrossed, Car, Tv, Bath, Dumbbell, Sparkles, Eye, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { mockRooms as initialRooms, mockScrapedRoom, type ManagedRoom } from "@/data/mockRoomData";
+import { useProperty } from "@/contexts/PropertyContext";
 import { format } from "date-fns";
 
 const amenityIcons: Record<string, React.ElementType> = {
@@ -28,6 +29,7 @@ const sourceBadge = (source: ManagedRoom["source"]) => {
 };
 
 export function RoomManagement() {
+  const { selectedPropertyId, properties } = useProperty();
   const [rooms, setRooms] = useState<ManagedRoom[]>(initialRooms);
   const [addOpen, setAddOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<ManagedRoom | null>(null);
@@ -55,7 +57,7 @@ export function RoomManagement() {
 
   const importScraped = () => {
     if (!scrapedData) return;
-    const newRoom: ManagedRoom = { ...scrapedData, id: `room-${Date.now()}`, lastSynced: new Date().toISOString() };
+    const newRoom: ManagedRoom = { ...scrapedData, id: `room-${Date.now()}`, lastSynced: new Date().toISOString(), propertyId: selectedPropertyId !== "all" ? selectedPropertyId : undefined };
     setRooms((prev) => [...prev, newRoom]);
     setScrapedData(null);
     setScrapeUrl("");
@@ -76,6 +78,7 @@ export function RoomManagement() {
       source: "manual",
       syncEnabled: false,
       status: "draft",
+      propertyId: selectedPropertyId !== "all" ? selectedPropertyId : undefined,
     };
     setRooms((prev) => [...prev, room]);
     setManualForm({ name: "", type: "", description: "", pricePerNight: "", maxGuests: "", bedConfig: "", amenities: "" });
@@ -92,6 +95,9 @@ export function RoomManagement() {
     }
   };
 
+  const filteredRooms = selectedPropertyId === "all" ? rooms : rooms.filter((r) => r.propertyId === selectedPropertyId);
+  const getPropertyName = (id?: string) => properties.find((p) => p.id === id)?.name;
+
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       {/* Header */}
@@ -105,7 +111,7 @@ export function RoomManagement() {
 
       {/* Room Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {rooms.map((room) => (
+        {filteredRooms.map((room) => (
           <motion.div key={room.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
             <Card className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow group" onClick={() => setSelectedRoom(room)}>
               {room.images[0] ? (
@@ -127,6 +133,12 @@ export function RoomManagement() {
                   <span className="font-semibold text-foreground">${room.pricePerNight}<span className="text-muted-foreground font-normal">/night</span></span>
                   <span className="flex items-center gap-1 text-muted-foreground"><Users className="w-3.5 h-3.5" />{room.maxGuests}</span>
                 </div>
+                {selectedPropertyId === "all" && room.propertyId && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Building2 className="w-3 h-3" />
+                    <span className="truncate">{getPropertyName(room.propertyId)}</span>
+                  </div>
+                )}
                 {room.syncEnabled && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <RefreshCw className="w-3 h-3" />

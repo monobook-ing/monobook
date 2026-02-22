@@ -18,6 +18,7 @@ export interface ManagedRoom {
   syncEnabled: boolean;
   lastSynced?: string;
   status: "active" | "draft" | "archived";
+  propertyId?: string;
 }
 
 export const mockRooms: ManagedRoom[] = [
@@ -37,6 +38,7 @@ export const mockRooms: ManagedRoom[] = [
     syncEnabled: true,
     lastSynced: "2026-02-22T14:30:00Z",
     status: "active",
+    propertyId: "prop-1",
   },
   {
     id: "room-2",
@@ -54,6 +56,7 @@ export const mockRooms: ManagedRoom[] = [
     syncEnabled: true,
     lastSynced: "2026-02-21T09:15:00Z",
     status: "active",
+    propertyId: "prop-1",
   },
   {
     id: "room-3",
@@ -69,6 +72,7 @@ export const mockRooms: ManagedRoom[] = [
     source: "manual",
     syncEnabled: false,
     status: "active",
+    propertyId: "prop-2",
   },
   {
     id: "room-4",
@@ -86,6 +90,7 @@ export const mockRooms: ManagedRoom[] = [
     syncEnabled: false,
     lastSynced: "2026-02-18T20:00:00Z",
     status: "draft",
+    propertyId: "prop-3",
   },
 ];
 
