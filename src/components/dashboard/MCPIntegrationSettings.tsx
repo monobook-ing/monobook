@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Upload, Trash2, FileText, Wifi, Link2 } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2 } from "lucide-react";
 import { mockUploadedFiles } from "@/data/mockData";
 
 interface ToggleItemProps {
@@ -89,21 +89,24 @@ export function MCPIntegrationSettings() {
         </div>
       </div>
 
-      {/* Stripe */}
-      <div className="rounded-2xl bg-card apple-shadow mb-6 p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Wifi className="w-4 h-4 text-muted-foreground" />
-          <h2 className="font-semibold text-card-foreground">Stripe Account</h2>
+      {/* Payment Providers */}
+      <div className="rounded-2xl bg-card apple-shadow mb-6">
+        <div className="p-5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold text-card-foreground">Payment Providers</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Connect payment providers to process bookings
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Connect your Stripe account to process payments as Merchant of Record.
-        </p>
-        <motion.button
-          className="px-6 py-2.5 rounded-full bg-foreground text-background font-medium text-sm min-h-[44px]"
-          whileTap={{ scale: 0.95 }}
-        >
-          Connect Stripe
-        </motion.button>
+        <div className="px-5 divide-y divide-border">
+          <ToggleItem label="Stripe" description="Card payments & Apple Pay" defaultOn />
+          <ToggleItem label="JP Morgan" description="Enterprise payment processing" />
+          <ToggleItem label="iPay" description="Mobile & online payments" />
+          <ToggleItem label="LiqPay" description="Ukrainian payment gateway" />
+          <ToggleItem label="MonoBank" description="Direct bank integration" />
+        </div>
       </div>
 
       {/* Knowledge Base */}
