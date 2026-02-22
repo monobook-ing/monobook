@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -7,13 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { mockAuditLog, type AuditLogEntry } from "@/data/mockData";
-import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProperty } from "@/contexts/PropertyContext";
+import { fetchAuditEntries, readAccessToken, type AuditEntry } from "@/lib/auth";
+import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const typeFilters = ["all", "mcp", "chatGPT", "claude", "gemini", "widget"] as const;
+const PAGE_SIZE = 20;
 
-const typeColors: Record<AuditLogEntry["type"], string> = {
+const typeColors: Record<string, string> = {
   mcp: "bg-primary/10 text-primary",
   chatGPT: "bg-emerald-500/10 text-emerald-600",
   claude: "bg-amber-500/10 text-amber-600",
@@ -21,7 +25,7 @@ const typeColors: Record<AuditLogEntry["type"], string> = {
   widget: "bg-rose-500/10 text-rose-600",
 };
 
-const typeLabels: Record<AuditLogEntry["type"], string> = {
+const typeLabels: Record<string, string> = {
   mcp: "MCP",
   chatGPT: "ChatGPT",
   claude: "Claude",
@@ -35,15 +39,123 @@ const statusConfig = {
   pending: { icon: Clock, class: "text-amber-500" },
 };
 
+const formatAuditError = (error: string) => {
+  if (error === "missing_token") {
+    return "You are not authenticated. Please sign in again to load audit logs.";
+  }
+
+  return error;
+};
+
+const getSourceLabel = (source: string) => {
+  return typeLabels[source] || source.toUpperCase();
+};
+
+const getSourceClass = (source: string) => {
+  return typeColors[source] || "bg-secondary text-muted-foreground";
+};
+
+const isKnownStatus = (value: string): value is keyof typeof statusConfig => {
+  return value === "success" || value === "error" || value === "pending";
+};
+
 export function AuditLog() {
+  const { selectedPropertyId } = useProperty();
   const [activeFilter, setActiveFilter] = useState<string>("all");
-
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const requestIdRef = useRef(0);
 
-  const filtered = mockAuditLog
-    .filter((e) => activeFilter === "all" || e.type === activeFilter)
+  useEffect(() => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    if (selectedPropertyId === "all") {
+      setEntries([]);
+      setError(null);
+      setIsLoading(false);
+      setNextCursor(null);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setEntries([]);
+      setError("missing_token");
+      setIsLoading(false);
+      setNextCursor(null);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setEntries([]);
+    setNextCursor(null);
+    setIsLoadingMore(false);
+
+    const source = activeFilter === "all" ? undefined : activeFilter;
+    fetchAuditEntries(accessToken, selectedPropertyId, {
+      source,
+      limit: PAGE_SIZE,
+    })
+      .then((result) => {
+        if (requestIdRef.current !== requestId) return;
+        setEntries(result.items);
+        setNextCursor(result.nextCursor);
+      })
+      .catch((fetchError) => {
+        if (requestIdRef.current !== requestId) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Failed to fetch audit logs";
+        setEntries([]);
+        setError(message);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
+      });
+  }, [activeFilter, selectedPropertyId]);
+
+  const loadMore = async () => {
+    if (selectedPropertyId === "all" || !nextCursor || isLoadingMore) return;
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setError("missing_token");
+      return;
+    }
+
+    setIsLoadingMore(true);
+    const source = activeFilter === "all" ? undefined : activeFilter;
+
+    try {
+      const result = await fetchAuditEntries(accessToken, selectedPropertyId, {
+        source,
+        limit: PAGE_SIZE,
+        cursor: nextCursor,
+      });
+      setEntries((prev) => [...prev, ...result.items]);
+      setNextCursor(result.nextCursor);
+    } catch (fetchError) {
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Failed to fetch audit logs";
+      setError(message);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const filteredEntries = entries
+    .filter((entry) => activeFilter === "all" || entry.source === activeFilter)
     .filter((e) => {
-      const entryDate = new Date(e.date);
+      const entryDate = new Date(e.createdAt);
+      if (Number.isNaN(entryDate.getTime())) return false;
       if (dateRange?.from && entryDate < dateRange.from) return false;
       if (dateRange?.to) {
         const toEnd = new Date(dateRange.to);
@@ -73,7 +185,7 @@ export function AuditLog() {
                 : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
           >
-            {f === "all" ? "All" : typeLabels[f as AuditLogEntry["type"]]}
+            {f === "all" ? "All" : getSourceLabel(f)}
           </motion.button>
         ))}
 
@@ -108,49 +220,119 @@ export function AuditLog() {
         </div>
       </div>
 
-      {/* Log entries */}
-      <div className="rounded-2xl bg-card apple-shadow overflow-hidden">
-        <ScrollArea className="">
-          <div className="divide-y divide-border">
-            <AnimatePresence mode="popLayout">
-              {filtered.map((entry, i) => {
-                const StatusIcon = statusConfig[entry.status].icon;
-                return (
-                  <motion.div
-                    key={entry.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="flex items-start gap-3 p-4 hover:bg-secondary/50 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0 mt-0.5">
-                      <Terminal className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${typeColors[entry.type]}`}>
-                          {typeLabels[entry.type]}
-                        </span>
-                        <code className="text-xs font-mono text-foreground">{entry.toolName}</code>
-                        <StatusIcon className={`w-3.5 h-3.5 ${statusConfig[entry.status].class}`} />
+      {selectedPropertyId === "all" && (
+        <Card className="rounded-xl border-dashed" data-testid="audit-select-property-state">
+          <CardContent className="p-8 text-center">
+            <h3 className="text-base font-semibold text-foreground">Select a property to view audit logs</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Choose one property from the switcher to load audit entries from the API.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedPropertyId !== "all" && isLoading && (
+        <div className="rounded-2xl bg-card apple-shadow overflow-hidden p-4 space-y-4" data-testid="audit-loading-state">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={`audit-skeleton-${idx}`} className="flex items-start gap-3">
+              <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-52" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedPropertyId !== "all" && !isLoading && error && (
+        <Card className="rounded-xl border-destructive/30" data-testid="audit-error-state">
+          <CardContent className="p-6">
+            <h3 className="text-sm font-semibold text-foreground">Could not load audit logs</h3>
+            <p className="text-sm text-muted-foreground mt-1">{formatAuditError(error)}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedPropertyId !== "all" && !isLoading && !error && filteredEntries.length === 0 && (
+        <Card className="rounded-xl border-dashed" data-testid="audit-empty-state">
+          <CardContent className="p-8 text-center">
+            <h3 className="text-base font-semibold text-foreground">No entries found</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              No audit entries matched your current filters.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedPropertyId !== "all" && !isLoading && !error && filteredEntries.length > 0 && (
+        <div className="rounded-2xl bg-card apple-shadow overflow-hidden">
+          <ScrollArea>
+            <div className="divide-y divide-border">
+              <AnimatePresence mode="popLayout">
+                {filteredEntries.map((entry, i) => {
+                  const normalizedStatus = isKnownStatus(entry.status) ? entry.status : "pending";
+                  const StatusIcon = statusConfig[normalizedStatus].icon;
+                  const createdAtDate = new Date(entry.createdAt);
+                  const createdAtLabel = Number.isNaN(createdAtDate.getTime())
+                    ? entry.createdAt
+                    : format(createdAtDate, "MMM d, HH:mm");
+
+                  return (
+                    <motion.div
+                      key={entry.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="flex items-start gap-3 p-4 hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0 mt-0.5">
+                        <Terminal className="w-4 h-4 text-muted-foreground" />
                       </div>
-                      <p className="text-sm text-card-foreground">{entry.text}</p>
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                        <span className="font-mono">{entry.conversationId}</span>
-                        <span>{format(new Date(entry.date), "MMM d, HH:mm")}</span>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${getSourceClass(entry.source)}`}
+                          >
+                            {getSourceLabel(entry.source)}
+                          </span>
+                          <code className="text-xs font-mono text-foreground">{entry.toolName}</code>
+                          <StatusIcon
+                            className={`w-3.5 h-3.5 ${statusConfig[normalizedStatus].class}`}
+                          />
+                        </div>
+                        <p className="text-sm text-card-foreground">{entry.description}</p>
+                        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                          <span className="font-mono">{entry.conversationId}</span>
+                          <span>{createdAtLabel}</span>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-            {filtered.length === 0 && (
-              <div className="p-8 text-center text-sm text-muted-foreground">No entries found</div>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {selectedPropertyId !== "all" && !isLoading && !error && !!nextCursor && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl gap-2"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            data-testid="audit-load-more-button"
+          >
+            {isLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {isLoadingMore ? "Loading..." : "Load more"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
