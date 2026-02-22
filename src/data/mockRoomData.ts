@@ -3,6 +3,17 @@ import hotel2 from "@/assets/hotel-2.jpg";
 import hotel3 from "@/assets/hotel-3.jpg";
 import hotel4 from "@/assets/hotel-4.jpg";
 
+export interface GuestTier {
+  minGuests: number;
+  maxGuests: number;
+  pricePerNight: number;
+}
+
+export interface RoomPricing {
+  dateOverrides: Record<string, number>; // "YYYY-MM-DD" -> price
+  guestTiers: GuestTier[];
+}
+
 export interface ManagedRoom {
   id: string;
   name: string;
@@ -19,6 +30,7 @@ export interface ManagedRoom {
   lastSynced?: string;
   status: "active" | "draft" | "archived";
   propertyId?: string;
+  pricing?: RoomPricing;
 }
 
 export const mockRooms: ManagedRoom[] = [
@@ -39,6 +51,18 @@ export const mockRooms: ManagedRoom[] = [
     lastSynced: "2026-02-22T14:30:00Z",
     status: "active",
     propertyId: "prop-1",
+    pricing: {
+      dateOverrides: {
+        "2026-02-28": 350,
+        "2026-03-01": 350,
+        "2026-03-14": 399,
+        "2026-03-15": 399,
+      },
+      guestTiers: [
+        { minGuests: 1, maxGuests: 2, pricePerNight: 289 },
+        { minGuests: 3, maxGuests: 3, pricePerNight: 339 },
+      ],
+    },
   },
   {
     id: "room-2",
@@ -91,6 +115,18 @@ export const mockRooms: ManagedRoom[] = [
     lastSynced: "2026-02-18T20:00:00Z",
     status: "draft",
     propertyId: "prop-3",
+    pricing: {
+      dateOverrides: {
+        "2026-03-06": 899,
+        "2026-03-07": 899,
+        "2026-03-08": 899,
+      },
+      guestTiers: [
+        { minGuests: 1, maxGuests: 2, pricePerNight: 750 },
+        { minGuests: 3, maxGuests: 4, pricePerNight: 850 },
+        { minGuests: 5, maxGuests: 6, pricePerNight: 950 },
+      ],
+    },
   },
 ];
 
