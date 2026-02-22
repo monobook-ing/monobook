@@ -109,6 +109,7 @@
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 2px 20px -4px hsl(220 20% 10% / .08), 0 0 0 0px hsl(0 0% 100% / .6);
   }
 
   .glass-strong {
