@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AuthApiError,
+  createKnowledgeFile,
+  deleteKnowledgeFile,
   fetchAuditEntries,
   fetchHostProfile,
+  fetchKnowledgeFiles,
   fetchMe,
   fetchRoomById,
   fetchRooms,
@@ -567,6 +570,209 @@ describe("updateHostProfile", () => {
         bio: "Bio",
       })
     ).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+});
+
+describe("fetchKnowledgeFiles", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid API knowledge files payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "file-1",
+              property_id: "prop-1",
+              name: "Hotel_Policy_2026.pdf",
+              size: "2.4 MB",
+              storage_path: null,
+              mime_type: "application/pdf",
+              created_at: "2026-02-10T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchKnowledgeFiles("jwt", "prop-1")).resolves.toEqual([
+      {
+        id: "file-1",
+        propertyId: "prop-1",
+        name: "Hotel_Policy_2026.pdf",
+        size: "2.4 MB",
+        storagePath: null,
+        mimeType: "application/pdf",
+        createdAt: "2026-02-10T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("throws when knowledge files payload shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [{ id: "file-1" }] }), { status: 200 })
+    );
+
+    await expect(fetchKnowledgeFiles("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid knowledge files response",
+      status: 200,
+    });
+  });
+
+  it("throws parsed API error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(fetchKnowledgeFiles("jwt", "prop-1")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+});
+
+describe("createKnowledgeFile", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends metadata payload and maps response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "file-2",
+          property_id: "prop-1",
+          name: "Check_in_Guide.pdf",
+          size: "1.2 MB",
+          storage_path: null,
+          mime_type: "application/pdf",
+          created_at: "2026-02-23T10:00:00Z",
+        }),
+        { status: 201 }
+      )
+    );
+
+    const result = await createKnowledgeFile("jwt", "prop-1", {
+      name: "Check_in_Guide.pdf",
+      size: "1.2 MB",
+      mimeType: "application/pdf",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/knowledge-files"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({
+          name: "Check_in_Guide.pdf",
+          size: "1.2 MB",
+          mime_type: "application/pdf",
+        }),
+      })
+    );
+
+    expect(result).toEqual({
+      id: "file-2",
+      propertyId: "prop-1",
+      name: "Check_in_Guide.pdf",
+      size: "1.2 MB",
+      storagePath: null,
+      mimeType: "application/pdf",
+      createdAt: "2026-02-23T10:00:00Z",
+    });
+  });
+
+  it("throws when create response shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "file-2" }), { status: 201 })
+    );
+
+    await expect(
+      createKnowledgeFile("jwt", "prop-1", {
+        name: "Check_in_Guide.pdf",
+        size: "1.2 MB",
+        mimeType: "application/pdf",
+      })
+    ).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid knowledge file response",
+      status: 201,
+    });
+  });
+
+  it("throws parsed API error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(
+      createKnowledgeFile("jwt", "prop-1", {
+        name: "Check_in_Guide.pdf",
+        size: "1.2 MB",
+        mimeType: "application/pdf",
+      })
+    ).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+});
+
+describe("deleteKnowledgeFile", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid delete response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "File deleted", id: "file-1" }), {
+        status: 200,
+      })
+    );
+
+    await expect(deleteKnowledgeFile("jwt", "prop-1", "file-1")).resolves.toEqual({
+      message: "File deleted",
+      id: "file-1",
+    });
+  });
+
+  it("throws when delete response shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "File deleted" }), { status: 200 })
+    );
+
+    await expect(deleteKnowledgeFile("jwt", "prop-1", "file-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid knowledge file delete response",
+      status: 200,
+    });
+  });
+
+  it("throws parsed API error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(deleteKnowledgeFile("jwt", "prop-1", "file-1")).rejects.toEqual(
       expect.objectContaining<AuthApiError>({
         name: "AuthApiError",
         message: "forbidden",

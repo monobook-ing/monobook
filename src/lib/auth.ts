@@ -94,6 +94,16 @@ export type ApiHostProfile = {
   updated_at: string;
 };
 
+export type ApiKnowledgeFile = {
+  id: string;
+  property_id: string;
+  name: string;
+  size: string;
+  storage_path: string | null;
+  mime_type: string;
+  created_at: string;
+};
+
 export type HostProfile = {
   id: string;
   propertyId: string;
@@ -110,15 +120,40 @@ export type HostProfile = {
   updatedAt: string;
 };
 
+export type KnowledgeFile = {
+  id: string;
+  propertyId: string;
+  name: string;
+  size: string;
+  storagePath: string | null;
+  mimeType: string;
+  createdAt: string;
+};
+
 export type UpdateHostProfileInput = {
   name: string;
   location: string;
   bio: string;
 };
 
+export type CreateKnowledgeFileInput = {
+  name: string;
+  size: string;
+  mimeType: string;
+};
+
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
   next_cursor: string | null;
+};
+
+export type KnowledgeFilesResponse = {
+  items: ApiKnowledgeFile[];
+};
+
+export type DeleteKnowledgeFileResponse = {
+  message: string;
+  id: string;
 };
 
 export type AuditEntry = {
@@ -378,6 +413,21 @@ const isApiHostProfile = (value: unknown): value is ApiHostProfile => {
   );
 };
 
+const isApiKnowledgeFile = (value: unknown): value is ApiKnowledgeFile => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.size === "string" &&
+    (candidate.storage_path === null || typeof candidate.storage_path === "string") &&
+    typeof candidate.mime_type === "string" &&
+    typeof candidate.created_at === "string"
+  );
+};
+
 const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -386,6 +436,22 @@ const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesRespo
     candidate.items.every(isApiAuditEntry) &&
     (candidate.next_cursor === null || typeof candidate.next_cursor === "string")
   );
+};
+
+const isValidKnowledgeFilesResponse = (
+  value: unknown
+): value is KnowledgeFilesResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiKnowledgeFile);
+};
+
+const isValidDeleteKnowledgeFileResponse = (
+  value: unknown
+): value is DeleteKnowledgeFileResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.message === "string" && typeof candidate.id === "string";
 };
 
 const mapApiProperty = (item: ApiProperty): Property => {
@@ -469,6 +535,18 @@ const mapApiHostProfile = (item: ApiHostProfile): HostProfile => {
     superhost: item.superhost,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
+  };
+};
+
+const mapApiKnowledgeFile = (item: ApiKnowledgeFile): KnowledgeFile => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    name: item.name,
+    size: item.size,
+    storagePath: item.storage_path,
+    mimeType: item.mime_type,
+    createdAt: item.created_at,
   };
 };
 
@@ -683,6 +761,92 @@ export const updateHostProfile = async (
   }
 
   return mapApiHostProfile(data);
+};
+
+export const fetchKnowledgeFiles = async (
+  accessToken: string,
+  propertyId: string
+): Promise<KnowledgeFile[]> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/knowledge-files`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidKnowledgeFilesResponse(data)) {
+    throw new AuthApiError("Invalid knowledge files response", res.status);
+  }
+
+  return data.items.map(mapApiKnowledgeFile);
+};
+
+export const createKnowledgeFile = async (
+  accessToken: string,
+  propertyId: string,
+  input: CreateKnowledgeFileInput
+): Promise<KnowledgeFile> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/knowledge-files`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: input.name,
+        size: input.size,
+        mime_type: input.mimeType,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiKnowledgeFile(data)) {
+    throw new AuthApiError("Invalid knowledge file response", res.status);
+  }
+
+  return mapApiKnowledgeFile(data);
+};
+
+export const deleteKnowledgeFile = async (
+  accessToken: string,
+  propertyId: string,
+  fileId: string
+): Promise<DeleteKnowledgeFileResponse> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/knowledge-files/${fileId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidDeleteKnowledgeFileResponse(data)) {
+    throw new AuthApiError("Invalid knowledge file delete response", res.status);
+  }
+
+  return data;
 };
 
 export const fetchMeWithRetry = async (

@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { mockUploadedFiles } from "@/data/mockData";
 import { useProperty } from "@/contexts/PropertyContext";
 import {
+  createKnowledgeFile,
+  deleteKnowledgeFile,
+  fetchKnowledgeFiles,
   fetchHostProfile,
+  type KnowledgeFile,
   readAccessToken,
   type HostProfile,
   type UpdateHostProfileInput,
@@ -181,6 +184,56 @@ const formatHostProfileError = (error: string) => {
     return "You are not authenticated. Please sign in again to load host profile.";
   }
   return error;
+};
+
+const formatKnowledgeFilesError = (error: string) => {
+  if (error === "missing_token") {
+    return "You are not authenticated. Please sign in again to load knowledge files.";
+  }
+  return error;
+};
+
+const mimeTypeByExtension: Record<string, string> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  txt: "text/plain",
+};
+
+const getMimeType = (file: File) => {
+  if (file.type && file.type.trim().length > 0) return file.type;
+  const parts = file.name.toLowerCase().split(".");
+  const extension = parts.length > 1 ? parts[parts.length - 1] : "";
+  return mimeTypeByExtension[extension] || "application/octet-stream";
+};
+
+const formatFileSize = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let idx = 0;
+
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024;
+    idx += 1;
+  }
+
+  if (idx === 0) {
+    return `${Math.round(value)} ${units[idx]}`;
+  }
+
+  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+  return `${rounded} ${units[idx]}`;
+};
+
+const formatCreatedAt = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 function HostDetailsSection() {
@@ -497,45 +550,182 @@ function HostDetailsSection() {
 }
 
 export function MCPIntegrationSettings() {
-  const [files, setFiles] = useState(mockUploadedFiles);
+  const { selectedPropertyId } = useProperty();
+  const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([]);
+  const [isKnowledgeLoading, setIsKnowledgeLoading] = useState(false);
+  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
-  const [previewFile, setPreviewFile] = useState<typeof mockUploadedFiles[number] | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<Array<{ id: string; name: string }>>([]);
+  const [previewFile, setPreviewFile] = useState<KnowledgeFile | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const requestIdRef = useRef(0);
 
-  const removeFile = (id: string) => {
-    setFiles((f) => f.filter((file) => file.id !== id));
-  };
-
-  const handleDeleteFromPreview = () => {
-    if (previewFile) {
-      removeFile(previewFile.id);
-      setPreviewFile(null);
-      setShowDeleteDialog(false);
-    }
-  };
-
-  const simulateUpload = useCallback((fileList: FileList) => {
-    Array.from(fileList).forEach((file) => {
-      const tempId = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      setUploadingFiles((prev) => [...prev, tempId]);
-
-      // Simulate upload delay
-      setTimeout(() => {
-        setUploadingFiles((prev) => prev.filter((id) => id !== tempId));
-        setFiles((prev) => [
-          ...prev,
-          {
-            id: tempId,
-            name: file.name,
-            size: `${(file.size / 1024).toFixed(0)} KB`,
-            uploadedAt: "Just now",
-          },
-        ]);
-      }, 2000);
+  const syncPreviewFile = useCallback((items: KnowledgeFile[], deletedId?: string) => {
+    setPreviewFile((prev) => {
+      if (!prev) return null;
+      if (deletedId && prev.id === deletedId) return null;
+      return items.find((item) => item.id === prev.id) ?? null;
     });
   }, []);
+
+  useEffect(() => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    setShowDeleteDialog(false);
+    setDeletingFileId(null);
+
+    if (selectedPropertyId === "all") {
+      setKnowledgeFiles([]);
+      setKnowledgeError(null);
+      setIsKnowledgeLoading(false);
+      setUploadingFiles([]);
+      setPreviewFile(null);
+      return;
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setKnowledgeFiles([]);
+      setKnowledgeError("missing_token");
+      setIsKnowledgeLoading(false);
+      setUploadingFiles([]);
+      setPreviewFile(null);
+      return;
+    }
+
+    setIsKnowledgeLoading(true);
+    setKnowledgeError(null);
+    setKnowledgeFiles([]);
+    setUploadingFiles([]);
+
+    fetchKnowledgeFiles(accessToken, selectedPropertyId)
+      .then((items) => {
+        if (requestIdRef.current !== requestId) return;
+        setKnowledgeFiles(items);
+        syncPreviewFile(items);
+      })
+      .catch((fetchError) => {
+        if (requestIdRef.current !== requestId) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Failed to fetch knowledge files";
+        setKnowledgeFiles([]);
+        setPreviewFile(null);
+        setKnowledgeError(message);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) {
+          setIsKnowledgeLoading(false);
+        }
+      });
+  }, [selectedPropertyId, syncPreviewFile]);
+
+  const refreshKnowledgeFiles = useCallback(
+    async (accessToken: string, propertyId: string, deletedId?: string) => {
+      const items = await fetchKnowledgeFiles(accessToken, propertyId);
+      setKnowledgeFiles(items);
+      syncPreviewFile(items, deletedId);
+      return items;
+    },
+    [syncPreviewFile]
+  );
+
+  const handleDeleteFromPreview = useCallback(async () => {
+    if (!previewFile || selectedPropertyId === "all" || deletingFileId) return;
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setKnowledgeError("missing_token");
+      return;
+    }
+
+    setDeletingFileId(previewFile.id);
+    setKnowledgeError(null);
+
+    try {
+      await deleteKnowledgeFile(accessToken, selectedPropertyId, previewFile.id);
+      await refreshKnowledgeFiles(accessToken, selectedPropertyId, previewFile.id);
+      setShowDeleteDialog(false);
+    } catch (deleteError) {
+      const message =
+        deleteError instanceof Error ? deleteError.message : "Failed to delete knowledge file";
+      setKnowledgeError(message);
+    } finally {
+      setDeletingFileId(null);
+    }
+  }, [deletingFileId, previewFile, refreshKnowledgeFiles, selectedPropertyId]);
+
+  const removeKnowledgeFile = useCallback(
+    async (id: string) => {
+      if (selectedPropertyId === "all" || deletingFileId) return;
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        setKnowledgeError("missing_token");
+        return;
+      }
+
+      setDeletingFileId(id);
+      setKnowledgeError(null);
+
+      try {
+        await deleteKnowledgeFile(accessToken, selectedPropertyId, id);
+        await refreshKnowledgeFiles(accessToken, selectedPropertyId, id);
+      } catch (deleteError) {
+        const message =
+          deleteError instanceof Error ? deleteError.message : "Failed to delete knowledge file";
+        setKnowledgeError(message);
+      } finally {
+        setDeletingFileId(null);
+      }
+    },
+    [deletingFileId, refreshKnowledgeFiles, selectedPropertyId]
+  );
+
+  const uploadKnowledgeFiles = useCallback(
+    async (fileList: FileList) => {
+      if (selectedPropertyId === "all") return;
+
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        setKnowledgeError("missing_token");
+        return;
+      }
+
+      const files = Array.from(fileList);
+      if (files.length === 0) return;
+
+      const tempFiles = files.map((file) => ({
+        id: `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: file.name,
+      }));
+
+      setUploadingFiles((prev) => [...prev, ...tempFiles]);
+      setKnowledgeError(null);
+
+      try {
+        await Promise.all(
+          files.map((file) =>
+            createKnowledgeFile(accessToken, selectedPropertyId, {
+              name: file.name,
+              size: formatFileSize(file.size),
+              mimeType: getMimeType(file),
+            })
+          )
+        );
+        await refreshKnowledgeFiles(accessToken, selectedPropertyId);
+      } catch (uploadError) {
+        const message =
+          uploadError instanceof Error ? uploadError.message : "Failed to upload knowledge file";
+        setKnowledgeError(message);
+      } finally {
+        setUploadingFiles((prev) =>
+          prev.filter((item) => !tempFiles.some((temp) => temp.id === item.id))
+        );
+      }
+    },
+    [refreshKnowledgeFiles, selectedPropertyId]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -551,16 +741,16 @@ export function MCPIntegrationSettings() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files.length > 0) {
-      simulateUpload(e.dataTransfer.files);
+      void uploadKnowledgeFiles(e.dataTransfer.files);
     }
-  }, [simulateUpload]);
+  }, [uploadKnowledgeFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      simulateUpload(e.target.files);
+      void uploadKnowledgeFiles(e.target.files);
       e.target.value = "";
     }
-  }, [simulateUpload]);
+  }, [uploadKnowledgeFiles]);
 
   return (
     <motion.div
@@ -619,83 +809,160 @@ export function MCPIntegrationSettings() {
           </p>
         </div>
 
-        <div className="p-5">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx,.doc,.txt"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <motion.div
-            className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center cursor-pointer transition-colors ${
-              isDragging
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/30"
-            }`}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            animate={isDragging ? { scale: 1.01 } : { scale: 1 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Upload className={`w-8 h-8 mb-2 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
-            <p className="text-sm font-medium text-card-foreground">
-              {isDragging ? "Drop to upload" : "Drop files here or click to browse"}
-            </p>
-            <p className="text-xs text-muted-foreground">PDF, DOCX up to 10MB</p>
-          </motion.div>
-        </div>
+        {selectedPropertyId === "all" && (
+          <div className="p-5">
+            <Card className="rounded-xl border-dashed" data-testid="knowledge-select-property-state">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-base font-semibold text-foreground">Select a property to view knowledge files</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose one property from the switcher to load knowledge base files.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-        <div className="px-5 pb-3 divide-y divide-border">
-          <AnimatePresence>
-            {uploadingFiles.map((id) => (
+        {selectedPropertyId !== "all" && (
+          <>
+            <div className="p-5">
+              <input
+                ref={fileInputRef}
+                data-testid="knowledge-file-input"
+                type="file"
+                accept=".pdf,.docx,.doc,.txt"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
               <motion.div
-                key={id}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex items-center justify-between py-3"
+                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center cursor-pointer transition-colors ${
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
+                }`}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                animate={isDragging ? { scale: 1.01 } : { scale: 1 }}
+                transition={{ duration: 0.2 }}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-card-foreground">Uploading…</p>
-                    <p className="text-xs text-muted-foreground">Processing file</p>
-                  </div>
-                </div>
+                <Upload className={`w-8 h-8 mb-2 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+                <p className="text-sm font-medium text-card-foreground">
+                  {isDragging ? "Drop to upload" : "Drop files here or click to browse"}
+                </p>
+                <p className="text-xs text-muted-foreground">PDF, DOCX up to 10MB</p>
               </motion.div>
-            ))}
-          </AnimatePresence>
-          {files.map((file) => (
-            <div key={file.id} className="flex items-center justify-between py-3">
-              <div
-                className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
-                onClick={() => setPreviewFile(file)}
-              >
-                <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4 text-muted-foreground" />
+            </div>
+
+            {isKnowledgeLoading && (
+              <div className="px-5 pb-3 space-y-3" data-testid="knowledge-loading-state">
+                <div className="flex items-center gap-3 py-2">
+                  <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-card-foreground truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">{file.size} · {file.uploadedAt}</p>
+                <div className="flex items-center gap-3 py-2">
+                  <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-52" />
+                    <Skeleton className="h-3 w-36" />
+                  </div>
                 </div>
               </div>
-              <motion.button
-                className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] text-destructive hover:bg-destructive/10 transition-colors"
-                whileTap={{ scale: 0.9 }}
-                onClick={() => removeFile(file.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </motion.button>
-            </div>
-          ))}
-        </div>
+            )}
+
+            {!isKnowledgeLoading && knowledgeError && (
+              <div className="px-5 pb-5">
+                <Card className="rounded-xl border-destructive/30" data-testid="knowledge-error-state">
+                  <CardContent className="p-6">
+                    <h3 className="text-sm font-semibold text-foreground">Could not load knowledge files</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {formatKnowledgeFilesError(knowledgeError)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {!isKnowledgeLoading && !knowledgeError && (
+              <>
+                <div className="px-5 pb-3 divide-y divide-border">
+                  <AnimatePresence>
+                    {uploadingFiles.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex items-center justify-between py-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-card-foreground truncate">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">Uploading...</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {knowledgeFiles.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between py-3">
+                      <div
+                        className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                        onClick={() => setPreviewFile(file)}
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-card-foreground truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.size} · {formatCreatedAt(file.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <motion.button
+                        data-testid={`knowledge-delete-${file.id}`}
+                        disabled={Boolean(deletingFileId)}
+                        className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-60"
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => {
+                          void removeKnowledgeFile(file.id);
+                        }}
+                      >
+                        {deletingFileId === file.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </motion.button>
+                    </div>
+                  ))}
+                </div>
+
+                {knowledgeFiles.length === 0 && uploadingFiles.length === 0 && (
+                  <div className="px-5 pb-5">
+                    <Card className="rounded-xl border-dashed" data-testid="knowledge-empty-state">
+                      <CardContent className="p-6 text-center">
+                        <h3 className="text-base font-semibold text-foreground">No knowledge files yet</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Upload policy docs and guides to power your RAG assistant.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
 
       {/* File Preview Overlay */}
@@ -723,6 +990,7 @@ export function MCPIntegrationSettings() {
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-48 rounded-xl p-1.5">
                     <button
+                      disabled={Boolean(deletingFileId)}
                       className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors min-h-[44px]"
                       onClick={() => setShowDeleteDialog(true)}
                     >
@@ -748,7 +1016,9 @@ export function MCPIntegrationSettings() {
               </div>
               <div className="text-center">
                 <p className="text-base font-semibold text-foreground">{previewFile.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">{previewFile.size} · Uploaded {previewFile.uploadedAt}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {previewFile.size} · Uploaded {formatCreatedAt(previewFile.createdAt)}
+                </p>
               </div>
             </div>
           </motion.div>
@@ -766,7 +1036,13 @@ export function MCPIntegrationSettings() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteFromPreview} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => {
+                void handleDeleteFromPreview();
+              }}
+              disabled={Boolean(deletingFileId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
