@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AuthApiError,
   fetchAuditEntries,
+  fetchHostProfile,
   fetchMe,
   fetchRoomById,
   fetchRooms,
   readUserMe,
+  updateHostProfile,
 } from "@/lib/auth";
 
 const validRoomsPayload = {
@@ -407,6 +409,164 @@ describe("fetchAuditEntries", () => {
     );
 
     await expect(fetchAuditEntries("jwt", "prop-1")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+});
+
+describe("fetchHostProfile", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid API host profile payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "hp-uuid",
+          property_id: "prop-1",
+          name: "StayAI Host",
+          location: "Miami, Florida",
+          bio: "Bio",
+          avatar_url: "https://example.com/avatar.jpg",
+          avatar_initials: "SH",
+          reviews: 142,
+          rating: 4.92,
+          years_hosting: 5,
+          superhost: true,
+          created_at: "2026-02-22T10:00:00Z",
+          updated_at: "2026-02-22T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchHostProfile("jwt", "prop-1")).resolves.toEqual({
+      id: "hp-uuid",
+      propertyId: "prop-1",
+      name: "StayAI Host",
+      location: "Miami, Florida",
+      bio: "Bio",
+      avatarUrl: "https://example.com/avatar.jpg",
+      avatarInitials: "SH",
+      reviews: 142,
+      rating: 4.92,
+      yearsHosting: 5,
+      superhost: true,
+      createdAt: "2026-02-22T10:00:00Z",
+      updatedAt: "2026-02-22T10:00:00Z",
+    });
+  });
+
+  it("throws when host profile payload shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "hp-uuid" }), { status: 200 })
+    );
+
+    await expect(fetchHostProfile("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid host profile response",
+      status: 200,
+    });
+  });
+
+  it("throws parsed API error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(fetchHostProfile("jwt", "prop-1")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+});
+
+describe("updateHostProfile", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends editable fields and maps response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "hp-uuid",
+          property_id: "prop-1",
+          name: "StayAI Host Updated",
+          location: "Miami Beach, Florida",
+          bio: "Updated bio text",
+          avatar_url: null,
+          avatar_initials: "SH",
+          reviews: 150,
+          rating: 4.95,
+          years_hosting: 6,
+          superhost: true,
+          created_at: "2026-02-22T10:00:00Z",
+          updated_at: "2026-02-23T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await updateHostProfile("jwt", "prop-1", {
+      name: "StayAI Host Updated",
+      location: "Miami Beach, Florida",
+      bio: "Updated bio text",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/host-profile"),
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({
+          name: "StayAI Host Updated",
+          location: "Miami Beach, Florida",
+          bio: "Updated bio text",
+        }),
+      })
+    );
+
+    expect(result).toEqual({
+      id: "hp-uuid",
+      propertyId: "prop-1",
+      name: "StayAI Host Updated",
+      location: "Miami Beach, Florida",
+      bio: "Updated bio text",
+      avatarUrl: null,
+      avatarInitials: "SH",
+      reviews: 150,
+      rating: 4.95,
+      yearsHosting: 6,
+      superhost: true,
+      createdAt: "2026-02-22T10:00:00Z",
+      updatedAt: "2026-02-23T10:00:00Z",
+    });
+  });
+
+  it("throws parsed API error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(
+      updateHostProfile("jwt", "prop-1", {
+        name: "Host",
+        location: "Miami, Florida",
+        bio: "Bio",
+      })
+    ).rejects.toEqual(
       expect.objectContaining<AuthApiError>({
         name: "AuthApiError",
         message: "forbidden",
