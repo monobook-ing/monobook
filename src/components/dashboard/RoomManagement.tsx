@@ -453,7 +453,7 @@ export function RoomManagement() {
         }}
       >
         <SheetContent
-          className="w-full max-w-full sm:max-w-lg overflow-y-auto p-0 [&>button]:rounded-full [&>button]:bg-muted/70 [&>button]:text-muted-foreground [&>button]:ring-1 [&>button]:ring-border [&>button]:shadow-sm [&>button]:opacity-100 [&>button]:transition [&>button:hover]:bg-muted/80 [&>button:focus-visible]:outline-none [&>button:focus-visible]:ring-2 [&>button:focus-visible]:ring-ring [&>button:focus-visible]:ring-offset-2 [&>button:focus-visible]:ring-offset-background"
+          className="w-full max-w-full sm:max-w-xl overflow-y-auto p-0 [&>button]:rounded-full [&>button]:bg-muted/70 [&>button]:text-muted-foreground [&>button]:ring-1 [&>button]:ring-border [&>button]:shadow-sm [&>button]:opacity-100 [&>button]:transition [&>button:hover]:bg-muted/80 [&>button:focus-visible]:outline-none [&>button:focus-visible]:ring-2 [&>button:focus-visible]:ring-ring [&>button:focus-visible]:ring-offset-2 [&>button:focus-visible]:ring-offset-background"
         >
           <SheetTitle className="sr-only">Room details</SheetTitle>
           <SheetDescription className="sr-only">
