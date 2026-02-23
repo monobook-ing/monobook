@@ -14,12 +14,12 @@ import { fetchAuditEntries, readAccessToken, type AuditEntry } from "@/lib/auth"
 import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const typeFilters = ["all", "mcp", "chatGPT", "claude", "gemini", "widget"] as const;
+const typeFilters = ["all", "mcp", "chatgpt", "claude", "gemini", "widget"] as const;
 const PAGE_SIZE = 20;
 
 const typeColors: Record<string, string> = {
   mcp: "bg-primary/10 text-primary",
-  chatGPT: "bg-emerald-500/10 text-emerald-600",
+  chatgpt: "bg-emerald-500/10 text-emerald-600",
   claude: "bg-amber-500/10 text-amber-600",
   gemini: "bg-violet-500/10 text-violet-600",
   widget: "bg-rose-500/10 text-rose-600",
@@ -27,7 +27,7 @@ const typeColors: Record<string, string> = {
 
 const typeLabels: Record<string, string> = {
   mcp: "MCP",
-  chatGPT: "ChatGPT",
+  chatgpt: "ChatGPT",
   claude: "Claude",
   gemini: "Gemini",
   widget: "Widget",
