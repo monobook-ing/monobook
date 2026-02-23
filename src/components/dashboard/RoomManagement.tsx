@@ -18,13 +18,12 @@ import {
   Sparkles,
   Eye,
   Building2,
-  X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
@@ -454,17 +453,12 @@ export function RoomManagement() {
         }}
       >
         <SheetContent
-          data-room-details
-          className="w-full max-w-full sm:max-w-lg overflow-y-auto p-0 relative [&>button]:hidden"
+          className="w-full max-w-full sm:max-w-lg overflow-y-auto p-0 [&>button]:rounded-full [&>button]:bg-muted/70 [&>button]:text-muted-foreground [&>button]:ring-1 [&>button]:ring-border [&>button]:shadow-sm [&>button]:opacity-100 [&>button]:transition [&>button:hover]:bg-muted/80 [&>button:focus-visible]:outline-none [&>button:focus-visible]:ring-2 [&>button:focus-visible]:ring-ring [&>button:focus-visible]:ring-offset-2 [&>button:focus-visible]:ring-offset-background"
         >
-          <div className="absolute right-4 top-4 z-20">
-            <SheetClose
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/70 text-muted-foreground shadow-sm ring-1 ring-border transition hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close room details</span>
-            </SheetClose>
-          </div>
+          <SheetTitle className="sr-only">Room details</SheetTitle>
+          <SheetDescription className="sr-only">
+            View room details including images, pricing, amenities, and sync state.
+          </SheetDescription>
           {isRoomDetailLoading && <RoomDetailSkeleton />}
 
           {!isRoomDetailLoading && roomDetailError && (

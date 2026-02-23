@@ -149,6 +149,7 @@ describe("RoomManagement", () => {
 
     fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
 
+    expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByTestId("room-detail-loading-state")).toBeInTheDocument();
 
     await waitFor(() => {
