@@ -4,8 +4,10 @@ import { RoomManagement } from "@/components/dashboard/RoomManagement";
 
 const fetchRoomsMock = vi.hoisted(() => vi.fn());
 const fetchRoomByIdMock = vi.hoisted(() => vi.fn());
+const deleteRoomMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
+const toastSuccessMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "all",
@@ -16,6 +18,7 @@ const propertyStateRef = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({
   fetchRooms: fetchRoomsMock,
   fetchRoomById: fetchRoomByIdMock,
+  deleteRoom: deleteRoomMock,
   readAccessToken: readAccessTokenMock,
 }));
 
@@ -26,6 +29,7 @@ vi.mock("@/contexts/PropertyContext", () => ({
 vi.mock("sonner", () => ({
   toast: {
     error: toastErrorMock,
+    success: toastSuccessMock,
   },
 }));
 
@@ -56,8 +60,10 @@ describe("RoomManagement", () => {
     vi.restoreAllMocks();
     fetchRoomsMock.mockReset();
     fetchRoomByIdMock.mockReset();
+    deleteRoomMock.mockReset();
     readAccessTokenMock.mockReset();
     toastErrorMock.mockReset();
+    toastSuccessMock.mockReset();
     propertyStateRef.current = {
       selectedPropertyId: "all",
       properties: [{ id: "prop-1", name: "Mountain Lodge Retreat" }],
@@ -129,7 +135,38 @@ describe("RoomManagement", () => {
     fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
 
     expect(await screen.findByRole("button", { name: /sync now/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /delete/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeEnabled();
+  });
+
+  it("shows delete confirmation and deletes room on yes", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([apiRoom]);
+    fetchRoomByIdMock.mockResolvedValue(apiRoom);
+    deleteRoomMock.mockResolvedValue({ message: "Room deleted", id: "room-1" });
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+
+    await screen.findByRole("button", { name: /sync now/i });
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    expect(screen.getByText("Are you sure you want to delete room?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(deleteRoomMock).toHaveBeenCalledWith("jwt", "prop-1", "room-1");
+      expect(toastSuccessMock).toHaveBeenCalledWith("Room deleted");
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Ocean View Deluxe Suite")).not.toBeInTheDocument();
+      expect(screen.getByTestId("rooms-empty-state")).toBeInTheDocument();
+    });
   });
 
   it("opens room details with loading skeleton and then renders fetched room detail", async () => {

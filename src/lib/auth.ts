@@ -283,6 +283,11 @@ export type DeleteKnowledgeFileResponse = {
   id: string;
 };
 
+export type DeleteRoomResponse = {
+  message: string;
+  id: string;
+};
+
 export type AuditEntry = {
   id: string;
   propertyId: string;
@@ -666,6 +671,12 @@ const isValidDeleteKnowledgeFileResponse = (
   return typeof candidate.message === "string" && typeof candidate.id === "string";
 };
 
+const isValidDeleteRoomResponse = (value: unknown): value is DeleteRoomResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.message === "string" && typeof candidate.id === "string";
+};
+
 const mapApiProperty = (item: ApiProperty): Property => {
   return {
     id: item.id,
@@ -917,6 +928,33 @@ export const fetchRoomById = async (
   }
 
   return mapApiRoomToManagedRoom(data);
+};
+
+export const deleteRoom = async (
+  accessToken: string,
+  propertyId: string,
+  roomId: string
+): Promise<DeleteRoomResponse> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/rooms/${roomId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidDeleteRoomResponse(data)) {
+    throw new AuthApiError("Invalid room delete response", res.status);
+  }
+
+  return data;
 };
 
 export const fetchBookings = async (
