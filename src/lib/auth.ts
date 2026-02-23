@@ -78,6 +78,44 @@ export type ApiAuditEntry = {
   created_at: string;
 };
 
+export type ApiHostProfile = {
+  id: string;
+  property_id: string;
+  name: string;
+  location: string;
+  bio: string;
+  avatar_url: string | null;
+  avatar_initials: string;
+  reviews: number;
+  rating: number;
+  years_hosting: number;
+  superhost: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HostProfile = {
+  id: string;
+  propertyId: string;
+  name: string;
+  location: string;
+  bio: string;
+  avatarUrl: string | null;
+  avatarInitials: string;
+  reviews: number;
+  rating: number;
+  yearsHosting: number;
+  superhost: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdateHostProfileInput = {
+  name: string;
+  location: string;
+  bio: string;
+};
+
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
   next_cursor: string | null;
@@ -316,6 +354,30 @@ const isApiAuditEntry = (value: unknown): value is ApiAuditEntry => {
   );
 };
 
+const isApiHostProfile = (value: unknown): value is ApiHostProfile => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.location === "string" &&
+    typeof candidate.bio === "string" &&
+    (candidate.avatar_url === null || typeof candidate.avatar_url === "string") &&
+    typeof candidate.avatar_initials === "string" &&
+    typeof candidate.reviews === "number" &&
+    Number.isFinite(candidate.reviews) &&
+    typeof candidate.rating === "number" &&
+    Number.isFinite(candidate.rating) &&
+    typeof candidate.years_hosting === "number" &&
+    Number.isFinite(candidate.years_hosting) &&
+    typeof candidate.superhost === "boolean" &&
+    typeof candidate.created_at === "string" &&
+    typeof candidate.updated_at === "string"
+  );
+};
+
 const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -389,6 +451,24 @@ const mapApiRoomToManagedRoom = (item: ApiRoom): ManagedRoom => {
       guestTiers,
       dateOverrides,
     },
+  };
+};
+
+const mapApiHostProfile = (item: ApiHostProfile): HostProfile => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    name: item.name,
+    location: item.location,
+    bio: item.bio,
+    avatarUrl: item.avatar_url,
+    avatarInitials: item.avatar_initials,
+    reviews: item.reviews,
+    rating: item.rating,
+    yearsHosting: item.years_hosting,
+    superhost: item.superhost,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
   };
 };
 
@@ -544,6 +624,65 @@ export const fetchAuditEntries = async (
     items: data.items.map(mapApiAuditEntry),
     nextCursor: data.next_cursor,
   };
+};
+
+export const fetchHostProfile = async (
+  accessToken: string,
+  propertyId: string
+): Promise<HostProfile> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/host-profile`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiHostProfile(data)) {
+    throw new AuthApiError("Invalid host profile response", res.status);
+  }
+
+  return mapApiHostProfile(data);
+};
+
+export const updateHostProfile = async (
+  accessToken: string,
+  propertyId: string,
+  input: UpdateHostProfileInput
+): Promise<HostProfile> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/host-profile`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: input.name,
+        location: input.location,
+        bio: input.bio,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiHostProfile(data)) {
+    throw new AuthApiError("Invalid host profile response", res.status);
+  }
+
+  return mapApiHostProfile(data);
 };
 
 export const fetchMeWithRetry = async (

@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil, Camera } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { mockUploadedFiles } from "@/data/mockData";
+import { useProperty } from "@/contexts/PropertyContext";
+import {
+  fetchHostProfile,
+  readAccessToken,
+  type HostProfile,
+  type UpdateHostProfileInput,
+  updateHostProfile,
+} from "@/lib/auth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +27,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ToggleItemProps {
   label: string;
@@ -160,64 +170,115 @@ function PaymentProviderItem({ label, description, defaultConnected = false }: P
   );
 }
 
-interface HostProfile {
-  name: string;
-  location: string;
-  bio: string;
-  reviews: number;
-  rating: number;
-  yearsHosting: number;
-  superhost: boolean;
-  avatarInitials: string;
-  avatarUrl?: string;
-}
+const emptyEditForm: UpdateHostProfileInput = {
+  name: "",
+  location: "",
+  bio: "",
+};
 
-const defaultHost: HostProfile = {
-  name: "StayAI Host",
-  location: "Miami, Florida",
-  bio: "We are passionate hosts who love creating memorable stays for our guests. With years of experience in hospitality, we ensure every detail is perfect.",
-  reviews: 142,
-  rating: 4.92,
-  yearsHosting: 5,
-  superhost: true,
-  avatarInitials: "SH",
+const formatHostProfileError = (error: string) => {
+  if (error === "missing_token") {
+    return "You are not authenticated. Please sign in again to load host profile.";
+  }
+  return error;
 };
 
 function HostDetailsSection() {
-  const [host, setHost] = useState<HostProfile>(defaultHost);
+  const { selectedPropertyId } = useProperty();
+  const [host, setHost] = useState<HostProfile | null>(null);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState(host);
-  const [syncing, setSyncing] = useState<"airbnb" | "booking" | null>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [editForm, setEditForm] = useState<UpdateHostProfileInput>(emptyEditForm);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const url = ev.target?.result as string;
-      setHost((prev) => ({ ...prev, avatarUrl: url }));
-      setEditForm((prev) => ({ ...prev, avatarUrl: url }));
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
-
-  const saveEdit = () => {
-    setHost(editForm);
+  useEffect(() => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setEditing(false);
+
+    if (selectedPropertyId === "all") {
+      setHost(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setHost(null);
+      setError("missing_token");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setHost(null);
+
+    fetchHostProfile(accessToken, selectedPropertyId)
+      .then((result) => {
+        if (requestIdRef.current !== requestId) return;
+        setHost(result);
+        setEditForm({
+          name: result.name,
+          location: result.location,
+          bio: result.bio,
+        });
+      })
+      .catch((fetchError) => {
+        if (requestIdRef.current !== requestId) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Failed to fetch host profile";
+        setHost(null);
+        setError(message);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
+      });
+  }, [selectedPropertyId]);
+
+  const saveEdit = async () => {
+    if (!host || selectedPropertyId === "all") return;
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setError("missing_token");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const updated = await updateHostProfile(accessToken, selectedPropertyId, editForm);
+      setHost(updated);
+      setEditForm({
+        name: updated.name,
+        location: updated.location,
+        bio: updated.bio,
+      });
+      setEditing(false);
+    } catch (saveError) {
+      const message =
+        saveError instanceof Error ? saveError.message : "Failed to update host profile";
+      setError(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const syncFrom = (platform: "airbnb" | "booking") => {
-    setSyncing(platform);
-    setTimeout(() => {
-      setSyncing(null);
-      const synced: Partial<HostProfile> = platform === "airbnb"
-        ? { reviews: 2402, rating: 4.87, yearsHosting: 10, superhost: true }
-        : { reviews: 890, rating: 9.1, yearsHosting: 7, superhost: false };
-      setHost((prev) => ({ ...prev, ...synced }));
-      setEditForm((prev) => ({ ...prev, ...synced }));
-    }, 2000);
+  const cancelEdit = () => {
+    if (!host) return;
+    setEditForm({
+      name: host.name,
+      location: host.location,
+      bio: host.bio,
+    });
+    setEditing(false);
   };
 
   return (
@@ -228,8 +289,21 @@ function HostDetailsSection() {
             <User className="w-4 h-4 text-muted-foreground" />
             <h2 className="font-semibold text-card-foreground">Host Details</h2>
           </div>
-          {!editing && (
-            <Button variant="ghost" size="sm" className="rounded-xl gap-1.5 h-8" onClick={() => { setEditForm(host); setEditing(true); }}>
+          {!editing && host && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-xl gap-1.5 h-8"
+              disabled={isLoading || isSaving}
+              onClick={() => {
+                setEditForm({
+                  name: host.name,
+                  location: host.location,
+                  bio: host.bio,
+                });
+                setEditing(true);
+              }}
+            >
               <Pencil className="w-3.5 h-3.5" /> Edit
             </Button>
           )}
@@ -238,63 +312,120 @@ function HostDetailsSection() {
       </div>
 
       <div className="p-5">
+        {selectedPropertyId === "all" && (
+          <Card className="rounded-xl border-dashed" data-testid="host-details-select-property-state">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-base font-semibold text-foreground">Select a property to view host details</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Choose one property from the switcher to load host profile data.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedPropertyId !== "all" && isLoading && (
+          <div className="space-y-4" data-testid="host-details-loading-state">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-44" />
+                <Skeleton className="h-4 w-36" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Skeleton className="h-16 rounded-xl" />
+              <Skeleton className="h-16 rounded-xl" />
+              <Skeleton className="h-16 rounded-xl" />
+            </div>
+            <Skeleton className="h-16 rounded-xl" />
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && !isLoading && error && !host && (
+          <Card className="rounded-xl border-destructive/30" data-testid="host-details-error-state">
+            <CardContent className="p-6">
+              <h3 className="text-sm font-semibold text-foreground">Could not load host profile</h3>
+              <p className="text-sm text-muted-foreground mt-1">{formatHostProfileError(error)}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedPropertyId !== "all" && !isLoading && host && (
+          <>
+            {error && (
+              <Card className="rounded-xl border-destructive/30 mb-4" data-testid="host-details-save-error-state">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">{formatHostProfileError(error)}</p>
+                </CardContent>
+              </Card>
+            )}
+
         {editing ? (
           <div className="space-y-3">
-            {/* Avatar upload in edit mode */}
             <div className="flex items-center gap-4">
-              <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
-                <Avatar className="h-16 w-16">
-                  {editForm.avatarUrl ? (
-                    <img src={editForm.avatarUrl} alt={editForm.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{editForm.avatarInitials}</AvatarFallback>
-                  )}
-                </Avatar>
-                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-5 h-5 text-white" />
-                </div>
-                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-              </div>
+              <Avatar className="h-16 w-16">
+                {host.avatarUrl ? (
+                  <img src={host.avatarUrl} alt={host.name} className="h-full w-full object-cover" />
+                ) : (
+                  <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{host.avatarInitials}</AvatarFallback>
+                )}
+              </Avatar>
               <div className="text-xs text-muted-foreground">
                 <p className="font-medium text-foreground text-sm">Profile photo</p>
-                <p>Click to upload a new photo</p>
+                <p>Photo updates will be available soon</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label className="text-xs">Name</Label>
-                <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} className="rounded-xl mt-1" />
+                <Label htmlFor="host-name-input" className="text-xs">Name</Label>
+                <Input
+                  id="host-name-input"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                  className="rounded-xl mt-1"
+                />
               </div>
               <div className="col-span-2">
-                <Label className="text-xs">Location</Label>
-                <Input value={editForm.location} onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))} className="rounded-xl mt-1" />
+                <Label htmlFor="host-location-input" className="text-xs">Location</Label>
+                <Input
+                  id="host-location-input"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm((p) => ({ ...p, location: e.target.value }))}
+                  className="rounded-xl mt-1"
+                />
               </div>
               <div className="col-span-2">
-                <Label className="text-xs">Bio</Label>
-                <Textarea value={editForm.bio} onChange={(e) => setEditForm((p) => ({ ...p, bio: e.target.value }))} className="rounded-xl mt-1" rows={3} />
+                <Label htmlFor="host-bio-input" className="text-xs">Bio</Label>
+                <Textarea
+                  id="host-bio-input"
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm((p) => ({ ...p, bio: e.target.value }))}
+                  className="rounded-xl mt-1"
+                  rows={3}
+                />
               </div>
             </div>
             <div className="flex gap-2 pt-1">
-              <Button size="sm" className="rounded-xl" onClick={saveEdit}>Save</Button>
-              <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button size="sm" className="rounded-xl gap-1.5" onClick={saveEdit} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" className="rounded-xl" onClick={cancelEdit} disabled={isSaving}>
+                Cancel
+              </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Profile card inspired by Airbnb */}
             <div className="flex items-start gap-4">
-              <div className="relative group cursor-pointer" onClick={() => { if (!editing) { setEditForm(host); setEditing(true); } }}>
-                <Avatar className="h-16 w-16 shrink-0">
-                  {host.avatarUrl ? (
-                    <img src={host.avatarUrl} alt={host.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{host.avatarInitials}</AvatarFallback>
-                  )}
-                </Avatar>
-                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-5 h-5 text-white" />
-                </div>
-              </div>
+              <Avatar className="h-16 w-16 shrink-0">
+                {host.avatarUrl ? (
+                  <img src={host.avatarUrl} alt={host.name} className="h-full w-full object-cover" />
+                ) : (
+                  <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{host.avatarInitials}</AvatarFallback>
+                )}
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg font-semibold text-foreground">{host.name}</h3>
@@ -339,24 +470,27 @@ function HostDetailsSection() {
               variant="outline"
               size="sm"
               className="rounded-xl gap-1.5"
-              disabled={syncing !== null}
-              onClick={() => syncFrom("airbnb")}
+              data-testid="host-sync-airbnb-button"
+              disabled
             >
-              {syncing === "airbnb" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              <RefreshCw className="w-3.5 h-3.5" />
               Airbnb
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="rounded-xl gap-1.5"
-              disabled={syncing !== null}
-              onClick={() => syncFrom("booking")}
+              data-testid="host-sync-booking-button"
+              disabled
             >
-              {syncing === "booking" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              <RefreshCw className="w-3.5 h-3.5" />
               Booking.com
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground mt-2">Coming soon</p>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
