@@ -18,7 +18,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type InventoryStatusFilter = "all" | ApiBookingStatus;
+type InventoryVisibleStatus = Exclude<ApiBookingStatus, "cancelled">;
+type InventoryStatusFilter = "all" | InventoryVisibleStatus;
 
 interface InventoryBookingDetail extends Booking {
   roomName: string;
@@ -27,20 +28,23 @@ interface InventoryBookingDetail extends Booking {
 
 const statusColors: Record<ApiBookingStatus, string> = {
   confirmed: "bg-primary/80 text-primary-foreground",
-  pending: "bg-accent text-accent-foreground",
-  cancelled: "bg-muted text-muted-foreground",
+  ai_pending: "bg-emerald-500/80 text-emerald-50",
+  pending: "bg-muted text-muted-foreground",
+  cancelled: "bg-destructive/10 text-destructive",
 };
 
 const statusLabels: Record<ApiBookingStatus, string> = {
   confirmed: "Confirmed",
+  ai_pending: "AI Pending",
   pending: "Pending",
   cancelled: "Cancelled",
 };
 
 const statusBadgeVariant: Record<ApiBookingStatus, string> = {
   confirmed: "bg-primary/15 text-primary border-primary/20",
-  pending: "bg-accent text-accent-foreground border-accent/20",
-  cancelled: "bg-muted text-muted-foreground border-border",
+  ai_pending: "bg-emerald-500/15 text-emerald-700 border-emerald-500/25",
+  pending: "bg-muted text-muted-foreground border-border",
+  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 const formatInventoryError = (error: string) => {
@@ -214,8 +218,8 @@ export function InventoryCalendar() {
             <SelectContent className="rounded-xl">
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="ai_pending">AI Pending</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
           <motion.button
@@ -360,12 +364,12 @@ export function InventoryCalendar() {
                 Confirmed
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded bg-accent" />
-                Pending
+                <div className="w-3 h-3 rounded bg-emerald-500/80" />
+                AI Pending
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 rounded bg-muted" />
-                Cancelled
+                Pending
               </div>
             </div>
           </>

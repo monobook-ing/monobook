@@ -124,7 +124,7 @@ export type ApiPaymentConnection = {
   updated_at: string;
 };
 
-export type ApiBookingStatus = "confirmed" | "pending" | "cancelled";
+export type ApiBookingStatus = "confirmed" | "pending" | "ai_pending" | "cancelled";
 
 export type ApiBooking = {
   id: string;
@@ -137,7 +137,7 @@ export type ApiBooking = {
   total_price: number;
   status: ApiBookingStatus;
   ai_handled: boolean;
-  source: string;
+  source: string | null;
   conversation_id: string | null;
   created_at: string;
   updated_at: string;
@@ -201,7 +201,7 @@ export type Booking = {
   totalPrice: number;
   status: ApiBookingStatus;
   aiHandled: boolean;
-  source: string;
+  source: string | null;
   conversationId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -238,7 +238,7 @@ export type CreateBookingInput = {
   totalPrice: number;
   status: ApiBookingStatus;
   aiHandled?: boolean;
-  source?: string;
+  source?: string | null;
   conversationId?: string;
 };
 
@@ -252,7 +252,7 @@ export type UpdateBookingInput = {
   totalPrice?: number;
   status?: ApiBookingStatus;
   aiHandled?: boolean;
-  source?: string;
+  source?: string | null;
   conversationId?: string;
   cancelledAt?: string | null;
 };
@@ -586,7 +586,12 @@ const isApiPaymentConnection = (value: unknown): value is ApiPaymentConnection =
 };
 
 const isApiBookingStatus = (value: unknown): value is ApiBookingStatus => {
-  return value === "confirmed" || value === "pending" || value === "cancelled";
+  return (
+    value === "confirmed" ||
+    value === "pending" ||
+    value === "ai_pending" ||
+    value === "cancelled"
+  );
 };
 
 const isApiBooking = (value: unknown): value is ApiBooking => {
@@ -605,7 +610,7 @@ const isApiBooking = (value: unknown): value is ApiBooking => {
     Number.isFinite(candidate.total_price) &&
     isApiBookingStatus(candidate.status) &&
     typeof candidate.ai_handled === "boolean" &&
-    typeof candidate.source === "string" &&
+    (candidate.source === null || typeof candidate.source === "string") &&
     (candidate.conversation_id === null || typeof candidate.conversation_id === "string") &&
     typeof candidate.created_at === "string" &&
     typeof candidate.updated_at === "string" &&

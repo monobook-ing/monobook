@@ -1064,6 +1064,25 @@ describe("bookings api", () => {
     ]);
   });
 
+  it("accepts ai_pending status with null source in bookings list response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [{ ...validBookingPayload, status: "ai_pending", source: null }],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchBookings("jwt", "prop-1")).resolves.toEqual([
+      expect.objectContaining({
+        id: "booking-1",
+        status: "ai_pending",
+        source: null,
+      }),
+    ]);
+  });
+
   it("includes status query when filter is provided", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: [validBookingPayload] }), { status: 200 })
@@ -1077,7 +1096,12 @@ describe("bookings api", () => {
 
   it("rejects invalid bookings response payload", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ items: [{ id: "booking-1" }] }), { status: 200 })
+      new Response(
+        JSON.stringify({
+          items: [{ ...validBookingPayload, status: "invalid_status" }],
+        }),
+        { status: 200 }
+      )
     );
 
     await expect(fetchBookings("jwt", "prop-1")).rejects.toMatchObject({
@@ -1089,14 +1113,18 @@ describe("bookings api", () => {
 
   it("maps valid single booking response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify(validBookingPayload), { status: 200 })
+      new Response(
+        JSON.stringify({ ...validBookingPayload, status: "ai_pending", source: null }),
+        { status: 200 }
+      )
     );
 
     await expect(fetchBookingById("jwt", "prop-1", "booking-1")).resolves.toMatchObject({
       id: "booking-1",
       propertyId: "prop-1",
       roomId: "room-1",
-      status: "confirmed",
+      status: "ai_pending",
+      source: null,
     });
   });
 
