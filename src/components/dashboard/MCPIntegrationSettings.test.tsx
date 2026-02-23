@@ -4,6 +4,9 @@ import { MCPIntegrationSettings } from "@/components/dashboard/MCPIntegrationSet
 
 const fetchHostProfileMock = vi.hoisted(() => vi.fn());
 const updateHostProfileMock = vi.hoisted(() => vi.fn());
+const fetchKnowledgeFilesMock = vi.hoisted(() => vi.fn());
+const createKnowledgeFileMock = vi.hoisted(() => vi.fn());
+const deleteKnowledgeFileMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
@@ -14,6 +17,9 @@ const propertyStateRef = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({
   fetchHostProfile: fetchHostProfileMock,
   updateHostProfile: updateHostProfileMock,
+  fetchKnowledgeFiles: fetchKnowledgeFilesMock,
+  createKnowledgeFile: createKnowledgeFileMock,
+  deleteKnowledgeFile: deleteKnowledgeFileMock,
   readAccessToken: readAccessTokenMock,
 }));
 
@@ -37,13 +43,31 @@ const hostProfile = {
   updatedAt: "2026-02-22T10:00:00Z",
 };
 
+const knowledgeFiles = [
+  {
+    id: "file-uuid-1",
+    propertyId: "prop-1",
+    name: "Hotel_Policy_2026.pdf",
+    size: "2.4 MB",
+    storagePath: null,
+    mimeType: "application/pdf",
+    createdAt: "2026-02-10T00:00:00Z",
+  },
+];
+
 describe("MCPIntegrationSettings Host Details", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     fetchHostProfileMock.mockReset();
     updateHostProfileMock.mockReset();
+    fetchKnowledgeFilesMock.mockReset();
+    createKnowledgeFileMock.mockReset();
+    deleteKnowledgeFileMock.mockReset();
     readAccessTokenMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
+    fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
+    createKnowledgeFileMock.mockResolvedValue(knowledgeFiles[0]);
+    deleteKnowledgeFileMock.mockResolvedValue({ message: "File deleted", id: "file-uuid-1" });
   });
 
   it("shows select-property state and does not fetch when all properties is selected", () => {
@@ -181,6 +205,127 @@ describe("MCPIntegrationSettings Host Details", () => {
 
     await waitFor(() => {
       expect(screen.getByText("ZZ")).toBeInTheDocument();
+    });
+  });
+});
+
+describe("MCPIntegrationSettings Knowledge Base", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    fetchHostProfileMock.mockReset();
+    updateHostProfileMock.mockReset();
+    fetchKnowledgeFilesMock.mockReset();
+    createKnowledgeFileMock.mockReset();
+    deleteKnowledgeFileMock.mockReset();
+    readAccessTokenMock.mockReset();
+    propertyStateRef.current = { selectedPropertyId: "prop-1" };
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+  });
+
+  it("shows select-property state and does not fetch knowledge files when all properties is selected", () => {
+    propertyStateRef.current.selectedPropertyId = "all";
+
+    render(<MCPIntegrationSettings />);
+
+    expect(screen.getByTestId("knowledge-select-property-state")).toBeInTheDocument();
+    expect(fetchKnowledgeFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("shows missing-token error when token is absent", async () => {
+    readAccessTokenMock.mockReturnValue(null);
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("knowledge-error-state")).toBeInTheDocument();
+      expect(
+        screen.getByText("You are not authenticated. Please sign in again to load knowledge files.")
+      ).toBeInTheDocument();
+    });
+    expect(fetchKnowledgeFilesMock).not.toHaveBeenCalled();
+  });
+
+  it("renders fetched knowledge files", async () => {
+    fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(fetchKnowledgeFilesMock).toHaveBeenCalledWith("jwt", "prop-1");
+      expect(screen.getByText("Hotel_Policy_2026.pdf")).toBeInTheDocument();
+      expect(screen.getByText(/2.4 MB/)).toBeInTheDocument();
+    });
+  });
+
+  it("uploads selected file metadata via API and refetches list", async () => {
+    fetchKnowledgeFilesMock
+      .mockResolvedValueOnce(knowledgeFiles)
+      .mockResolvedValueOnce([
+        ...knowledgeFiles,
+        {
+          id: "file-uuid-2",
+          propertyId: "prop-1",
+          name: "Check_in_Guide.pdf",
+          size: "1.2 MB",
+          storagePath: null,
+          mimeType: "application/pdf",
+          createdAt: "2026-02-23T00:00:00Z",
+        },
+      ]);
+    createKnowledgeFileMock.mockResolvedValue({
+      id: "file-uuid-2",
+      propertyId: "prop-1",
+      name: "Check_in_Guide.pdf",
+      size: "1.2 MB",
+      storagePath: null,
+      mimeType: "application/pdf",
+      createdAt: "2026-02-23T00:00:00Z",
+    });
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByText("Hotel_Policy_2026.pdf");
+    const input = screen.getByTestId("knowledge-file-input") as HTMLInputElement;
+    const file = new File(["abc"], "Check_in_Guide.pdf", { type: "application/pdf" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(createKnowledgeFileMock).toHaveBeenCalledWith("jwt", "prop-1", {
+        name: "Check_in_Guide.pdf",
+        size: "3 B",
+        mimeType: "application/pdf",
+      });
+      expect(fetchKnowledgeFilesMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("deletes a file and refetches list", async () => {
+    fetchKnowledgeFilesMock
+      .mockResolvedValueOnce(knowledgeFiles)
+      .mockResolvedValueOnce([]);
+    deleteKnowledgeFileMock.mockResolvedValue({ message: "File deleted", id: "file-uuid-1" });
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByText("Hotel_Policy_2026.pdf");
+    fireEvent.click(screen.getByTestId("knowledge-delete-file-uuid-1"));
+
+    await waitFor(() => {
+      expect(deleteKnowledgeFileMock).toHaveBeenCalledWith("jwt", "prop-1", "file-uuid-1");
+      expect(fetchKnowledgeFilesMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("shows API error state when knowledge files fetch fails", async () => {
+    fetchKnowledgeFilesMock.mockRejectedValue(new Error("knowledge fetch failed"));
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("knowledge-error-state")).toBeInTheDocument();
+      expect(screen.getByText("knowledge fetch failed")).toBeInTheDocument();
     });
   });
 });
