@@ -104,6 +104,16 @@ export type ApiKnowledgeFile = {
   created_at: string;
 };
 
+export type ApiPmsConnection = {
+  id: string;
+  property_id: string;
+  provider: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type HostProfile = {
   id: string;
   propertyId: string;
@@ -130,6 +140,16 @@ export type KnowledgeFile = {
   createdAt: string;
 };
 
+export type PmsConnection = {
+  id: string;
+  propertyId: string;
+  provider: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type UpdateHostProfileInput = {
   name: string;
   location: string;
@@ -142,6 +162,10 @@ export type CreateKnowledgeFileInput = {
   mimeType: string;
 };
 
+export type UpdatePmsConnectionInput = {
+  enabled: boolean;
+};
+
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
   next_cursor: string | null;
@@ -149,6 +173,10 @@ export type AuditEntriesResponse = {
 
 export type KnowledgeFilesResponse = {
   items: ApiKnowledgeFile[];
+};
+
+export type PmsConnectionsResponse = {
+  items: ApiPmsConnection[];
 };
 
 export type DeleteKnowledgeFileResponse = {
@@ -428,6 +456,21 @@ const isApiKnowledgeFile = (value: unknown): value is ApiKnowledgeFile => {
   );
 };
 
+const isApiPmsConnection = (value: unknown): value is ApiPmsConnection => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.provider === "string" &&
+    typeof candidate.enabled === "boolean" &&
+    isRecord(candidate.config) &&
+    typeof candidate.created_at === "string" &&
+    typeof candidate.updated_at === "string"
+  );
+};
+
 const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -444,6 +487,14 @@ const isValidKnowledgeFilesResponse = (
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return Array.isArray(candidate.items) && candidate.items.every(isApiKnowledgeFile);
+};
+
+const isValidPmsConnectionsResponse = (
+  value: unknown
+): value is PmsConnectionsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiPmsConnection);
 };
 
 const isValidDeleteKnowledgeFileResponse = (
@@ -547,6 +598,18 @@ const mapApiKnowledgeFile = (item: ApiKnowledgeFile): KnowledgeFile => {
     storagePath: item.storage_path,
     mimeType: item.mime_type,
     createdAt: item.created_at,
+  };
+};
+
+const mapApiPmsConnection = (item: ApiPmsConnection): PmsConnection => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    provider: item.provider,
+    enabled: item.enabled,
+    config: item.config,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
   };
 };
 
@@ -787,6 +850,64 @@ export const fetchKnowledgeFiles = async (
   }
 
   return data.items.map(mapApiKnowledgeFile);
+};
+
+export const fetchPmsConnections = async (
+  accessToken: string,
+  propertyId: string
+): Promise<PmsConnection[]> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/pms-connections`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidPmsConnectionsResponse(data)) {
+    throw new AuthApiError("Invalid PMS connections response", res.status);
+  }
+
+  return data.items.map(mapApiPmsConnection);
+};
+
+export const updatePmsConnection = async (
+  accessToken: string,
+  propertyId: string,
+  provider: string,
+  input: UpdatePmsConnectionInput
+): Promise<PmsConnection> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/pms-connections/${provider}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        enabled: input.enabled,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiPmsConnection(data)) {
+    throw new AuthApiError("Invalid PMS connection response", res.status);
+  }
+
+  return mapApiPmsConnection(data);
 };
 
 export const createKnowledgeFile = async (

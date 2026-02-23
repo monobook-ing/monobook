@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +15,12 @@ import {
   deleteKnowledgeFile,
   fetchKnowledgeFiles,
   fetchHostProfile,
+  fetchPmsConnections,
   type KnowledgeFile,
+  type PmsConnection,
   readAccessToken,
   type HostProfile,
+  updatePmsConnection,
   type UpdateHostProfileInput,
   updateHostProfile,
 } from "@/lib/auth";
@@ -33,29 +37,56 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface ToggleItemProps {
-  label: string;
-  description: string;
-  defaultOn?: boolean;
+const pmsProviderDescriptions: Record<string, string> = {
+  mews: "Sync rooms & rates automatically",
+  cloudbeds: "Two-way calendar sync",
+  servio: "POS & reservation sync",
+};
+
+const formatPmsProviderLabel = (provider: string) => {
+  if (!provider) return "Unknown";
+  return provider
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
+const getPmsProviderDescription = (provider: string) => {
+  return pmsProviderDescriptions[provider.toLowerCase()] || "PMS integration";
+};
+
+const formatPmsError = (error: string) => {
+  if (error === "missing_token") {
+    return "You are not authenticated. Please sign in again to load PMS connections.";
+  }
+  return error;
+};
+
+interface PmsConnectionItemProps {
+  connection: PmsConnection;
+  isUpdating: boolean;
+  onToggle: (connection: PmsConnection) => void;
 }
 
-function ToggleItem({ label, description, defaultOn = false }: ToggleItemProps) {
-  const [on, setOn] = useState(defaultOn);
+function PmsConnectionItem({ connection, isUpdating, onToggle }: PmsConnectionItemProps) {
   return (
     <div className="flex items-center justify-between py-3.5">
       <div>
-        <p className="text-sm font-medium text-card-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-sm font-medium text-card-foreground">{formatPmsProviderLabel(connection.provider)}</p>
+        <p className="text-xs text-muted-foreground">{getPmsProviderDescription(connection.provider)}</p>
       </div>
       <motion.button
-        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer"
-        onClick={() => setOn(!on)}
+        data-testid={`pms-toggle-${connection.provider}`}
+        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+        onClick={() => onToggle(connection)}
         whileTap={{ scale: 0.92 }}
+        disabled={isUpdating}
       >
         <motion.div
           className="absolute inset-0 rounded-full"
           animate={{
-            boxShadow: on
+            boxShadow: connection.enabled
               ? "inset 0 0 0 2.5px hsl(142 50% 42%)"
               : "inset 0 0 0 2px hsl(0 0% 0% / 0.08)",
           }}
@@ -65,21 +96,23 @@ function ToggleItem({ label, description, defaultOn = false }: ToggleItemProps) 
           className="absolute rounded-full"
           style={{ inset: "3px" }}
           animate={{
-            backgroundColor: on ? "hsl(142 55% 55%)" : "hsl(0 0% 0% / 0.04)",
+            backgroundColor: connection.enabled ? "hsl(142 55% 55%)" : "hsl(0 0% 0% / 0.04)",
           }}
           transition={{ duration: 0.25, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute rounded-full bg-white"
+          className="absolute rounded-full bg-white flex items-center justify-center"
           style={{
             width: "26px",
             height: "26px",
             top: "5px",
             boxShadow: "0 1px 4px hsl(0 0% 0% / 0.18), 0 0 0 0.5px hsl(0 0% 0% / 0.04)",
           }}
-          animate={{ left: on ? "31px" : "5px" }}
+          animate={{ left: connection.enabled ? "31px" : "5px" }}
           transition={{ type: "spring", stiffness: 500, damping: 35 }}
-        />
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" /> : null}
+        </motion.div>
       </motion.button>
     </div>
   );
@@ -551,6 +584,10 @@ function HostDetailsSection() {
 
 export function MCPIntegrationSettings() {
   const { selectedPropertyId } = useProperty();
+  const [pmsConnections, setPmsConnections] = useState<PmsConnection[]>([]);
+  const [isPmsLoading, setIsPmsLoading] = useState(false);
+  const [pmsError, setPmsError] = useState<string | null>(null);
+  const [updatingProviders, setUpdatingProviders] = useState<Set<string>>(new Set());
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([]);
   const [isKnowledgeLoading, setIsKnowledgeLoading] = useState(false);
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
@@ -560,6 +597,7 @@ export function MCPIntegrationSettings() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pmsRequestIdRef = useRef(0);
   const requestIdRef = useRef(0);
 
   const syncPreviewFile = useCallback((items: KnowledgeFile[], deletedId?: string) => {
@@ -569,6 +607,49 @@ export function MCPIntegrationSettings() {
       return items.find((item) => item.id === prev.id) ?? null;
     });
   }, []);
+
+  useEffect(() => {
+    const requestId = pmsRequestIdRef.current + 1;
+    pmsRequestIdRef.current = requestId;
+    setUpdatingProviders(new Set());
+
+    if (selectedPropertyId === "all") {
+      setPmsConnections([]);
+      setPmsError(null);
+      setIsPmsLoading(false);
+      return;
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setPmsConnections([]);
+      setPmsError("missing_token");
+      setIsPmsLoading(false);
+      return;
+    }
+
+    setIsPmsLoading(true);
+    setPmsError(null);
+    setPmsConnections([]);
+
+    fetchPmsConnections(accessToken, selectedPropertyId)
+      .then((items) => {
+        if (pmsRequestIdRef.current !== requestId) return;
+        setPmsConnections(items);
+      })
+      .catch((fetchError) => {
+        if (pmsRequestIdRef.current !== requestId) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Failed to fetch PMS connections";
+        setPmsConnections([]);
+        setPmsError(message);
+      })
+      .finally(() => {
+        if (pmsRequestIdRef.current === requestId) {
+          setIsPmsLoading(false);
+        }
+      });
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
@@ -752,6 +833,66 @@ export function MCPIntegrationSettings() {
     }
   }, [uploadKnowledgeFiles]);
 
+  const togglePmsConnection = useCallback(
+    async (connection: PmsConnection) => {
+      if (selectedPropertyId === "all") return;
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        setPmsError("missing_token");
+        return;
+      }
+      if (updatingProviders.has(connection.provider)) return;
+
+      const nextEnabled = !connection.enabled;
+      setPmsError(null);
+      setUpdatingProviders((prev) => {
+        const next = new Set(prev);
+        next.add(connection.provider);
+        return next;
+      });
+      setPmsConnections((prev) =>
+        prev.map((item) =>
+          item.provider === connection.provider
+            ? { ...item, enabled: nextEnabled }
+            : item
+        )
+      );
+
+      try {
+        const updated = await updatePmsConnection(
+          accessToken,
+          selectedPropertyId,
+          connection.provider,
+          { enabled: nextEnabled }
+        );
+        setPmsConnections((prev) =>
+          prev.map((item) =>
+            item.provider === updated.provider ? updated : item
+          )
+        );
+      } catch (updateError) {
+        const message =
+          updateError instanceof Error ? updateError.message : "Failed to update PMS connection";
+        setPmsConnections((prev) =>
+          prev.map((item) =>
+            item.provider === connection.provider
+              ? { ...item, enabled: connection.enabled }
+              : item
+          )
+        );
+        setPmsError(message);
+        toast.error(message);
+      } finally {
+        setUpdatingProviders((prev) => {
+          const next = new Set(prev);
+          next.delete(connection.provider);
+          return next;
+        });
+      }
+    },
+    [selectedPropertyId, updatingProviders]
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -770,11 +911,76 @@ export function MCPIntegrationSettings() {
             <h2 className="font-semibold text-card-foreground">PMS Sync</h2>
           </div>
         </div>
-        <div className="px-5 divide-y divide-border">
-          <ToggleItem label="Mews" description="Sync rooms & rates automatically" defaultOn />
-          <ToggleItem label="Cloudbeds" description="Two-way calendar sync" />
-          <ToggleItem label="Servio" description="POS & reservation sync" />
-        </div>
+
+        {selectedPropertyId === "all" && (
+          <div className="p-5">
+            <Card className="rounded-xl border-dashed" data-testid="pms-select-property-state">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-base font-semibold text-foreground">Select a property to view PMS sync</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose one property from the switcher to load PMS provider connections.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && isPmsLoading && (
+          <div className="px-5 pb-3 space-y-3" data-testid="pms-loading-state">
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-44" />
+              </div>
+              <Skeleton className="h-9 w-16 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-36" />
+              </div>
+              <Skeleton className="h-9 w-16 rounded-full" />
+            </div>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && !isPmsLoading && pmsError && (
+          <div className="p-5">
+            <Card className="rounded-xl border-destructive/30" data-testid="pms-error-state">
+              <CardContent className="p-6">
+                <h3 className="text-sm font-semibold text-foreground">Could not load PMS connections</h3>
+                <p className="text-sm text-muted-foreground mt-1">{formatPmsError(pmsError)}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && !isPmsLoading && !pmsError && (
+          <>
+            <div className="px-5 divide-y divide-border">
+              {pmsConnections.map((connection) => (
+                <PmsConnectionItem
+                  key={connection.id}
+                  connection={connection}
+                  isUpdating={updatingProviders.has(connection.provider)}
+                  onToggle={togglePmsConnection}
+                />
+              ))}
+            </div>
+            {pmsConnections.length === 0 && (
+              <div className="p-5 pt-0">
+                <Card className="rounded-xl border-dashed" data-testid="pms-empty-state">
+                  <CardContent className="p-6 text-center">
+                    <h3 className="text-base font-semibold text-foreground">No PMS providers found</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Available PMS connections will appear here once configured.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Payment Providers */}

@@ -7,10 +7,19 @@ const updateHostProfileMock = vi.hoisted(() => vi.fn());
 const fetchKnowledgeFilesMock = vi.hoisted(() => vi.fn());
 const createKnowledgeFileMock = vi.hoisted(() => vi.fn());
 const deleteKnowledgeFileMock = vi.hoisted(() => vi.fn());
+const fetchPmsConnectionsMock = vi.hoisted(() => vi.fn());
+const updatePmsConnectionMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const toastErrorMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "prop-1",
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastErrorMock,
   },
 }));
 
@@ -20,6 +29,8 @@ vi.mock("@/lib/auth", () => ({
   fetchKnowledgeFiles: fetchKnowledgeFilesMock,
   createKnowledgeFile: createKnowledgeFileMock,
   deleteKnowledgeFile: deleteKnowledgeFileMock,
+  fetchPmsConnections: fetchPmsConnectionsMock,
+  updatePmsConnection: updatePmsConnectionMock,
   readAccessToken: readAccessTokenMock,
 }));
 
@@ -55,6 +66,27 @@ const knowledgeFiles = [
   },
 ];
 
+const pmsConnections = [
+  {
+    id: "pms-1",
+    propertyId: "prop-1",
+    provider: "mews",
+    enabled: false,
+    config: {},
+    createdAt: "2026-02-23T00:00:00Z",
+    updatedAt: "2026-02-23T00:00:00Z",
+  },
+  {
+    id: "pms-2",
+    propertyId: "prop-1",
+    provider: "cloudbeds",
+    enabled: true,
+    config: {},
+    createdAt: "2026-02-23T00:00:00Z",
+    updatedAt: "2026-02-23T00:00:00Z",
+  },
+];
+
 describe("MCPIntegrationSettings Host Details", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -63,11 +95,20 @@ describe("MCPIntegrationSettings Host Details", () => {
     fetchKnowledgeFilesMock.mockReset();
     createKnowledgeFileMock.mockReset();
     deleteKnowledgeFileMock.mockReset();
+    fetchPmsConnectionsMock.mockReset();
+    updatePmsConnectionMock.mockReset();
     readAccessTokenMock.mockReset();
+    toastErrorMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
     createKnowledgeFileMock.mockResolvedValue(knowledgeFiles[0]);
     deleteKnowledgeFileMock.mockResolvedValue({ message: "File deleted", id: "file-uuid-1" });
+    fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
+    updatePmsConnectionMock.mockImplementation(async (_token, _propertyId, provider, input) => ({
+      ...(pmsConnections.find((item) => item.provider === provider) ?? pmsConnections[0]),
+      provider,
+      enabled: input.enabled,
+    }));
   });
 
   it("shows select-property state and does not fetch when all properties is selected", () => {
@@ -77,6 +118,110 @@ describe("MCPIntegrationSettings Host Details", () => {
 
     expect(screen.getByTestId("host-details-select-property-state")).toBeInTheDocument();
     expect(fetchHostProfileMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("pms-select-property-state")).toBeInTheDocument();
+    expect(fetchPmsConnectionsMock).not.toHaveBeenCalled();
+  });
+
+  it("shows PMS missing-token error when token is absent", async () => {
+    readAccessTokenMock.mockReturnValue(null);
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("pms-error-state")).toBeInTheDocument();
+      expect(
+        screen.getByText("You are not authenticated. Please sign in again to load PMS connections.")
+      ).toBeInTheDocument();
+    });
+    expect(fetchPmsConnectionsMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches and renders PMS connections for selected property", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(fetchPmsConnectionsMock).toHaveBeenCalledWith("jwt", "prop-1");
+      expect(screen.getByTestId("pms-toggle-mews")).toBeInTheDocument();
+      expect(screen.getByTestId("pms-toggle-cloudbeds")).toBeInTheDocument();
+    });
+  });
+
+  it("optimistically toggles PMS connection and keeps updated value on success", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
+    updatePmsConnectionMock.mockResolvedValue({
+      ...pmsConnections[0],
+      enabled: true,
+    });
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("pms-toggle-mews");
+    fireEvent.click(screen.getByTestId("pms-toggle-mews"));
+
+    await waitFor(() => {
+      expect(updatePmsConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "mews", {
+        enabled: true,
+      });
+      expect(screen.getByTestId("pms-toggle-mews")).toBeInTheDocument();
+    });
+  });
+
+  it("rolls back PMS toggle and shows toast when update fails", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
+    updatePmsConnectionMock.mockRejectedValue(new Error("pms update failed"));
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("pms-toggle-mews");
+    fireEvent.click(screen.getByTestId("pms-toggle-mews"));
+
+    await waitFor(() => {
+      expect(updatePmsConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "mews", {
+        enabled: true,
+      });
+      expect(toastErrorMock).toHaveBeenCalledWith("pms update failed");
+    });
+  });
+
+  it("disables only the pending PMS provider while request is in flight", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
+    let resolveUpdate: ((value: unknown) => void) | null = null;
+    updatePmsConnectionMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve;
+        })
+    );
+
+    render(<MCPIntegrationSettings />);
+
+    const mewsToggle = await screen.findByTestId("pms-toggle-mews");
+    const cloudbedsToggle = screen.getByTestId("pms-toggle-cloudbeds");
+    fireEvent.click(mewsToggle);
+
+    await waitFor(() => {
+      expect(mewsToggle).toBeDisabled();
+      expect(cloudbedsToggle).not.toBeDisabled();
+    });
+
+    resolveUpdate?.({
+      ...pmsConnections[0],
+      enabled: true,
+    });
+
+    await waitFor(() => {
+      expect(mewsToggle).not.toBeDisabled();
+    });
   });
 
   it("shows missing-token error when token is absent", async () => {
@@ -217,10 +362,14 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     fetchKnowledgeFilesMock.mockReset();
     createKnowledgeFileMock.mockReset();
     deleteKnowledgeFileMock.mockReset();
+    fetchPmsConnectionsMock.mockReset();
+    updatePmsConnectionMock.mockReset();
     readAccessTokenMock.mockReset();
+    toastErrorMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     readAccessTokenMock.mockReturnValue("jwt");
     fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
   });
 
   it("shows select-property state and does not fetch knowledge files when all properties is selected", () => {
