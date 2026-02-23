@@ -17,6 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
 
 type InventoryVisibleStatus = Exclude<ApiBookingStatus, "cancelled">;
 type InventoryStatusFilter = "all" | InventoryVisibleStatus;
@@ -319,9 +321,28 @@ export function InventoryCalendar() {
                         minHeight: isMobile ? "48px" : "52px",
                       }}
                     >
-                      <div className="p-2 md:p-3 border-b border-border flex flex-col justify-center">
-                        <span className="text-xs md:text-sm font-medium text-card-foreground">{room.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{room.type}</span>
+                      <div className="p-2 md:p-3 border-b border-border flex items-center">
+                        <HoverCard openDelay={0} closeDelay={100}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              type="button"
+                              className="w-full text-left flex flex-col justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                              data-testid={`inventory-room-hover-trigger-${room.id}`}
+                              aria-label={`Preview ${room.name}`}
+                            >
+                              <span className="text-xs md:text-sm font-medium text-card-foreground">{room.name}</span>
+                              <span className="text-[10px] text-muted-foreground">{room.type}</span>
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent
+                            align="start"
+                            side="right"
+                            className="w-auto p-1.5"
+                            data-testid={`inventory-room-hover-content-${room.id}`}
+                          >
+                            <RoomImagePreview imageUrl={room.images[0]} alt={`${room.name} preview`} />
+                          </HoverCardContent>
+                        </HoverCard>
                       </div>
                       {dates.map((d) => (
                         <div key={d.value} className="border-b border-l border-border" />

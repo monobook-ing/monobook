@@ -260,6 +260,23 @@ describe("InventoryCalendar", () => {
     expect(within(dialog).getByText("$2100.00")).toBeInTheDocument();
   });
 
+  it("shows room image preview on room hover", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    const trigger = await screen.findByTestId("inventory-room-hover-trigger-room-1");
+    fireEvent.pointerEnter(trigger);
+    fireEvent.mouseEnter(trigger);
+
+    const content = await screen.findByTestId("inventory-room-hover-content-room-1");
+    const previewImage = within(content).getByRole("img", { name: /ocean view deluxe suite preview/i });
+    expect(previewImage).toHaveAttribute("src", "https://example.com/1.jpg");
+  });
+
   it("ignores stale responses when selected property changes", async () => {
     propertyStateRef.current.selectedPropertyId = "prop-1";
     readAccessTokenMock.mockReturnValue("jwt");

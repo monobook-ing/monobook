@@ -27,6 +27,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
+import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
 import { useProperty } from "@/contexts/PropertyContext";
 import { fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
 import { format } from "date-fns";
@@ -465,12 +466,7 @@ export function RoomManagement() {
                 {selectedRoom.images.length > 1 && (
                   <div className="flex gap-1.5 px-4 -mt-6 relative z-10">
                     {selectedRoom.images.slice(1, 4).map((img, i) => (
-                      <img
-                        key={i}
-                        src={img}
-                        alt=""
-                        className="w-16 h-12 rounded-lg object-cover border-2 border-background shadow-sm"
-                      />
+                      <RoomImagePreview key={i} imageUrl={img} alt={`${selectedRoom.name} preview ${i + 2}`} />
                     ))}
                     {selectedRoom.images.length > 4 && (
                       <div className="w-16 h-12 rounded-lg bg-muted/80 border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground shadow-sm">
