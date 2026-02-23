@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil } from "lucide-react";
+import { AIProviderSettings } from "./AIProviderSettings";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -1217,6 +1218,9 @@ export function MCPIntegrationSettings() {
           </div>
         )}
       </div>
+
+      {/* AI Providers */}
+      <AIProviderSettings />
 
       {/* Knowledge Base */}
       <div className="rounded-2xl bg-card apple-shadow mb-6">
