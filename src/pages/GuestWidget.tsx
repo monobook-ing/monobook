@@ -10,6 +10,7 @@ import type { Property } from "@/data/mockData";
 
 type WidgetStep = "browse" | "configure" | "checkout" | "complete";
 type WidgetMode = "browse" | "chat";
+const FALLBACK_PROPERTY_ID = "0ac2986f-53d8-4f5f-b217-4e133c7a0d82";
 
 export default function GuestWidget() {
   const [searchParams] = useSearchParams();
@@ -92,7 +93,7 @@ export default function GuestWidget() {
               {propertyId ? (
                 <ChatInterface propertyId={propertyId} />
               ) : (
-                <ChatInterface propertyId="demo" />
+                <ChatInterface propertyId={FALLBACK_PROPERTY_ID} />
               )}
             </motion.div>
           ) : (
