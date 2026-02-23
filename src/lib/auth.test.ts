@@ -7,10 +7,12 @@ import {
   fetchHostProfile,
   fetchKnowledgeFiles,
   fetchMe,
+  fetchPaymentConnections,
   fetchPmsConnections,
   fetchRoomById,
   fetchRooms,
   readUserMe,
+  updatePaymentConnection,
   updatePmsConnection,
   updateHostProfile,
 } from "@/lib/auth";
@@ -891,6 +893,118 @@ describe("updatePmsConnection", () => {
     await expect(updatePmsConnection("jwt", "prop-1", "mews", { enabled: true })).rejects.toMatchObject({
       name: "AuthApiError",
       message: "Invalid PMS connection response",
+      status: 200,
+    });
+  });
+});
+
+describe("fetchPaymentConnections", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid API payment connections payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "pay-1",
+              property_id: "prop-1",
+              provider: "stripe",
+              enabled: true,
+              config: {},
+              created_at: "2026-02-23T00:00:00Z",
+              updated_at: "2026-02-23T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchPaymentConnections("jwt", "prop-1")).resolves.toEqual([
+      {
+        id: "pay-1",
+        propertyId: "prop-1",
+        provider: "stripe",
+        enabled: true,
+        config: {},
+        createdAt: "2026-02-23T00:00:00Z",
+        updatedAt: "2026-02-23T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("throws when payment connections payload shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [{ id: "pay-1" }] }), { status: 200 })
+    );
+
+    await expect(fetchPaymentConnections("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid payment connections response",
+      status: 200,
+    });
+  });
+});
+
+describe("updatePaymentConnection", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends enabled payload and maps response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "pay-1",
+          property_id: "prop-1",
+          provider: "stripe",
+          enabled: false,
+          config: {},
+          created_at: "2026-02-23T00:00:00Z",
+          updated_at: "2026-02-23T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await updatePaymentConnection("jwt", "prop-1", "stripe", { enabled: false });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/payment-connections/stripe"),
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({
+          enabled: false,
+        }),
+      })
+    );
+
+    expect(result).toEqual({
+      id: "pay-1",
+      propertyId: "prop-1",
+      provider: "stripe",
+      enabled: false,
+      config: {},
+      createdAt: "2026-02-23T00:00:00Z",
+      updatedAt: "2026-02-23T10:00:00Z",
+    });
+  });
+
+  it("throws when update response shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "pay-1" }), { status: 200 })
+    );
+
+    await expect(updatePaymentConnection("jwt", "prop-1", "stripe", { enabled: true })).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid payment connection response",
       status: 200,
     });
   });

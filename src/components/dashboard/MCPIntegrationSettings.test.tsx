@@ -9,6 +9,8 @@ const createKnowledgeFileMock = vi.hoisted(() => vi.fn());
 const deleteKnowledgeFileMock = vi.hoisted(() => vi.fn());
 const fetchPmsConnectionsMock = vi.hoisted(() => vi.fn());
 const updatePmsConnectionMock = vi.hoisted(() => vi.fn());
+const fetchPaymentConnectionsMock = vi.hoisted(() => vi.fn());
+const updatePaymentConnectionMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
@@ -31,6 +33,8 @@ vi.mock("@/lib/auth", () => ({
   deleteKnowledgeFile: deleteKnowledgeFileMock,
   fetchPmsConnections: fetchPmsConnectionsMock,
   updatePmsConnection: updatePmsConnectionMock,
+  fetchPaymentConnections: fetchPaymentConnectionsMock,
+  updatePaymentConnection: updatePaymentConnectionMock,
   readAccessToken: readAccessTokenMock,
 }));
 
@@ -87,6 +91,27 @@ const pmsConnections = [
   },
 ];
 
+const paymentConnections = [
+  {
+    id: "pay-1",
+    propertyId: "prop-1",
+    provider: "stripe",
+    enabled: false,
+    config: {},
+    createdAt: "2026-02-23T00:00:00Z",
+    updatedAt: "2026-02-23T00:00:00Z",
+  },
+  {
+    id: "pay-2",
+    propertyId: "prop-1",
+    provider: "jp-morgan",
+    enabled: true,
+    config: {},
+    createdAt: "2026-02-23T00:00:00Z",
+    updatedAt: "2026-02-23T00:00:00Z",
+  },
+];
+
 describe("MCPIntegrationSettings Host Details", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -97,6 +122,8 @@ describe("MCPIntegrationSettings Host Details", () => {
     deleteKnowledgeFileMock.mockReset();
     fetchPmsConnectionsMock.mockReset();
     updatePmsConnectionMock.mockReset();
+    fetchPaymentConnectionsMock.mockReset();
+    updatePaymentConnectionMock.mockReset();
     readAccessTokenMock.mockReset();
     toastErrorMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
@@ -106,6 +133,12 @@ describe("MCPIntegrationSettings Host Details", () => {
     fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
     updatePmsConnectionMock.mockImplementation(async (_token, _propertyId, provider, input) => ({
       ...(pmsConnections.find((item) => item.provider === provider) ?? pmsConnections[0]),
+      provider,
+      enabled: input.enabled,
+    }));
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+    updatePaymentConnectionMock.mockImplementation(async (_token, _propertyId, provider, input) => ({
+      ...(paymentConnections.find((item) => item.provider === provider) ?? paymentConnections[0]),
       provider,
       enabled: input.enabled,
     }));
@@ -120,6 +153,8 @@ describe("MCPIntegrationSettings Host Details", () => {
     expect(fetchHostProfileMock).not.toHaveBeenCalled();
     expect(screen.getByTestId("pms-select-property-state")).toBeInTheDocument();
     expect(fetchPmsConnectionsMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("payment-select-property-state")).toBeInTheDocument();
+    expect(fetchPaymentConnectionsMock).not.toHaveBeenCalled();
   });
 
   it("shows PMS missing-token error when token is absent", async () => {
@@ -136,6 +171,20 @@ describe("MCPIntegrationSettings Host Details", () => {
     expect(fetchPmsConnectionsMock).not.toHaveBeenCalled();
   });
 
+  it("shows payment missing-token error when token is absent", async () => {
+    readAccessTokenMock.mockReturnValue(null);
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("payment-error-state")).toBeInTheDocument();
+      expect(
+        screen.getByText("You are not authenticated. Please sign in again to load payment connections.")
+      ).toBeInTheDocument();
+    });
+    expect(fetchPaymentConnectionsMock).not.toHaveBeenCalled();
+  });
+
   it("fetches and renders PMS connections for selected property", async () => {
     readAccessTokenMock.mockReturnValue("jwt");
     fetchHostProfileMock.mockResolvedValue(hostProfile);
@@ -147,6 +196,123 @@ describe("MCPIntegrationSettings Host Details", () => {
       expect(fetchPmsConnectionsMock).toHaveBeenCalledWith("jwt", "prop-1");
       expect(screen.getByTestId("pms-toggle-mews")).toBeInTheDocument();
       expect(screen.getByTestId("pms-toggle-cloudbeds")).toBeInTheDocument();
+    });
+  });
+
+  it("fetches and renders payment provider toggles for all catalog providers", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+
+    render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(fetchPaymentConnectionsMock).toHaveBeenCalledWith("jwt", "prop-1");
+      expect(screen.getByTestId("payment-toggle-stripe")).toBeInTheDocument();
+      expect(screen.getByTestId("payment-toggle-jp-morgan")).toBeInTheDocument();
+      expect(screen.getByTestId("payment-toggle-ipay")).toBeInTheDocument();
+      expect(screen.getByTestId("payment-toggle-liqpay")).toBeInTheDocument();
+      expect(screen.getByTestId("payment-toggle-monobank")).toBeInTheDocument();
+    });
+  });
+
+  it("optimistically toggles payment connection and keeps updated value on success", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+    updatePaymentConnectionMock.mockResolvedValue({
+      ...paymentConnections[0],
+      enabled: true,
+    });
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("payment-toggle-stripe");
+    fireEvent.click(screen.getByTestId("payment-toggle-stripe"));
+
+    await waitFor(() => {
+      expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "stripe", {
+        enabled: true,
+      });
+      expect(screen.getByTestId("payment-toggle-stripe")).toBeInTheDocument();
+    });
+  });
+
+  it("rolls back payment toggle and shows toast when update fails", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+    updatePaymentConnectionMock.mockRejectedValue(new Error("payment update failed"));
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("payment-toggle-stripe");
+    fireEvent.click(screen.getByTestId("payment-toggle-stripe"));
+
+    await waitFor(() => {
+      expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "stripe", {
+        enabled: true,
+      });
+      expect(toastErrorMock).toHaveBeenCalledWith("payment update failed");
+    });
+  });
+
+  it("disables only the pending payment provider while request is in flight", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+    let resolveUpdate: ((value: unknown) => void) | null = null;
+    updatePaymentConnectionMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve;
+        })
+    );
+
+    render(<MCPIntegrationSettings />);
+
+    const stripeToggle = await screen.findByTestId("payment-toggle-stripe");
+    const jpMorganToggle = screen.getByTestId("payment-toggle-jp-morgan");
+    fireEvent.click(stripeToggle);
+
+    await waitFor(() => {
+      expect(stripeToggle).toBeDisabled();
+      expect(jpMorganToggle).not.toBeDisabled();
+    });
+
+    resolveUpdate?.({
+      ...paymentConnections[0],
+      enabled: true,
+    });
+
+    await waitFor(() => {
+      expect(stripeToggle).not.toBeDisabled();
+    });
+  });
+
+  it("renders missing API payment providers as disabled and still toggle-capable", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue([paymentConnections[0]]);
+    updatePaymentConnectionMock.mockResolvedValue({
+      id: "pay-9",
+      propertyId: "prop-1",
+      provider: "monobank",
+      enabled: true,
+      config: {},
+      createdAt: "2026-02-23T00:00:00Z",
+      updatedAt: "2026-02-23T10:00:00Z",
+    });
+
+    render(<MCPIntegrationSettings />);
+
+    const monobankToggle = await screen.findByTestId("payment-toggle-monobank");
+    fireEvent.click(monobankToggle);
+
+    await waitFor(() => {
+      expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "monobank", {
+        enabled: true,
+      });
     });
   });
 
@@ -364,12 +530,15 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     deleteKnowledgeFileMock.mockReset();
     fetchPmsConnectionsMock.mockReset();
     updatePmsConnectionMock.mockReset();
+    fetchPaymentConnectionsMock.mockReset();
+    updatePaymentConnectionMock.mockReset();
     readAccessTokenMock.mockReset();
     toastErrorMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     readAccessTokenMock.mockReturnValue("jwt");
     fetchHostProfileMock.mockResolvedValue(hostProfile);
     fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
   });
 
   it("shows select-property state and does not fetch knowledge files when all properties is selected", () => {
