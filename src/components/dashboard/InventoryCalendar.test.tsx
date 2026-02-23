@@ -190,20 +190,41 @@ describe("InventoryCalendar", () => {
     });
   });
 
-  it("renders cancelled status in legend and dialog badge", async () => {
+  it("renders AI Pending status in filter, legend, and dialog badge", async () => {
     propertyStateRef.current.selectedPropertyId = "prop-1";
     readAccessTokenMock.mockReturnValue("jwt");
     fetchRoomsMock.mockResolvedValue([baseRoom]);
-    fetchBookingsMock.mockResolvedValue([{ ...baseBooking, status: "cancelled", guestName: "Chris Cole" }]);
+    fetchBookingsMock.mockResolvedValue([{ ...baseBooking, status: "ai_pending", guestName: "Chris Cole" }]);
 
     render(<InventoryCalendar />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
+      expect(screen.getByRole("button", { name: "AI Pending" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancelled" })).not.toBeInTheDocument();
+      expect(screen.getAllByText("AI Pending").length).toBeGreaterThan(0);
       expect(screen.getByText("Chris Cole")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText("Chris Cole"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("AI Pending")).toBeInTheDocument();
+  });
+
+  it("still renders cancelled booking badge in dialog for compatibility", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([{ ...baseBooking, status: "cancelled", guestName: "Pat Gray" }]);
+
+    render(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Pat Gray")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancelled" })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Pat Gray"));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Cancelled")).toBeInTheDocument();
