@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AuthApiError,
+  createBooking,
   createKnowledgeFile,
   deleteKnowledgeFile,
   fetchAuditEntries,
+  fetchBookingById,
+  fetchBookings,
   fetchHostProfile,
   fetchKnowledgeFiles,
   fetchMe,
@@ -12,6 +15,7 @@ import {
   fetchRoomById,
   fetchRooms,
   readUserMe,
+  updateBooking,
   updatePaymentConnection,
   updatePmsConnection,
   updateHostProfile,
@@ -1007,6 +1011,206 @@ describe("updatePaymentConnection", () => {
       message: "Invalid payment connection response",
       status: 200,
     });
+  });
+});
+
+describe("bookings api", () => {
+  const validBookingPayload = {
+    id: "booking-1",
+    property_id: "prop-1",
+    room_id: "room-1",
+    guest_id: "guest-1",
+    guest_name: "Sarah Chen",
+    check_in: "2026-03-15",
+    check_out: "2026-03-20",
+    total_price: 2100,
+    status: "confirmed",
+    ai_handled: true,
+    source: "mcp",
+    conversation_id: "conv_1",
+    created_at: "2026-02-22T10:00:00Z",
+    updated_at: "2026-02-22T10:00:00Z",
+    cancelled_at: null,
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("maps valid bookings response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [validBookingPayload] }), { status: 200 })
+    );
+
+    await expect(fetchBookings("jwt", "prop-1")).resolves.toEqual([
+      {
+        id: "booking-1",
+        propertyId: "prop-1",
+        roomId: "room-1",
+        guestId: "guest-1",
+        guestName: "Sarah Chen",
+        checkIn: "2026-03-15",
+        checkOut: "2026-03-20",
+        totalPrice: 2100,
+        status: "confirmed",
+        aiHandled: true,
+        source: "mcp",
+        conversationId: "conv_1",
+        createdAt: "2026-02-22T10:00:00Z",
+        updatedAt: "2026-02-22T10:00:00Z",
+        cancelledAt: null,
+      },
+    ]);
+  });
+
+  it("includes status query when filter is provided", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [validBookingPayload] }), { status: 200 })
+    );
+
+    await fetchBookings("jwt", "prop-1", { status: "confirmed" });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/properties/prop-1/bookings?status=confirmed");
+  });
+
+  it("rejects invalid bookings response payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [{ id: "booking-1" }] }), { status: 200 })
+    );
+
+    await expect(fetchBookings("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid bookings response",
+      status: 200,
+    });
+  });
+
+  it("maps valid single booking response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(validBookingPayload), { status: 200 })
+    );
+
+    await expect(fetchBookingById("jwt", "prop-1", "booking-1")).resolves.toMatchObject({
+      id: "booking-1",
+      propertyId: "prop-1",
+      roomId: "room-1",
+      status: "confirmed",
+    });
+  });
+
+  it("sends create payload and maps booking response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(validBookingPayload), { status: 201 })
+    );
+
+    const result = await createBooking("jwt", "prop-1", {
+      roomId: "room-1",
+      guestName: "Sarah Chen",
+      guestEmail: "sarah@example.com",
+      checkIn: "2026-03-15",
+      checkOut: "2026-03-20",
+      totalPrice: 2100,
+      status: "confirmed",
+      aiHandled: true,
+      source: "mcp",
+      conversationId: "conv_1",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/bookings"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt",
+          "Content-Type": "application/json",
+        }),
+      })
+    );
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      room_id: "room-1",
+      guest_name: "Sarah Chen",
+      guest_email: "sarah@example.com",
+      check_in: "2026-03-15",
+      check_out: "2026-03-20",
+      total_price: 2100,
+      status: "confirmed",
+      ai_handled: true,
+      source: "mcp",
+      conversation_id: "conv_1",
+    });
+
+    expect(result).toMatchObject({
+      id: "booking-1",
+      propertyId: "prop-1",
+      roomId: "room-1",
+    });
+  });
+
+  it("sends partial update payload and maps response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...validBookingPayload,
+          status: "cancelled",
+          check_out: "2026-04-05",
+          cancelled_at: "2026-03-01T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await updateBooking("jwt", "prop-1", "booking-1", {
+      status: "cancelled",
+      checkOut: "2026-04-05",
+    });
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      status: "cancelled",
+      check_out: "2026-04-05",
+    });
+    expect(result).toMatchObject({
+      id: "booking-1",
+      status: "cancelled",
+      checkOut: "2026-04-05",
+    });
+  });
+
+  it("throws parsed api error on non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(fetchBookings("jwt", "prop-1")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+
+  it("retries once and succeeds when first response is 401", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "unauthorized" }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [validBookingPayload] }), { status: 200 }));
+
+    const replaceSpy = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({
+      ...window.location,
+      replace: replaceSpy,
+    } as Location);
+
+    const result = await fetchBookings("jwt", "prop-1");
+
+    expect(result).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(replaceSpy).not.toHaveBeenCalled();
   });
 });
 
