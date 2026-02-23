@@ -13,13 +13,16 @@ import { useProperty } from "@/contexts/PropertyContext";
 import {
   createKnowledgeFile,
   deleteKnowledgeFile,
+  fetchPaymentConnections,
   fetchKnowledgeFiles,
   fetchHostProfile,
   fetchPmsConnections,
   type KnowledgeFile,
+  type PaymentConnection,
   type PmsConnection,
   readAccessToken,
   type HostProfile,
+  updatePaymentConnection,
   updatePmsConnection,
   type UpdateHostProfileInput,
   updateHostProfile,
@@ -59,6 +62,21 @@ const getPmsProviderDescription = (provider: string) => {
 const formatPmsError = (error: string) => {
   if (error === "missing_token") {
     return "You are not authenticated. Please sign in again to load PMS connections.";
+  }
+  return error;
+};
+
+const paymentProviderCatalog = [
+  { provider: "stripe", label: "Stripe", description: "Card payments & Apple Pay" },
+  { provider: "jp-morgan", label: "JP Morgan", description: "Enterprise payment processing" },
+  { provider: "ipay", label: "iPay", description: "Mobile & online payments" },
+  { provider: "liqpay", label: "LiqPay", description: "Ukrainian payment gateway" },
+  { provider: "monobank", label: "MonoBank", description: "Direct bank integration" },
+];
+
+const formatPaymentError = (error: string) => {
+  if (error === "missing_token") {
+    return "You are not authenticated. Please sign in again to load payment connections.";
   }
   return error;
 };
@@ -118,91 +136,66 @@ function PmsConnectionItem({ connection, isUpdating, onToggle }: PmsConnectionIt
   );
 }
 
-interface PaymentProviderItemProps {
+interface PaymentConnectionItemProps {
   label: string;
   description: string;
-  defaultConnected?: boolean;
+  connection: PaymentConnection;
+  isUpdating: boolean;
+  onToggle: (connection: PaymentConnection) => void;
 }
 
-function PaymentProviderItem({ label, description, defaultConnected = false }: PaymentProviderItemProps) {
-  const [connected, setConnected] = useState(defaultConnected);
-  const [showDisableDialog, setShowDisableDialog] = useState(false);
-
-  const handleToggle = () => {
-    if (connected) {
-      setShowDisableDialog(true);
-    }
-  };
-
-  const handleConnect = () => {
-    setConnected(true);
-  };
-
-  const handleConfirmDisable = () => {
-    setConnected(false);
-    setShowDisableDialog(false);
-  };
-
+function PaymentConnectionItem({
+  label,
+  description,
+  connection,
+  isUpdating,
+  onToggle,
+}: PaymentConnectionItemProps) {
   return (
-    <>
-      <div className="flex items-center justify-between py-3.5">
-        <div>
-          <p className="text-sm font-medium text-card-foreground">{label}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-        {connected ? (
-          <motion.button
-            className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer"
-            onClick={handleToggle}
-            whileTap={{ scale: 0.92 }}
-          >
-            <motion.div
-              className="absolute inset-0 rounded-full"
-              style={{ boxShadow: "inset 0 0 0 2.5px hsl(142 50% 42%)" }}
-            />
-            <motion.div
-              className="absolute rounded-full"
-              style={{ inset: "3px", backgroundColor: "hsl(142 55% 55%)" }}
-            />
-            <motion.div
-              className="absolute rounded-full bg-white"
-              style={{
-                width: "26px",
-                height: "26px",
-                top: "5px",
-                left: "31px",
-                boxShadow: "0 1px 4px hsl(0 0% 0% / 0.18), 0 0 0 0.5px hsl(0 0% 0% / 0.04)",
-              }}
-            />
-          </motion.button>
-        ) : (
-          <motion.button
-            className="px-5 py-2 rounded-full bg-foreground text-background font-medium text-sm min-h-[44px]"
-            whileTap={{ scale: 0.95 }}
-            onClick={handleConnect}
-          >
-            Connect {label}
-          </motion.button>
-        )}
+    <div className="flex items-center justify-between py-3.5">
+      <div>
+        <p className="text-sm font-medium text-card-foreground">{label}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
-
-      <AlertDialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Disable {label}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to disconnect {label}? This will stop processing payments through this provider.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDisable} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Disable
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+      <motion.button
+        data-testid={`payment-toggle-${connection.provider}`}
+        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+        onClick={() => onToggle(connection)}
+        whileTap={{ scale: 0.92 }}
+        disabled={isUpdating}
+      >
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          animate={{
+            boxShadow: connection.enabled
+              ? "inset 0 0 0 2.5px hsl(142 50% 42%)"
+              : "inset 0 0 0 2px hsl(0 0% 0% / 0.08)",
+          }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute rounded-full"
+          style={{ inset: "3px" }}
+          animate={{
+            backgroundColor: connection.enabled ? "hsl(142 55% 55%)" : "hsl(0 0% 0% / 0.04)",
+          }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute rounded-full bg-white flex items-center justify-center"
+          style={{
+            width: "26px",
+            height: "26px",
+            top: "5px",
+            boxShadow: "0 1px 4px hsl(0 0% 0% / 0.18), 0 0 0 0.5px hsl(0 0% 0% / 0.04)",
+          }}
+          animate={{ left: connection.enabled ? "31px" : "5px" }}
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+        >
+          {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" /> : null}
+        </motion.div>
+      </motion.button>
+    </div>
   );
 }
 
@@ -588,6 +581,10 @@ export function MCPIntegrationSettings() {
   const [isPmsLoading, setIsPmsLoading] = useState(false);
   const [pmsError, setPmsError] = useState<string | null>(null);
   const [updatingProviders, setUpdatingProviders] = useState<Set<string>>(new Set());
+  const [paymentConnections, setPaymentConnections] = useState<PaymentConnection[]>([]);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [updatingPaymentProviders, setUpdatingPaymentProviders] = useState<Set<string>>(new Set());
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([]);
   const [isKnowledgeLoading, setIsKnowledgeLoading] = useState(false);
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
@@ -598,6 +595,7 @@ export function MCPIntegrationSettings() {
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pmsRequestIdRef = useRef(0);
+  const paymentRequestIdRef = useRef(0);
   const requestIdRef = useRef(0);
 
   const syncPreviewFile = useCallback((items: KnowledgeFile[], deletedId?: string) => {
@@ -647,6 +645,49 @@ export function MCPIntegrationSettings() {
       .finally(() => {
         if (pmsRequestIdRef.current === requestId) {
           setIsPmsLoading(false);
+        }
+      });
+  }, [selectedPropertyId]);
+
+  useEffect(() => {
+    const requestId = paymentRequestIdRef.current + 1;
+    paymentRequestIdRef.current = requestId;
+    setUpdatingPaymentProviders(new Set());
+
+    if (selectedPropertyId === "all") {
+      setPaymentConnections([]);
+      setPaymentError(null);
+      setIsPaymentLoading(false);
+      return;
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setPaymentConnections([]);
+      setPaymentError("missing_token");
+      setIsPaymentLoading(false);
+      return;
+    }
+
+    setIsPaymentLoading(true);
+    setPaymentError(null);
+    setPaymentConnections([]);
+
+    fetchPaymentConnections(accessToken, selectedPropertyId)
+      .then((items) => {
+        if (paymentRequestIdRef.current !== requestId) return;
+        setPaymentConnections(items);
+      })
+      .catch((fetchError) => {
+        if (paymentRequestIdRef.current !== requestId) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Failed to fetch payment connections";
+        setPaymentConnections([]);
+        setPaymentError(message);
+      })
+      .finally(() => {
+        if (paymentRequestIdRef.current === requestId) {
+          setIsPaymentLoading(false);
         }
       });
   }, [selectedPropertyId]);
@@ -893,6 +934,86 @@ export function MCPIntegrationSettings() {
     [selectedPropertyId, updatingProviders]
   );
 
+  const togglePaymentConnection = useCallback(
+    async (connection: PaymentConnection) => {
+      if (selectedPropertyId === "all") return;
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        setPaymentError("missing_token");
+        return;
+      }
+      if (updatingPaymentProviders.has(connection.provider)) return;
+
+      const nextEnabled = !connection.enabled;
+      setPaymentError(null);
+      setUpdatingPaymentProviders((prev) => {
+        const next = new Set(prev);
+        next.add(connection.provider);
+        return next;
+      });
+      setPaymentConnections((prev) =>
+        prev.map((item) =>
+          item.provider === connection.provider
+            ? { ...item, enabled: nextEnabled }
+            : item
+        )
+      );
+
+      try {
+        const updated = await updatePaymentConnection(
+          accessToken,
+          selectedPropertyId,
+          connection.provider,
+          { enabled: nextEnabled }
+        );
+        setPaymentConnections((prev) =>
+          prev.map((item) =>
+            item.provider === updated.provider ? updated : item
+          )
+        );
+      } catch (updateError) {
+        const message =
+          updateError instanceof Error ? updateError.message : "Failed to update payment connection";
+        setPaymentConnections((prev) =>
+          prev.map((item) =>
+            item.provider === connection.provider
+              ? { ...item, enabled: connection.enabled }
+              : item
+          )
+        );
+        setPaymentError(message);
+        toast.error(message);
+      } finally {
+        setUpdatingPaymentProviders((prev) => {
+          const next = new Set(prev);
+          next.delete(connection.provider);
+          return next;
+        });
+      }
+    },
+    [selectedPropertyId, updatingPaymentProviders]
+  );
+
+  const paymentConnectionsByProvider = new Map(
+    paymentConnections.map((connection) => [connection.provider, connection])
+  );
+  const paymentConnectionItems = paymentProviderCatalog.map((provider) => {
+    const existing = paymentConnectionsByProvider.get(provider.provider);
+    return {
+      ...provider,
+      connection:
+        existing ?? {
+          id: `payment-${provider.provider}`,
+          propertyId: selectedPropertyId === "all" ? "" : selectedPropertyId,
+          provider: provider.provider,
+          enabled: false,
+          config: {},
+          createdAt: "",
+          updatedAt: "",
+        },
+    };
+  });
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -994,13 +1115,64 @@ export function MCPIntegrationSettings() {
             Connect payment providers to process bookings
           </p>
         </div>
-        <div className="px-5 divide-y divide-border">
-          <PaymentProviderItem label="Stripe" description="Card payments & Apple Pay" defaultConnected />
-          <PaymentProviderItem label="JP Morgan" description="Enterprise payment processing" />
-          <PaymentProviderItem label="iPay" description="Mobile & online payments" />
-          <PaymentProviderItem label="LiqPay" description="Ukrainian payment gateway" />
-          <PaymentProviderItem label="MonoBank" description="Direct bank integration" />
-        </div>
+
+        {selectedPropertyId === "all" && (
+          <div className="p-5">
+            <Card className="rounded-xl border-dashed" data-testid="payment-select-property-state">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-base font-semibold text-foreground">Select a property to view payment providers</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose one property from the switcher to load payment provider connections.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && isPaymentLoading && (
+          <div className="px-5 pb-3 space-y-3" data-testid="payment-loading-state">
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-44" />
+              </div>
+              <Skeleton className="h-9 w-16 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-36" />
+              </div>
+              <Skeleton className="h-9 w-16 rounded-full" />
+            </div>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && !isPaymentLoading && paymentError && (
+          <div className="p-5">
+            <Card className="rounded-xl border-destructive/30" data-testid="payment-error-state">
+              <CardContent className="p-6">
+                <h3 className="text-sm font-semibold text-foreground">Could not load payment connections</h3>
+                <p className="text-sm text-muted-foreground mt-1">{formatPaymentError(paymentError)}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && !isPaymentLoading && !paymentError && (
+          <div className="px-5 divide-y divide-border">
+            {paymentConnectionItems.map((item) => (
+              <PaymentConnectionItem
+                key={item.provider}
+                label={item.label}
+                description={item.description}
+                connection={item.connection}
+                isUpdating={updatingPaymentProviders.has(item.provider)}
+                onToggle={togglePaymentConnection}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Knowledge Base */}

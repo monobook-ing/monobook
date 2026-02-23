@@ -114,6 +114,16 @@ export type ApiPmsConnection = {
   updated_at: string;
 };
 
+export type ApiPaymentConnection = {
+  id: string;
+  property_id: string;
+  provider: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type HostProfile = {
   id: string;
   propertyId: string;
@@ -150,6 +160,16 @@ export type PmsConnection = {
   updatedAt: string;
 };
 
+export type PaymentConnection = {
+  id: string;
+  propertyId: string;
+  provider: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type UpdateHostProfileInput = {
   name: string;
   location: string;
@@ -166,6 +186,10 @@ export type UpdatePmsConnectionInput = {
   enabled: boolean;
 };
 
+export type UpdatePaymentConnectionInput = {
+  enabled: boolean;
+};
+
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
   next_cursor: string | null;
@@ -177,6 +201,10 @@ export type KnowledgeFilesResponse = {
 
 export type PmsConnectionsResponse = {
   items: ApiPmsConnection[];
+};
+
+export type PaymentConnectionsResponse = {
+  items: ApiPaymentConnection[];
 };
 
 export type DeleteKnowledgeFileResponse = {
@@ -471,6 +499,21 @@ const isApiPmsConnection = (value: unknown): value is ApiPmsConnection => {
   );
 };
 
+const isApiPaymentConnection = (value: unknown): value is ApiPaymentConnection => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.provider === "string" &&
+    typeof candidate.enabled === "boolean" &&
+    isRecord(candidate.config) &&
+    typeof candidate.created_at === "string" &&
+    typeof candidate.updated_at === "string"
+  );
+};
+
 const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -495,6 +538,14 @@ const isValidPmsConnectionsResponse = (
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return Array.isArray(candidate.items) && candidate.items.every(isApiPmsConnection);
+};
+
+const isValidPaymentConnectionsResponse = (
+  value: unknown
+): value is PaymentConnectionsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiPaymentConnection);
 };
 
 const isValidDeleteKnowledgeFileResponse = (
@@ -602,6 +653,18 @@ const mapApiKnowledgeFile = (item: ApiKnowledgeFile): KnowledgeFile => {
 };
 
 const mapApiPmsConnection = (item: ApiPmsConnection): PmsConnection => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    provider: item.provider,
+    enabled: item.enabled,
+    config: item.config,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+  };
+};
+
+const mapApiPaymentConnection = (item: ApiPaymentConnection): PaymentConnection => {
   return {
     id: item.id,
     propertyId: item.property_id,
@@ -908,6 +971,64 @@ export const updatePmsConnection = async (
   }
 
   return mapApiPmsConnection(data);
+};
+
+export const fetchPaymentConnections = async (
+  accessToken: string,
+  propertyId: string
+): Promise<PaymentConnection[]> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/payment-connections`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidPaymentConnectionsResponse(data)) {
+    throw new AuthApiError("Invalid payment connections response", res.status);
+  }
+
+  return data.items.map(mapApiPaymentConnection);
+};
+
+export const updatePaymentConnection = async (
+  accessToken: string,
+  propertyId: string,
+  provider: string,
+  input: UpdatePaymentConnectionInput
+): Promise<PaymentConnection> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/payment-connections/${provider}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        enabled: input.enabled,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiPaymentConnection(data)) {
+    throw new AuthApiError("Invalid payment connection response", res.status);
+  }
+
+  return mapApiPaymentConnection(data);
 };
 
 export const createKnowledgeFile = async (
