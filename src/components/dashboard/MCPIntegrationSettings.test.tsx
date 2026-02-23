@@ -216,7 +216,60 @@ describe("MCPIntegrationSettings Host Details", () => {
     });
   });
 
-  it("optimistically toggles payment connection and keeps updated value on success", async () => {
+  it("opens disable confirmation dialog before disabling an enabled payment provider", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("payment-toggle-jp-morgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jp-morgan"));
+
+    expect(screen.getByText("Disable JP Morgan?")).toBeInTheDocument();
+    expect(updatePaymentConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not disable payment provider when confirmation is canceled", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("payment-toggle-jp-morgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jp-morgan"));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Disable JP Morgan?")).not.toBeInTheDocument();
+      expect(updatePaymentConnectionMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("disables payment connection after confirmation", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+    updatePaymentConnectionMock.mockResolvedValue({
+      ...paymentConnections[1],
+      enabled: false,
+    });
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("payment-toggle-jp-morgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jp-morgan"));
+    fireEvent.click(screen.getByRole("button", { name: "Disable" }));
+
+    await waitFor(() => {
+      expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "jp-morgan", {
+        enabled: false,
+      });
+    });
+  });
+
+  it("optimistically enables payment connection and keeps updated value on success", async () => {
     readAccessTokenMock.mockReturnValue("jwt");
     fetchHostProfileMock.mockResolvedValue(hostProfile);
     fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
