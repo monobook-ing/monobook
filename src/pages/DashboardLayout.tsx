@@ -277,7 +277,7 @@ function DashboardInner() {
         </div>
 
         {/* Property Switcher */}
-        <div className="mb-6">
+        <div className="my-2">
           <PropertySwitcher />
         </div>
 
