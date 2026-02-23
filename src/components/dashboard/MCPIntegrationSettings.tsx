@@ -96,7 +96,7 @@ function PmsConnectionItem({ connection, isUpdating, onToggle }: PmsConnectionIt
       </div>
       <motion.button
         data-testid={`pms-toggle-${connection.provider}`}
-        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
         onClick={() => onToggle(connection)}
         whileTap={{ scale: 0.92 }}
         disabled={isUpdating}
@@ -159,7 +159,7 @@ function PaymentConnectionItem({
       </div>
       <motion.button
         data-testid={`payment-toggle-${connection.provider}`}
-        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] min-h-[44px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+        className="relative w-[62px] h-[36px] rounded-full flex items-center min-w-[62px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
         onClick={() => onToggle(connection)}
         whileTap={{ scale: 0.92 }}
         disabled={isUpdating}
