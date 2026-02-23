@@ -104,7 +104,7 @@ const paymentConnections = [
   {
     id: "pay-2",
     propertyId: "prop-1",
-    provider: "jp-morgan",
+    provider: "jpmorgan",
     enabled: true,
     config: {},
     createdAt: "2026-02-23T00:00:00Z",
@@ -209,7 +209,7 @@ describe("MCPIntegrationSettings Host Details", () => {
     await waitFor(() => {
       expect(fetchPaymentConnectionsMock).toHaveBeenCalledWith("jwt", "prop-1");
       expect(screen.getByTestId("payment-toggle-stripe")).toBeInTheDocument();
-      expect(screen.getByTestId("payment-toggle-jp-morgan")).toBeInTheDocument();
+      expect(screen.getByTestId("payment-toggle-jpmorgan")).toBeInTheDocument();
       expect(screen.getByTestId("payment-toggle-ipay")).toBeInTheDocument();
       expect(screen.getByTestId("payment-toggle-liqpay")).toBeInTheDocument();
       expect(screen.getByTestId("payment-toggle-monobank")).toBeInTheDocument();
@@ -223,8 +223,8 @@ describe("MCPIntegrationSettings Host Details", () => {
 
     render(<MCPIntegrationSettings />);
 
-    await screen.findByTestId("payment-toggle-jp-morgan");
-    fireEvent.click(screen.getByTestId("payment-toggle-jp-morgan"));
+    await screen.findByTestId("payment-toggle-jpmorgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jpmorgan"));
 
     expect(screen.getByText("Disable JP Morgan?")).toBeInTheDocument();
     expect(updatePaymentConnectionMock).not.toHaveBeenCalled();
@@ -237,8 +237,8 @@ describe("MCPIntegrationSettings Host Details", () => {
 
     render(<MCPIntegrationSettings />);
 
-    await screen.findByTestId("payment-toggle-jp-morgan");
-    fireEvent.click(screen.getByTestId("payment-toggle-jp-morgan"));
+    await screen.findByTestId("payment-toggle-jpmorgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jpmorgan"));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => {
@@ -258,12 +258,12 @@ describe("MCPIntegrationSettings Host Details", () => {
 
     render(<MCPIntegrationSettings />);
 
-    await screen.findByTestId("payment-toggle-jp-morgan");
-    fireEvent.click(screen.getByTestId("payment-toggle-jp-morgan"));
+    await screen.findByTestId("payment-toggle-jpmorgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jpmorgan"));
     fireEvent.click(screen.getByRole("button", { name: "Disable" }));
 
     await waitFor(() => {
-      expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "jp-morgan", {
+      expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "jpmorgan", {
         enabled: false,
       });
     });
@@ -325,7 +325,7 @@ describe("MCPIntegrationSettings Host Details", () => {
     render(<MCPIntegrationSettings />);
 
     const stripeToggle = await screen.findByTestId("payment-toggle-stripe");
-    const jpMorganToggle = screen.getByTestId("payment-toggle-jp-morgan");
+    const jpMorganToggle = screen.getByTestId("payment-toggle-jpmorgan");
     fireEvent.click(stripeToggle);
 
     await waitFor(() => {
