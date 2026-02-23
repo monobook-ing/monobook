@@ -25,11 +25,21 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
 import { useProperty } from "@/contexts/PropertyContext";
-import { fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
+import { deleteRoom, fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -150,6 +160,8 @@ export function RoomManagement() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isRoomDetailLoading, setIsRoomDetailLoading] = useState(false);
   const [roomDetailError, setRoomDetailError] = useState<string | null>(null);
+  const [showDeleteRoomDialog, setShowDeleteRoomDialog] = useState(false);
+  const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = true;
 
@@ -307,7 +319,35 @@ export function RoomManagement() {
     setSelectedImageIndex(0);
     setIsRoomDetailLoading(false);
     setRoomDetailError(null);
+    setShowDeleteRoomDialog(false);
   };
+
+  const handleConfirmDeleteRoom = useCallback(async () => {
+    if (!selectedRoomId || !selectedRoomPropertyId) {
+      return;
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      toast.error("You are not authenticated. Please sign in again to delete this room.");
+      return;
+    }
+
+    setIsDeletingRoom(true);
+
+    try {
+      const response = await deleteRoom(accessToken, selectedRoomPropertyId, selectedRoomId);
+      toast.success(response.message || "Room deleted");
+      setRooms((current) => current.filter((room) => room.id !== selectedRoomId));
+      closeRoomDetails();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete room";
+      toast.error(message);
+    } finally {
+      setShowDeleteRoomDialog(false);
+      setIsDeletingRoom(false);
+    }
+  }, [selectedRoomId, selectedRoomPropertyId]);
 
   const retryRoomDetails = () => {
     if (!selectedRoomId || !selectedRoomPropertyId) {
@@ -620,7 +660,8 @@ export function RoomManagement() {
                     variant="destructive"
                     size="sm"
                     className="rounded-xl gap-1.5"
-                    disabled={isReadOnly}
+                    disabled={isDeletingRoom || !selectedRoomId || !selectedRoomPropertyId}
+                    onClick={() => setShowDeleteRoomDialog(true)}
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete
                   </Button>
@@ -630,6 +671,27 @@ export function RoomManagement() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={showDeleteRoomDialog} onOpenChange={setShowDeleteRoomDialog}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete room?</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure you want to delete room?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingRoom}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                void handleConfirmDeleteRoom();
+              }}
+              disabled={isDeletingRoom}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }
