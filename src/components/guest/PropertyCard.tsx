@@ -20,6 +20,8 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ property, onSelect }: PropertyCardProps) {
+  const imageSrc = imageMap[property.image] ?? property.image;
+
   return (
     <motion.div
       className="min-w-[280px] max-w-[300px] snap-start rounded-2xl bg-card apple-shadow overflow-hidden cursor-pointer"
@@ -30,7 +32,7 @@ export function PropertyCard({ property, onSelect }: PropertyCardProps) {
     >
       <div className="relative aspect-video overflow-hidden">
         <img
-          src={imageMap[property.image]}
+          src={imageSrc}
           alt={property.name}
           className="w-full h-full object-cover"
         />
