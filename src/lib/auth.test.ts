@@ -7,9 +7,11 @@ import {
   fetchHostProfile,
   fetchKnowledgeFiles,
   fetchMe,
+  fetchPmsConnections,
   fetchRoomById,
   fetchRooms,
   readUserMe,
+  updatePmsConnection,
   updateHostProfile,
 } from "@/lib/auth";
 
@@ -779,6 +781,118 @@ describe("deleteKnowledgeFile", () => {
         status: 403,
       })
     );
+  });
+});
+
+describe("fetchPmsConnections", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid API PMS connections payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "pms-1",
+              property_id: "prop-1",
+              provider: "mews",
+              enabled: false,
+              config: {},
+              created_at: "2026-02-23T00:00:00Z",
+              updated_at: "2026-02-23T00:00:00Z",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchPmsConnections("jwt", "prop-1")).resolves.toEqual([
+      {
+        id: "pms-1",
+        propertyId: "prop-1",
+        provider: "mews",
+        enabled: false,
+        config: {},
+        createdAt: "2026-02-23T00:00:00Z",
+        updatedAt: "2026-02-23T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("throws when PMS connections payload shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [{ id: "pms-1" }] }), { status: 200 })
+    );
+
+    await expect(fetchPmsConnections("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid PMS connections response",
+      status: 200,
+    });
+  });
+});
+
+describe("updatePmsConnection", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends enabled payload and maps response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "pms-1",
+          property_id: "prop-1",
+          provider: "mews",
+          enabled: true,
+          config: {},
+          created_at: "2026-02-23T00:00:00Z",
+          updated_at: "2026-02-23T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await updatePmsConnection("jwt", "prop-1", "mews", { enabled: true });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/pms-connections/mews"),
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({
+          Authorization: "Bearer jwt",
+          "Content-Type": "application/json",
+        }),
+        body: JSON.stringify({
+          enabled: true,
+        }),
+      })
+    );
+
+    expect(result).toEqual({
+      id: "pms-1",
+      propertyId: "prop-1",
+      provider: "mews",
+      enabled: true,
+      config: {},
+      createdAt: "2026-02-23T00:00:00Z",
+      updatedAt: "2026-02-23T10:00:00Z",
+    });
+  });
+
+  it("throws when update response shape is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "pms-1" }), { status: 200 })
+    );
+
+    await expect(updatePmsConnection("jwt", "prop-1", "mews", { enabled: true })).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid PMS connection response",
+      status: 200,
+    });
   });
 });
 
