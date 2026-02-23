@@ -166,7 +166,12 @@ export function AuditLog() {
     });
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+    >
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Audit Log</h1>
         <p className="text-sm text-muted-foreground mt-1">API & tool call history across all integrations</p>
@@ -333,6 +338,6 @@ export function AuditLog() {
           </Button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
