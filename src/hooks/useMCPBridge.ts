@@ -12,6 +12,16 @@ interface MCPBridgeState {
   lastMessage: MCPMessage | null;
 }
 
+declare global {
+  interface Window {
+    openai?: {
+      callTool?: (name: string, args?: Record<string, unknown>) => Promise<unknown>;
+      setModelContext?: (context: Record<string, unknown>) => Promise<unknown>;
+      updateModelContext?: (context: Record<string, unknown>) => Promise<unknown>;
+    };
+  }
+}
+
 export function useMCPBridge() {
   const [state, setState] = useState<MCPBridgeState>({
     isConnected: false,
@@ -33,9 +43,9 @@ export function useMCPBridge() {
     };
 
     window.addEventListener("message", handleMessage);
-    // Mock initial connection
+    const hasOpenAIBridge = Boolean(window.openai?.callTool);
     setState((prev) => ({ ...prev, isConnected: true }));
-    console.log("[MCP Bridge] Initialized (mock mode)");
+    console.log(`[MCP Bridge] Initialized (${hasOpenAIBridge ? "openai bridge" : "mock mode"})`);
 
     return () => window.removeEventListener("message", handleMessage);
   }, []);
@@ -58,14 +68,24 @@ export function useMCPBridge() {
   }, []);
 
   const callTool = useCallback(
-    (toolName: string, args?: Record<string, unknown>) => {
+    async (toolName: string, args?: Record<string, unknown>) => {
+      if (window.openai?.callTool) {
+        const result = await window.openai.callTool(toolName, args);
+        return result;
+      }
       return emit("tools/call", { name: toolName, arguments: args });
     },
     [emit]
   );
 
   const updateModelContext = useCallback(
-    (context: Record<string, unknown>) => {
+    async (context: Record<string, unknown>) => {
+      if (window.openai?.setModelContext) {
+        return window.openai.setModelContext(context);
+      }
+      if (window.openai?.updateModelContext) {
+        return window.openai.updateModelContext(context);
+      }
       return emit("ui/update-model-context", context);
     },
     [emit]

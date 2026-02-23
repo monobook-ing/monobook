@@ -1,17 +1,38 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, Shield, CreditCard } from "lucide-react";
 import type { Property } from "@/data/mockData";
 import { useMCPBridge } from "@/hooks/useMCPBridge";
 
+type CheckoutResult = {
+  confirmationId?: string;
+  total?: number;
+  message?: string;
+};
+
 interface AgenticCheckoutProps {
   property: Property;
   bookingConfig: { checkIn: string; checkOut: string; guests: number; nights: number };
   onComplete: () => void;
+  paymentToolName?: string;
+  onPay?: (payload: {
+    property: Property;
+    bookingConfig: { checkIn: string; checkOut: string; guests: number; nights: number };
+    total: number;
+  }) => Promise<CheckoutResult | void> | CheckoutResult | void;
 }
 
-export function AgenticCheckout({ property, bookingConfig, onComplete }: AgenticCheckoutProps) {
+export function AgenticCheckout({
+  property,
+  bookingConfig,
+  onComplete,
+  paymentToolName = "stripe/create-payment-intent",
+  onPay,
+}: AgenticCheckoutProps) {
   const [status, setStatus] = useState<"review" | "processing" | "success">("review");
+  const [error, setError] = useState<string | null>(null);
+  const [resolvedTotal, setResolvedTotal] = useState<number | null>(null);
+  const [resolvedConfirmationId, setResolvedConfirmationId] = useState<string | null>(null);
   const { callTool } = useMCPBridge();
 
   const subtotal = property.pricePerNight * bookingConfig.nights;
@@ -19,12 +40,44 @@ export function AgenticCheckout({ property, bookingConfig, onComplete }: Agentic
   const fees = Math.round(subtotal * 0.04);
   const total = subtotal + taxes + fees;
 
-  const confirmationId = `AH-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  const fallbackConfirmationIdRef = useRef(
+    `AH-${Date.now().toString(36).toUpperCase().slice(-6)}`
+  );
 
-  const handlePay = () => {
+  const handlePay = async () => {
+    setError(null);
     setStatus("processing");
-    callTool("stripe/create-payment-intent", { amount: total, currency: "usd" });
-    setTimeout(() => setStatus("success"), 2200);
+    try {
+      let checkoutResult: CheckoutResult | void;
+
+      if (onPay) {
+        checkoutResult = await onPay({
+          property,
+          bookingConfig,
+          total,
+        });
+      } else {
+        await Promise.resolve(
+          callTool(paymentToolName, { amount: total, currency: "usd" })
+        );
+        await new Promise((resolve) => setTimeout(resolve, 2200));
+      }
+
+      const nextTotal = checkoutResult?.total ?? total;
+      const nextConfirmationId =
+        checkoutResult?.confirmationId ?? fallbackConfirmationIdRef.current;
+
+      setResolvedTotal(nextTotal);
+      setResolvedConfirmationId(nextConfirmationId);
+      setStatus("success");
+    } catch (payError) {
+      setStatus("review");
+      setError(
+        payError instanceof Error
+          ? payError.message
+          : "Payment failed. Please try again."
+      );
+    }
   };
 
   return (
@@ -70,6 +123,9 @@ export function AgenticCheckout({ property, bookingConfig, onComplete }: Agentic
               <CreditCard className="w-4 h-4" />
               Pay securely
             </motion.button>
+            {error && (
+              <p className="text-xs text-destructive mt-3 text-center">{error}</p>
+            )}
             <div className="flex items-center justify-center gap-1.5 mt-3">
               <Shield className="w-3 h-3 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Secured by Stripe ACP</span>
@@ -107,13 +163,17 @@ export function AgenticCheckout({ property, bookingConfig, onComplete }: Agentic
               <Check className="w-8 h-8 text-success-foreground" />
             </motion.div>
             <h3 className="text-xl font-semibold text-card-foreground mb-1">Booking Confirmed!</h3>
-            <p className="text-sm text-muted-foreground mb-4">Confirmation ID: {confirmationId}</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Confirmation ID: {resolvedConfirmationId ?? fallbackConfirmationIdRef.current}
+            </p>
             <div className="text-sm text-center text-muted-foreground mb-6">
               <p>{property.name}</p>
               <p>
                 {bookingConfig.checkIn} → {bookingConfig.checkOut}
               </p>
-              <p className="font-semibold text-card-foreground mt-1">${total.toLocaleString()}</p>
+              <p className="font-semibold text-card-foreground mt-1">
+                ${(resolvedTotal ?? total).toLocaleString()}
+              </p>
             </div>
             <motion.button
               className="px-8 py-3 rounded-full bg-primary text-primary-foreground font-medium min-h-[44px]"
