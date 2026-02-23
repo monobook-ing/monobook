@@ -124,6 +124,26 @@ export type ApiPaymentConnection = {
   updated_at: string;
 };
 
+export type ApiBookingStatus = "confirmed" | "pending" | "cancelled";
+
+export type ApiBooking = {
+  id: string;
+  property_id: string;
+  room_id: string;
+  guest_id: string | null;
+  guest_name: string;
+  check_in: string;
+  check_out: string;
+  total_price: number;
+  status: ApiBookingStatus;
+  ai_handled: boolean;
+  source: string;
+  conversation_id: string | null;
+  created_at: string;
+  updated_at: string;
+  cancelled_at: string | null;
+};
+
 export type HostProfile = {
   id: string;
   propertyId: string;
@@ -170,6 +190,24 @@ export type PaymentConnection = {
   updatedAt: string;
 };
 
+export type Booking = {
+  id: string;
+  propertyId: string;
+  roomId: string;
+  guestId: string | null;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  totalPrice: number;
+  status: ApiBookingStatus;
+  aiHandled: boolean;
+  source: string;
+  conversationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt: string | null;
+};
+
 export type UpdateHostProfileInput = {
   name: string;
   location: string;
@@ -190,6 +228,35 @@ export type UpdatePaymentConnectionInput = {
   enabled: boolean;
 };
 
+export type CreateBookingInput = {
+  roomId: string;
+  guestId?: string | null;
+  guestName: string;
+  guestEmail?: string;
+  checkIn: string;
+  checkOut: string;
+  totalPrice: number;
+  status: ApiBookingStatus;
+  aiHandled?: boolean;
+  source?: string;
+  conversationId?: string;
+};
+
+export type UpdateBookingInput = {
+  roomId?: string;
+  guestId?: string | null;
+  guestName?: string;
+  guestEmail?: string;
+  checkIn?: string;
+  checkOut?: string;
+  totalPrice?: number;
+  status?: ApiBookingStatus;
+  aiHandled?: boolean;
+  source?: string;
+  conversationId?: string;
+  cancelledAt?: string | null;
+};
+
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
   next_cursor: string | null;
@@ -205,6 +272,10 @@ export type PmsConnectionsResponse = {
 
 export type PaymentConnectionsResponse = {
   items: ApiPaymentConnection[];
+};
+
+export type BookingsResponse = {
+  items: ApiBooking[];
 };
 
 export type DeleteKnowledgeFileResponse = {
@@ -514,6 +585,34 @@ const isApiPaymentConnection = (value: unknown): value is ApiPaymentConnection =
   );
 };
 
+const isApiBookingStatus = (value: unknown): value is ApiBookingStatus => {
+  return value === "confirmed" || value === "pending" || value === "cancelled";
+};
+
+const isApiBooking = (value: unknown): value is ApiBooking => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.room_id === "string" &&
+    (candidate.guest_id === null || typeof candidate.guest_id === "string") &&
+    typeof candidate.guest_name === "string" &&
+    typeof candidate.check_in === "string" &&
+    typeof candidate.check_out === "string" &&
+    typeof candidate.total_price === "number" &&
+    Number.isFinite(candidate.total_price) &&
+    isApiBookingStatus(candidate.status) &&
+    typeof candidate.ai_handled === "boolean" &&
+    typeof candidate.source === "string" &&
+    (candidate.conversation_id === null || typeof candidate.conversation_id === "string") &&
+    typeof candidate.created_at === "string" &&
+    typeof candidate.updated_at === "string" &&
+    (candidate.cancelled_at === null || typeof candidate.cancelled_at === "string")
+  );
+};
+
 const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -546,6 +645,12 @@ const isValidPaymentConnectionsResponse = (
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return Array.isArray(candidate.items) && candidate.items.every(isApiPaymentConnection);
+};
+
+const isValidBookingsResponse = (value: unknown): value is BookingsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiBooking);
 };
 
 const isValidDeleteKnowledgeFileResponse = (
@@ -676,6 +781,26 @@ const mapApiPaymentConnection = (item: ApiPaymentConnection): PaymentConnection 
   };
 };
 
+const mapApiBooking = (item: ApiBooking): Booking => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    roomId: item.room_id,
+    guestId: item.guest_id,
+    guestName: item.guest_name,
+    checkIn: item.check_in,
+    checkOut: item.check_out,
+    totalPrice: item.total_price,
+    status: item.status,
+    aiHandled: item.ai_handled,
+    source: item.source,
+    conversationId: item.conversation_id,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    cancelledAt: item.cancelled_at,
+  };
+};
+
 const mapApiAuditEntry = (item: ApiAuditEntry): AuditEntry => {
   return {
     id: item.id,
@@ -787,6 +912,152 @@ export const fetchRoomById = async (
   }
 
   return mapApiRoomToManagedRoom(data);
+};
+
+export const fetchBookings = async (
+  accessToken: string,
+  propertyId: string,
+  options?: { status?: ApiBookingStatus }
+): Promise<Booking[]> => {
+  const params = new URLSearchParams();
+  if (options?.status) {
+    params.set("status", options.status);
+  }
+  const query = params.toString();
+  const url = `${API_BASE}/v1.0/properties/${propertyId}/bookings${query ? `?${query}` : ""}`;
+
+  const res = await requestWithAuthInterceptor(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidBookingsResponse(data)) {
+    throw new AuthApiError("Invalid bookings response", res.status);
+  }
+
+  return data.items.map(mapApiBooking);
+};
+
+export const fetchBookingById = async (
+  accessToken: string,
+  propertyId: string,
+  bookingId: string
+): Promise<Booking> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/bookings/${bookingId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiBooking(data)) {
+    throw new AuthApiError("Invalid booking response", res.status);
+  }
+
+  return mapApiBooking(data);
+};
+
+export const createBooking = async (
+  accessToken: string,
+  propertyId: string,
+  input: CreateBookingInput
+): Promise<Booking> => {
+  const payload: Record<string, unknown> = {
+    room_id: input.roomId,
+    guest_name: input.guestName,
+    check_in: input.checkIn,
+    check_out: input.checkOut,
+    total_price: input.totalPrice,
+    status: input.status,
+  };
+
+  if (input.guestId !== undefined) payload.guest_id = input.guestId;
+  if (input.guestEmail !== undefined) payload.guest_email = input.guestEmail;
+  if (input.aiHandled !== undefined) payload.ai_handled = input.aiHandled;
+  if (input.source !== undefined) payload.source = input.source;
+  if (input.conversationId !== undefined) payload.conversation_id = input.conversationId;
+
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/bookings`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiBooking(data)) {
+    throw new AuthApiError("Invalid booking response", res.status);
+  }
+
+  return mapApiBooking(data);
+};
+
+export const updateBooking = async (
+  accessToken: string,
+  propertyId: string,
+  bookingId: string,
+  input: UpdateBookingInput
+): Promise<Booking> => {
+  const payload: Record<string, unknown> = {};
+  if (input.roomId !== undefined) payload.room_id = input.roomId;
+  if (input.guestId !== undefined) payload.guest_id = input.guestId;
+  if (input.guestName !== undefined) payload.guest_name = input.guestName;
+  if (input.guestEmail !== undefined) payload.guest_email = input.guestEmail;
+  if (input.checkIn !== undefined) payload.check_in = input.checkIn;
+  if (input.checkOut !== undefined) payload.check_out = input.checkOut;
+  if (input.totalPrice !== undefined) payload.total_price = input.totalPrice;
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.aiHandled !== undefined) payload.ai_handled = input.aiHandled;
+  if (input.source !== undefined) payload.source = input.source;
+  if (input.conversationId !== undefined) payload.conversation_id = input.conversationId;
+  if (input.cancelledAt !== undefined) payload.cancelled_at = input.cancelledAt;
+
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/bookings/${bookingId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiBooking(data)) {
+    throw new AuthApiError("Invalid booking response", res.status);
+  }
+
+  return mapApiBooking(data);
 };
 
 export const fetchAuditEntries = async (

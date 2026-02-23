@@ -1,0 +1,282 @@
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { InventoryCalendar } from "@/components/dashboard/InventoryCalendar";
+
+const fetchRoomsMock = vi.hoisted(() => vi.fn());
+const fetchBookingsMock = vi.hoisted(() => vi.fn());
+const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const propertyStateRef = vi.hoisted(() => ({
+  current: {
+    selectedPropertyId: "all",
+  },
+}));
+
+vi.mock("@/lib/auth", () => ({
+  fetchRooms: fetchRoomsMock,
+  fetchBookings: fetchBookingsMock,
+  readAccessToken: readAccessTokenMock,
+}));
+
+vi.mock("@/contexts/PropertyContext", () => ({
+  useProperty: () => propertyStateRef.current,
+}));
+
+vi.mock("@/components/ui/select", async () => {
+  const React = await import("react");
+  const SelectContext = React.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  } | null>(null);
+
+  return {
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: {
+      value: string;
+      onValueChange: (value: string) => void;
+      children: unknown;
+    }) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        {children}
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({
+      children,
+      ...props
+    }: any) => <div {...props}>{children}</div>,
+    SelectValue: () => null,
+    SelectContent: ({ children }: { children: unknown }) => <div>{children}</div>,
+    SelectItem: ({ value, children }: { value: string; children: unknown }) => {
+      const ctx = React.useContext(SelectContext);
+      return (
+        <button type="button" onClick={() => ctx?.onValueChange(value)}>
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
+const formatYmd = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (days: number) => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return formatYmd(date);
+};
+
+const baseRoom = {
+  id: "room-1",
+  propertyId: "prop-1",
+  name: "Ocean View Deluxe Suite",
+  type: "Deluxe Suite",
+  description: "Spacious suite",
+  images: ["https://example.com/1.jpg"],
+  pricePerNight: 289,
+  maxGuests: 3,
+  bedConfig: "1 King Bed",
+  amenities: ["WiFi", "AC"],
+  source: "airbnb" as const,
+  sourceUrl: "https://airbnb.com/rooms/1",
+  syncEnabled: true,
+  lastSynced: "2026-02-22T14:30:00Z",
+  status: "active" as const,
+  pricing: {
+    dateOverrides: {},
+    guestTiers: [],
+  },
+};
+
+const baseBooking = {
+  id: "booking-1",
+  propertyId: "prop-1",
+  roomId: "room-1",
+  guestId: "guest-1",
+  guestName: "Sarah Chen",
+  checkIn: addDays(1),
+  checkOut: addDays(3),
+  totalPrice: 2100,
+  status: "confirmed" as const,
+  aiHandled: true,
+  source: "mcp",
+  conversationId: "conv_1",
+  createdAt: "2026-02-22T10:00:00Z",
+  updatedAt: "2026-02-22T10:00:00Z",
+  cancelledAt: null,
+};
+
+describe("InventoryCalendar", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    if (!HTMLElement.prototype.hasPointerCapture) {
+      HTMLElement.prototype.hasPointerCapture = () => false;
+    }
+    if (!HTMLElement.prototype.setPointerCapture) {
+      HTMLElement.prototype.setPointerCapture = () => {};
+    }
+    if (!HTMLElement.prototype.releasePointerCapture) {
+      HTMLElement.prototype.releasePointerCapture = () => {};
+    }
+    fetchRoomsMock.mockReset();
+    fetchBookingsMock.mockReset();
+    readAccessTokenMock.mockReset();
+    propertyStateRef.current = { selectedPropertyId: "all" };
+  });
+
+  it("shows select-property state and does not fetch when all properties is selected", () => {
+    render(<InventoryCalendar />);
+
+    expect(screen.getByTestId("inventory-select-property-state")).toBeInTheDocument();
+    expect(fetchRoomsMock).not.toHaveBeenCalled();
+    expect(fetchBookingsMock).not.toHaveBeenCalled();
+  });
+
+  it("shows missing-token error when token is absent", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue(null);
+
+    render(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("inventory-error-state")).toBeInTheDocument();
+      expect(
+        screen.getByText("You are not authenticated. Please sign in again to load bookings.")
+      ).toBeInTheDocument();
+    });
+    expect(fetchRoomsMock).not.toHaveBeenCalled();
+    expect(fetchBookingsMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches rooms and bookings for selected property", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(fetchRoomsMock).toHaveBeenCalledWith("jwt", "prop-1");
+      expect(fetchBookingsMock).toHaveBeenCalledWith("jwt", "prop-1", undefined);
+      expect(screen.getByText("Ocean View Deluxe Suite")).toBeInTheDocument();
+      expect(screen.getByText("Sarah Chen")).toBeInTheDocument();
+    });
+  });
+
+  it("refetches bookings when status filter changes", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(fetchBookingsMock).toHaveBeenCalledWith("jwt", "prop-1", undefined);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirmed" }));
+
+    await waitFor(() => {
+      expect(fetchBookingsMock).toHaveBeenLastCalledWith("jwt", "prop-1", { status: "confirmed" });
+    });
+  });
+
+  it("renders cancelled status in legend and dialog badge", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([{ ...baseBooking, status: "cancelled", guestName: "Chris Cole" }]);
+
+    render(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Cancelled").length).toBeGreaterThan(0);
+      expect(screen.getByText("Chris Cole")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Chris Cole"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Cancelled")).toBeInTheDocument();
+  });
+
+  it("shows empty state when no bookings are returned", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([]);
+
+    render(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("inventory-empty-state")).toBeInTheDocument();
+    });
+  });
+
+  it("renders booking details dialog when booking block is clicked", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await screen.findByText("Sarah Chen");
+    fireEvent.click(screen.getByText("Sarah Chen"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Booking Details")).toBeInTheDocument();
+    expect(within(dialog).getByText("ID: booking-1")).toBeInTheDocument();
+    expect(within(dialog).getByText("$2100.00")).toBeInTheDocument();
+  });
+
+  it("ignores stale responses when selected property changes", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+
+    let resolveFirstRooms: ((value: typeof baseRoom[]) => void) | null = null;
+    let resolveFirstBookings: ((value: typeof baseBooking[]) => void) | null = null;
+    const firstRooms = new Promise<typeof baseRoom[]>((resolve) => {
+      resolveFirstRooms = resolve;
+    });
+    const firstBookings = new Promise<typeof baseBooking[]>((resolve) => {
+      resolveFirstBookings = resolve;
+    });
+
+    fetchRoomsMock
+      .mockImplementationOnce(() => firstRooms)
+      .mockResolvedValueOnce([{ ...baseRoom, id: "room-2", name: "Garden Family Room", propertyId: "prop-2" }]);
+    fetchBookingsMock
+      .mockImplementationOnce(() => firstBookings)
+      .mockResolvedValueOnce([
+        { ...baseBooking, id: "booking-2", roomId: "room-2", propertyId: "prop-2", guestName: "Latest Guest" },
+      ]);
+
+    const { rerender } = render(<InventoryCalendar />);
+
+    propertyStateRef.current.selectedPropertyId = "prop-2";
+    rerender(<InventoryCalendar />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Garden Family Room")).toBeInTheDocument();
+      expect(screen.getByText("Latest Guest")).toBeInTheDocument();
+    });
+
+    resolveFirstRooms?.([baseRoom]);
+    resolveFirstBookings?.([baseBooking]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Latest Guest")).toBeInTheDocument();
+      expect(screen.queryByText("Sarah Chen")).not.toBeInTheDocument();
+    });
+  });
+});
