@@ -229,4 +229,89 @@ describe("RoomManagement", () => {
       expect(screen.queryByText("detail failed")).not.toBeInTheDocument();
     });
   });
+
+  it("renders all room images as thumbnails including first image", async () => {
+    const multiImageRoom = {
+      ...apiRoom,
+      images: [
+        "https://example.com/1.jpg",
+        "https://example.com/2.jpg",
+        "https://example.com/3.jpg",
+        "https://example.com/4.jpg",
+        "https://example.com/5.jpg",
+      ],
+    };
+
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([multiImageRoom]);
+    fetchRoomByIdMock.mockResolvedValue(multiImageRoom);
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+    await screen.findByRole("button", { name: /sync now/i });
+
+    expect(screen.getByTestId("room-image-thumbnail-strip")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /ocean view deluxe suite preview/i })).toHaveLength(5);
+  });
+
+  it("clicking thumbnails updates the main preview image and active state", async () => {
+    const multiImageRoom = {
+      ...apiRoom,
+      images: [
+        "https://example.com/1.jpg",
+        "https://example.com/2.jpg",
+        "https://example.com/3.jpg",
+      ],
+    };
+
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([multiImageRoom]);
+    fetchRoomByIdMock.mockResolvedValue(multiImageRoom);
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+    await screen.findByRole("button", { name: /sync now/i });
+
+    const mainImage = screen.getByTestId("room-detail-main-image");
+    expect(mainImage).toHaveAttribute("src", "https://example.com/1.jpg");
+
+    const thirdThumbnail = screen.getByRole("button", { name: /ocean view deluxe suite preview 3/i });
+    fireEvent.click(thirdThumbnail);
+
+    expect(mainImage).toHaveAttribute("src", "https://example.com/3.jpg");
+    expect(thirdThumbnail).toHaveAttribute("aria-pressed", "true");
+
+    const firstThumbnail = screen.getByRole("button", { name: /ocean view deluxe suite preview 1/i });
+    fireEvent.click(firstThumbnail);
+
+    expect(mainImage).toHaveAttribute("src", "https://example.com/1.jpg");
+    expect(firstThumbnail).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows fallback main image when room has no images and no thumbnail rail", async () => {
+    const noImageRoom = {
+      ...apiRoom,
+      images: [],
+    };
+
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([noImageRoom]);
+    fetchRoomByIdMock.mockResolvedValue(noImageRoom);
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+    await screen.findByRole("button", { name: /sync now/i });
+
+    expect(screen.getByTestId("room-detail-main-image-fallback")).toBeInTheDocument();
+    expect(screen.queryByTestId("room-image-thumbnail-strip")).not.toBeInTheDocument();
+  });
 });

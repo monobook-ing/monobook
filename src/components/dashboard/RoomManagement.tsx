@@ -147,6 +147,7 @@ export function RoomManagement() {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [selectedRoomPropertyId, setSelectedRoomPropertyId] = useState<string | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<ManagedRoom | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isRoomDetailLoading, setIsRoomDetailLoading] = useState(false);
   const [roomDetailError, setRoomDetailError] = useState<string | null>(null);
   const roomDetailRequestIdRef = useRef(0);
@@ -221,6 +222,7 @@ export function RoomManagement() {
       const room = await fetchRoomById(accessToken, propertyId, roomId);
       if (roomDetailRequestIdRef.current !== requestId) return;
       setSelectedRoom(room);
+      setSelectedImageIndex(0);
     } catch (error) {
       if (roomDetailRequestIdRef.current !== requestId) return;
       const message = error instanceof Error ? error.message : "Failed to fetch room details";
@@ -239,6 +241,7 @@ export function RoomManagement() {
       setSelectedRoomId(null);
       setSelectedRoomPropertyId(null);
       setSelectedRoom(null);
+      setSelectedImageIndex(0);
       setIsRoomDetailLoading(false);
       setRoomDetailError(null);
       return;
@@ -254,10 +257,22 @@ export function RoomManagement() {
       setSelectedRoomId(null);
       setSelectedRoomPropertyId(null);
       setSelectedRoom(null);
+      setSelectedImageIndex(0);
       setIsRoomDetailLoading(false);
       setRoomDetailError(null);
     }
   }, [isRoomsLoading, rooms, selectedPropertyId, selectedRoomId, selectedRoomPropertyId]);
+
+  useEffect(() => {
+    if (!selectedRoom || selectedRoom.images.length === 0) {
+      setSelectedImageIndex(0);
+      return;
+    }
+
+    setSelectedImageIndex((currentIndex) =>
+      currentIndex >= selectedRoom.images.length ? 0 : currentIndex
+    );
+  }, [selectedRoom]);
 
   const filteredRooms =
     selectedPropertyId === "all"
@@ -289,6 +304,7 @@ export function RoomManagement() {
     setSelectedRoomId(null);
     setSelectedRoomPropertyId(null);
     setSelectedRoom(null);
+    setSelectedImageIndex(0);
     setIsRoomDetailLoading(false);
     setRoomDetailError(null);
   };
@@ -452,27 +468,35 @@ export function RoomManagement() {
           {!isRoomDetailLoading && !roomDetailError && selectedRoom && (
             <>
               <div className="relative">
-                {selectedRoom.images[0] ? (
+                {selectedRoom.images[selectedImageIndex] ? (
                   <img
-                    src={selectedRoom.images[0]}
+                    src={selectedRoom.images[selectedImageIndex]}
                     alt={selectedRoom.name}
+                    data-testid="room-detail-main-image"
                     className="w-full h-56 object-cover"
                   />
                 ) : (
-                  <div className="w-full h-56 bg-muted flex items-center justify-center">
+                  <div
+                    data-testid="room-detail-main-image-fallback"
+                    className="w-full h-56 bg-muted flex items-center justify-center"
+                  >
                     <BedDouble className="w-12 h-12 text-muted-foreground" />
                   </div>
                 )}
-                {selectedRoom.images.length > 1 && (
-                  <div className="flex gap-1.5 px-4 -mt-6 relative z-10">
-                    {selectedRoom.images.slice(1, 4).map((img, i) => (
-                      <RoomImagePreview key={i} imageUrl={img} alt={`${selectedRoom.name} preview ${i + 2}`} />
+                {selectedRoom.images.length > 0 && (
+                  <div
+                    data-testid="room-image-thumbnail-strip"
+                    className="flex gap-1.5 px-4 -mt-6 relative z-10 overflow-x-auto hide-scrollbar pb-1"
+                  >
+                    {selectedRoom.images.map((img, i) => (
+                      <RoomImagePreview
+                        key={`${img}-${i}`}
+                        imageUrl={img}
+                        alt={`${selectedRoom.name} preview ${i + 1}`}
+                        onClick={() => setSelectedImageIndex(i)}
+                        isActive={selectedImageIndex === i}
+                      />
                     ))}
-                    {selectedRoom.images.length > 4 && (
-                      <div className="w-16 h-12 rounded-lg bg-muted/80 border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground shadow-sm">
-                        +{selectedRoom.images.length - 4}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
