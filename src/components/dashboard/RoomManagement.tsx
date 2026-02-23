@@ -18,12 +18,13 @@ import {
   Sparkles,
   Eye,
   Building2,
+  X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
@@ -452,7 +453,18 @@ export function RoomManagement() {
           if (!open) closeRoomDetails();
         }}
       >
-        <SheetContent className="w-full max-w-full sm:max-w-lg overflow-y-auto p-0">
+        <SheetContent
+          data-room-details
+          className="w-full max-w-full sm:max-w-lg overflow-y-auto p-0 relative [&>button]:hidden"
+        >
+          <div className="absolute right-4 top-4 z-20">
+            <SheetClose
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/70 text-muted-foreground shadow-sm ring-1 ring-border transition hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close room details</span>
+            </SheetClose>
+          </div>
           {isRoomDetailLoading && <RoomDetailSkeleton />}
 
           {!isRoomDetailLoading && roomDetailError && (
