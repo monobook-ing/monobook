@@ -785,11 +785,17 @@ const mapApiPmsConnection = (item: ApiPmsConnection): PmsConnection => {
   };
 };
 
+const normalizePaymentProvider = (provider: string): string => {
+  const normalized = provider.trim().toLowerCase();
+  if (normalized === "jp-morgan") return "jpmorgan";
+  return normalized;
+};
+
 const mapApiPaymentConnection = (item: ApiPaymentConnection): PaymentConnection => {
   return {
     id: item.id,
     propertyId: item.property_id,
-    provider: item.provider,
+    provider: normalizePaymentProvider(item.provider),
     enabled: item.enabled,
     config: item.config,
     createdAt: item.created_at,
@@ -1319,8 +1325,9 @@ export const updatePaymentConnection = async (
   provider: string,
   input: UpdatePaymentConnectionInput
 ): Promise<PaymentConnection> => {
+  const normalizedProvider = normalizePaymentProvider(provider);
   const res = await requestWithAuthInterceptor(
-    `${API_BASE}/v1.0/properties/${propertyId}/payment-connections/${provider}`,
+    `${API_BASE}/v1.0/properties/${propertyId}/payment-connections/${normalizedProvider}`,
     {
       method: "PUT",
       headers: {

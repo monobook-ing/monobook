@@ -68,7 +68,7 @@ const formatPmsError = (error: string) => {
 
 const paymentProviderCatalog = [
   { provider: "stripe", label: "Stripe", description: "Card payments & Apple Pay" },
-  { provider: "jp-morgan", label: "JP Morgan", description: "Enterprise payment processing" },
+  { provider: "jpmorgan", label: "JP Morgan", description: "Enterprise payment processing" },
   { provider: "ipay", label: "iPay", description: "Mobile & online payments" },
   { provider: "liqpay", label: "LiqPay", description: "Ukrainian payment gateway" },
   { provider: "monobank", label: "MonoBank", description: "Direct bank integration" },

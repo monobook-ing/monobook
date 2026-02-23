@@ -1012,6 +1012,30 @@ describe("updatePaymentConnection", () => {
       status: 200,
     });
   });
+
+  it("normalizes legacy jp-morgan alias in update endpoint", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "pay-2",
+          property_id: "prop-1",
+          provider: "jpmorgan",
+          enabled: true,
+          config: {},
+          created_at: "2026-02-23T00:00:00Z",
+          updated_at: "2026-02-23T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    await updatePaymentConnection("jwt", "prop-1", "jp-morgan", { enabled: true });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/v1.0/properties/prop-1/payment-connections/jpmorgan"),
+      expect.anything()
+    );
+  });
 });
 
 describe("bookings api", () => {
