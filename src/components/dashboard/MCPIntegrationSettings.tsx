@@ -74,6 +74,21 @@ const paymentProviderCatalog = [
   { provider: "monobank", label: "MonoBank", description: "Direct bank integration" },
 ];
 
+const paymentProviderLabelByProvider = new Map(
+  paymentProviderCatalog.map((provider) => [provider.provider, provider.label])
+);
+
+const formatPaymentProviderLabel = (provider: string) => {
+  const catalogLabel = paymentProviderLabelByProvider.get(provider);
+  if (catalogLabel) return catalogLabel;
+  if (!provider) return "Unknown";
+  return provider
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
 const formatPaymentError = (error: string) => {
   if (error === "missing_token") {
     return "You are not authenticated. Please sign in again to load payment connections.";
@@ -585,6 +600,8 @@ export function MCPIntegrationSettings() {
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [updatingPaymentProviders, setUpdatingPaymentProviders] = useState<Set<string>>(new Set());
+  const [pendingDisablePaymentProvider, setPendingDisablePaymentProvider] = useState<PaymentConnection | null>(null);
+  const [showDisablePaymentDialog, setShowDisablePaymentDialog] = useState(false);
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>([]);
   const [isKnowledgeLoading, setIsKnowledgeLoading] = useState(false);
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
@@ -653,6 +670,8 @@ export function MCPIntegrationSettings() {
     const requestId = paymentRequestIdRef.current + 1;
     paymentRequestIdRef.current = requestId;
     setUpdatingPaymentProviders(new Set());
+    setPendingDisablePaymentProvider(null);
+    setShowDisablePaymentDialog(false);
 
     if (selectedPropertyId === "all") {
       setPaymentConnections([]);
@@ -934,8 +953,8 @@ export function MCPIntegrationSettings() {
     [selectedPropertyId, updatingProviders]
   );
 
-  const togglePaymentConnection = useCallback(
-    async (connection: PaymentConnection) => {
+  const updatePaymentConnectionEnabledState = useCallback(
+    async (connection: PaymentConnection, nextEnabled: boolean) => {
       if (selectedPropertyId === "all") return;
       const accessToken = readAccessToken();
       if (!accessToken) {
@@ -944,7 +963,6 @@ export function MCPIntegrationSettings() {
       }
       if (updatingPaymentProviders.has(connection.provider)) return;
 
-      const nextEnabled = !connection.enabled;
       setPaymentError(null);
       setUpdatingPaymentProviders((prev) => {
         const next = new Set(prev);
@@ -993,6 +1011,31 @@ export function MCPIntegrationSettings() {
     },
     [selectedPropertyId, updatingPaymentProviders]
   );
+
+  const togglePaymentConnection = useCallback(
+    (connection: PaymentConnection) => {
+      if (connection.enabled) {
+        setPendingDisablePaymentProvider(connection);
+        setShowDisablePaymentDialog(true);
+        return;
+      }
+
+      void updatePaymentConnectionEnabledState(connection, true);
+    },
+    [updatePaymentConnectionEnabledState]
+  );
+
+  const confirmDisablePaymentConnection = useCallback(() => {
+    if (!pendingDisablePaymentProvider) return;
+    void updatePaymentConnectionEnabledState(pendingDisablePaymentProvider, false);
+    setShowDisablePaymentDialog(false);
+    setPendingDisablePaymentProvider(null);
+  }, [pendingDisablePaymentProvider, updatePaymentConnectionEnabledState]);
+
+  const cancelDisablePaymentConnection = useCallback(() => {
+    setShowDisablePaymentDialog(false);
+    setPendingDisablePaymentProvider(null);
+  }, []);
 
   const paymentConnectionsByProvider = new Map(
     paymentConnections.map((connection) => [connection.provider, connection])
@@ -1422,6 +1465,42 @@ export function MCPIntegrationSettings() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showDisablePaymentDialog}
+        onOpenChange={(nextOpen) => {
+          setShowDisablePaymentDialog(nextOpen);
+          if (!nextOpen) {
+            setPendingDisablePaymentProvider(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Disable {formatPaymentProviderLabel(pendingDisablePaymentProvider?.provider ?? "")}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to disconnect{" "}
+              {formatPaymentProviderLabel(pendingDisablePaymentProvider?.provider ?? "")}? This will stop
+              processing payments through this provider.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelDisablePaymentConnection}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDisablePaymentConnection}
+              disabled={
+                !pendingDisablePaymentProvider ||
+                updatingPaymentProviders.has(pendingDisablePaymentProvider.provider)
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Disable
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
