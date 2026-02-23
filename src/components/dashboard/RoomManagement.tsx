@@ -492,7 +492,7 @@ export function RoomManagement() {
                 {selectedRoom.images.length > 0 && (
                   <div
                     data-testid="room-image-thumbnail-strip"
-                    className="flex gap-1.5 px-4 -mt-6 relative z-10 overflow-x-auto hide-scrollbar pb-1" pt-1
+                    className="flex gap-1.5 px-4 -mt-6 relative z-10 overflow-x-auto hide-scrollbar pb-1 pt-1"
                   >
                     {selectedRoom.images.map((img, i) => (
                       <RoomImagePreview
