@@ -1,13 +1,21 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { MessageSquare, LayoutGrid } from "lucide-react";
 import { PropertyCarousel } from "@/components/guest/PropertyCarousel";
 import { BookingConfigurator } from "@/components/guest/BookingConfigurator";
 import { AgenticCheckout } from "@/components/guest/AgenticCheckout";
+import { ChatInterface } from "@/components/guest/ChatInterface";
 import type { Property } from "@/data/mockData";
 
 type WidgetStep = "browse" | "configure" | "checkout" | "complete";
+type WidgetMode = "browse" | "chat";
 
 export default function GuestWidget() {
+  const [searchParams] = useSearchParams();
+  const propertyId = searchParams.get("propertyId");
+
+  const [mode, setMode] = useState<WidgetMode>("chat");
   const [step, setStep] = useState<WidgetStep>("browse");
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [bookingConfig, setBookingConfig] = useState<{
@@ -44,43 +52,79 @@ export default function GuestWidget() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Find your stay</h1>
           <p className="text-sm text-muted-foreground mt-1">AI-curated properties just for you</p>
+
+          {/* Mode Toggle */}
+          <div className="flex gap-1 mt-4 p-1 bg-secondary rounded-full w-fit">
+            <button
+              onClick={() => setMode("browse")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                mode === "browse"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Browse
+            </button>
+            <button
+              onClick={() => setMode("chat")}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                mode === "chat"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Chat with AI
+            </button>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
-          {(step === "browse" || step === "configure") && (
-            <motion.div key="carousel" exit={{ opacity: 0 }}>
-              <PropertyCarousel onSelect={handleSelectProperty} />
-            </motion.div>
-          )}
-
-          {step === "checkout" && selectedProperty && bookingConfig && (
+          {mode === "chat" ? (
             <motion.div
-              key="checkout"
+              key="chat-mode"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <AgenticCheckout
-                property={selectedProperty}
-                bookingConfig={bookingConfig}
-                onComplete={handleComplete}
-              />
+              {propertyId ? (
+                <ChatInterface propertyId={propertyId} />
+              ) : (
+                <ChatInterface propertyId="demo" />
+              )}
             </motion.div>
-          )}
-
-          {step === "complete" && (
+          ) : (
             <motion.div
-              key="complete"
-              className="text-center py-12"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              key="browse-mode"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <p className="text-lg font-semibold text-foreground">All set! 🎉</p>
+              {(step === "browse" || step === "configure") && (
+                <PropertyCarousel onSelect={handleSelectProperty} />
+              )}
+
+              {step === "checkout" && selectedProperty && bookingConfig && (
+                <AgenticCheckout
+                  property={selectedProperty}
+                  bookingConfig={bookingConfig}
+                  onComplete={handleComplete}
+                />
+              )}
+
+              {step === "complete" && (
+                <div className="text-center py-12">
+                  <p className="text-lg font-semibold text-foreground">All set!</p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {step === "configure" && selectedProperty && (
+        {mode === "browse" && step === "configure" && selectedProperty && (
           <BookingConfigurator
             property={selectedProperty}
             onClose={() => setStep("browse")}
