@@ -149,17 +149,17 @@ export function RoomPricingSection({
           onOpenChange={(o) => { if (!o) setSelectedDay(null); }}
         >
           <PopoverTrigger asChild>
-            <div>
+            <div className="w-full">
               <DayPicker
                 mode="single"
                 numberOfMonths={2}
                 defaultMonth={today}
                 fromDate={today}
                 toDate={twoMonthsLater}
-                className="p-2 pointer-events-auto text-xs"
+                className="w-full p-2 pointer-events-auto text-xs"
                 classNames={{
-                  months: "flex flex-col sm:flex-row gap-2",
-                  month: "space-y-2",
+                  months: "w-full flex flex-col sm:flex-row gap-2",
+                  month: "w-full space-y-2 sm:w-auto",
                   caption: "flex justify-center pt-1 relative items-center",
                   caption_label: "text-xs font-medium",
                   nav: "space-x-1 flex items-center",
@@ -167,11 +167,11 @@ export function RoomPricingSection({
                   nav_button_previous: "absolute left-0",
                   nav_button_next: "absolute right-0",
                   table: "w-full border-collapse",
-                  head_row: "flex",
-                  head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.65rem]",
-                  row: "flex w-full mt-1",
-                  cell: "h-10 w-8 text-center text-[0.65rem] p-0 relative",
-                  day: cn(buttonVariants({ variant: "ghost" }), "h-10 w-8 p-0 font-normal text-[0.65rem] flex flex-col items-center justify-center gap-0"),
+                  head_row: "grid grid-cols-7",
+                  head_cell: "text-muted-foreground rounded-md w-full sm:w-8 font-normal text-[0.65rem] text-center",
+                  row: "grid grid-cols-7 w-full mt-1",
+                  cell: "h-10 w-full sm:w-8 text-center text-[0.65rem] p-0 relative",
+                  day: cn(buttonVariants({ variant: "ghost" }), "h-10 w-full sm:w-8 p-0 font-normal text-[0.65rem] flex flex-col items-center justify-center gap-0"),
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary",
                   day_today: "bg-accent text-accent-foreground",
                   day_outside: "text-muted-foreground opacity-50",

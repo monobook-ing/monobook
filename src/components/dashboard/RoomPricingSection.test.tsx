@@ -43,4 +43,27 @@ describe("RoomPricingSection", () => {
     expect(screen.getByText("Date overrides — click a day to set custom price")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add tier/i })).toBeInTheDocument();
   });
+
+  it("uses full-width mobile calendar classes with desktop fallback sizing", () => {
+    const { container } = render(
+      <RoomPricingSection
+        pricing={pricing}
+        basePrice={289}
+        maxGuests={3}
+        onPricingChange={vi.fn()}
+        onBasePriceChange={vi.fn()}
+      />
+    );
+
+    const dayPickerRoot = container.querySelector(".rdp");
+    const fullWidthGridRows = container.querySelectorAll(".grid.grid-cols-7");
+    const desktopFallbackWidthNodes = container.querySelectorAll(".sm\\:w-8");
+    const fullWidthNodes = container.querySelectorAll(".w-full");
+
+    expect(dayPickerRoot).toBeInTheDocument();
+    expect(dayPickerRoot).toHaveClass("w-full");
+    expect(fullWidthGridRows.length).toBeGreaterThan(0);
+    expect(fullWidthNodes.length).toBeGreaterThan(0);
+    expect(desktopFallbackWidthNodes.length).toBeGreaterThan(0);
+  });
 });
