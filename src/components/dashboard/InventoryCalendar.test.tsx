@@ -44,7 +44,7 @@ vi.mock("@/components/ui/select", async () => {
       children: unknown;
     }) => (
       <SelectContext.Provider value={{ value, onValueChange }}>
-        {children}
+        {children as React.ReactNode}
       </SelectContext.Provider>
     ),
     SelectTrigger: ({
@@ -52,8 +52,8 @@ vi.mock("@/components/ui/select", async () => {
       ...props
     }: any) => <div {...props}>{children}</div>,
     SelectValue: () => null,
-    SelectContent: ({ children }: { children: unknown }) => <div>{children}</div>,
-    SelectItem: ({ value, children }: { value: string; children: unknown }) => {
+    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => {
       const ctx = React.useContext(SelectContext);
       return (
         <button type="button" onClick={() => ctx?.onValueChange(value)}>
