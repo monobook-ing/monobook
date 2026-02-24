@@ -433,18 +433,18 @@ export function RoomManagement() {
 
   const roomDetailHero =
     selectedRoom && !isRoomDetailLoading && !roomDetailError ? (
-      <div className="relative">
+      <div className="relative max-h-[min(36rem,100vw)] overflow-hidden">
         {selectedRoom.images[selectedImageIndex] ? (
           <img
             src={selectedRoom.images[selectedImageIndex]}
             alt={selectedRoom.name}
             data-testid="room-detail-main-image"
-            className="w-full h-full max-h-min object-cover"
+            className="w-full h-auto max-h-[min(36rem,100vw)] object-cover"
           />
         ) : (
           <div
             data-testid="room-detail-main-image-fallback"
-            className="w-full h-full max-h-min bg-muted flex items-center justify-center"
+            className="w-full h-[min(36rem,100vw)] bg-muted flex items-center justify-center"
           >
             <BedDouble className="w-12 h-12 text-muted-foreground" />
           </div>
