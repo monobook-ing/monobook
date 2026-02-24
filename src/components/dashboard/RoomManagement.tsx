@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPri
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
 import { useProperty } from "@/contexts/PropertyContext";
 import { deleteRoom, fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -171,6 +173,7 @@ function RoomDetailSkeleton() {
 
 export function RoomManagement() {
   const { selectedPropertyId, properties } = useProperty();
+  const isMobile = useIsMobile();
   const [rooms, setRooms] = useState<ManagedRoom[]>([]);
   const [isRoomsLoading, setIsRoomsLoading] = useState(false);
   const [roomsError, setRoomsError] = useState<string | null>(null);
@@ -692,26 +695,61 @@ export function RoomManagement() {
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={showDeleteRoomDialog} onOpenChange={setShowDeleteRoomDialog}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete room?</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure you want to delete room?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingRoom}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                void handleConfirmDeleteRoom();
-              }}
-              disabled={isDeletingRoom}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Yes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {isMobile ? (
+        <Drawer open={showDeleteRoomDialog} onOpenChange={setShowDeleteRoomDialog}>
+          <DrawerContent
+            data-testid="delete-room-drawer"
+            className="rounded-t-[32px] border-white/40 bg-background shadow-xl max-h-[85vh] px-5 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          >
+            <DrawerHeader className="px-0 pt-3 text-center">
+              <DrawerTitle className="text-2xl font-semibold">Delete room?</DrawerTitle>
+              <DrawerDescription className="mt-2 text-base text-muted-foreground">
+                Are you sure you want to delete room?
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="mx-auto w-full max-w-md pb-3 pt-2">
+              <Button
+                onClick={() => {
+                  void handleConfirmDeleteRoom();
+                }}
+                disabled={isDeletingRoom}
+                className="h-14 w-full rounded-2xl bg-destructive text-destructive-foreground text-xl font-semibold hover:bg-destructive/90"
+              >
+                Yes
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteRoomDialog(false)}
+                disabled={isDeletingRoom}
+                className="mt-3 h-14 w-full rounded-2xl text-xl"
+              >
+                Cancel
+              </Button>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <AlertDialog open={showDeleteRoomDialog} onOpenChange={setShowDeleteRoomDialog}>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete room?</AlertDialogTitle>
+              <AlertDialogDescription>Are you sure you want to delete room?</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingRoom}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  void handleConfirmDeleteRoom();
+                }}
+                disabled={isDeletingRoom}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Yes
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </motion.div>
   );
 }

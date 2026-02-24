@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomManagement } from "@/components/dashboard/RoomManagement";
 
@@ -8,6 +8,7 @@ const deleteRoomMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
 const toastSuccessMock = vi.hoisted(() => vi.fn());
+const isMobileRef = vi.hoisted(() => ({ current: false }));
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "all",
@@ -24,6 +25,10 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/contexts/PropertyContext", () => ({
   useProperty: () => propertyStateRef.current,
+}));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => isMobileRef.current,
 }));
 
 vi.mock("sonner", () => ({
@@ -64,6 +69,7 @@ describe("RoomManagement", () => {
     readAccessTokenMock.mockReset();
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
+    isMobileRef.current = false;
     propertyStateRef.current = {
       selectedPropertyId: "all",
       properties: [{ id: "prop-1", name: "Mountain Lodge Retreat" }],
@@ -139,6 +145,7 @@ describe("RoomManagement", () => {
   });
 
   it("shows delete confirmation and deletes room on yes", async () => {
+    isMobileRef.current = false;
     propertyStateRef.current.selectedPropertyId = "prop-1";
     readAccessTokenMock.mockReturnValue("jwt");
     fetchRoomsMock.mockResolvedValue([apiRoom]);
@@ -157,6 +164,44 @@ describe("RoomManagement", () => {
     expect(screen.getByText("Are you sure you want to delete room?")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() => {
+      expect(deleteRoomMock).toHaveBeenCalledWith("jwt", "prop-1", "room-1");
+      expect(toastSuccessMock).toHaveBeenCalledWith("Room deleted");
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Ocean View Deluxe Suite")).not.toBeInTheDocument();
+      expect(screen.getByTestId("rooms-empty-state")).toBeInTheDocument();
+    });
+  });
+
+  it("renders delete confirmation as mobile bottom sheet and deletes room on yes", async () => {
+    isMobileRef.current = true;
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([apiRoom]);
+    fetchRoomByIdMock.mockResolvedValue(apiRoom);
+    deleteRoomMock.mockResolvedValue({ message: "Room deleted", id: "room-1" });
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+
+    await screen.findByRole("button", { name: /sync now/i });
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    const drawer = await screen.findByTestId("delete-room-drawer");
+    expect(within(drawer).getByText("Delete room?")).toBeInTheDocument();
+    expect(within(drawer).getByText("Are you sure you want to delete room?")).toBeInTheDocument();
+
+    const yesButton = within(drawer).getByRole("button", { name: /^yes$/i });
+    const cancelButton = within(drawer).getByRole("button", { name: /^cancel$/i });
+    expect((yesButton.compareDocumentPosition(cancelButton) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
+
+    fireEvent.click(yesButton);
 
     await waitFor(() => {
       expect(deleteRoomMock).toHaveBeenCalledWith("jwt", "prop-1", "room-1");
