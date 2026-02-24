@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProperty } from "@/contexts/PropertyContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { fetchAuditEntries, readAccessToken, type AuditEntry } from "@/lib/auth";
-import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon, Loader2, X } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const typeFilters = ["all", "mcp", "chatgpt", "claude", "gemini", "widget"] as const;
@@ -236,19 +236,11 @@ export function AuditLog() {
                   className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
                 >
                   <div className="px-5 pb-2">
-                    <DrawerHeader className="relative px-0 pt-3 text-center">
+                    <DrawerHeader className="px-0 pt-3 text-center">
                       <DrawerTitle className="text-lg">Date range</DrawerTitle>
                       <DrawerDescription className="sr-only">
                         Select a date range to filter audit log entries.
                       </DrawerDescription>
-                      <button
-                        type="button"
-                        aria-label="Close date range picker"
-                        onClick={() => setIsDateDrawerOpen(false)}
-                        className="absolute right-0 top-1 rounded-full bg-background/65 p-1.5 text-muted-foreground ring-1 ring-white/45 transition hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
                     </DrawerHeader>
                   </div>
                   <div className="pb-4">
@@ -265,8 +257,8 @@ export function AuditLog() {
                         head_row: "grid grid-cols-7",
                         head_cell: "text-muted-foreground rounded-md w-full font-normal text-[0.8rem] text-center",
                         row: "grid grid-cols-7 w-full mt-2",
-                        cell: "h-9 w-full text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                        day: "h-9 w-full p-0 font-normal aria-selected:opacity-100",
+                        cell: "h-9 w-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                        day: "h-9 w-full p-0 font-normal rounded-md aria-selected:opacity-100",
                       }}
                     />
                   </div>

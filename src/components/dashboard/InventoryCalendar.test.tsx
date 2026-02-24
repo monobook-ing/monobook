@@ -283,7 +283,7 @@ describe("InventoryCalendar", () => {
     expect(within(drawer).getByText("ID: booking-1")).toBeInTheDocument();
     expect(within(drawer).getByText("$2100.00")).toBeInTheDocument();
 
-    fireEvent.click(within(drawer).getByRole("button", { name: "Close booking details" }));
+    fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
 
     await waitFor(() => {
       const closedDrawer = screen.getByTestId("inventory-booking-drawer");

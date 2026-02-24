@@ -370,7 +370,7 @@ describe("AuditLog", () => {
     );
     expect(mobileCalendar).toHaveAttribute(
       "data-day",
-      expect.stringContaining("w-full")
+      expect.stringContaining("rounded-md")
     );
     fireEvent.click(screen.getByRole("button", { name: "Pick Feb 22" }));
 

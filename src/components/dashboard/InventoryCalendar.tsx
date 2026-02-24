@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, CalendarDays, User, CreditCard, BedDouble, Clock, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, User, CreditCard, BedDouble, Clock } from "lucide-react";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { useProperty } from "@/contexts/PropertyContext";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
@@ -491,17 +491,11 @@ export function InventoryCalendar() {
           >
             {selectedBooking && (
               <div className="px-5 pb-4">
-                <DrawerHeader className="relative px-0 pt-3 text-center">
+                <DrawerHeader className="px-0 pt-3 text-center">
                   <DrawerTitle className="text-lg">Booking Details</DrawerTitle>
                   <DrawerDescription className="sr-only">
                     Booking details for the selected reservation.
                   </DrawerDescription>
-                  <DrawerClose
-                    aria-label="Close booking details"
-                    className="absolute right-0 top-1 rounded-full bg-background/65 p-1.5 text-muted-foreground ring-1 ring-white/45 transition hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  >
-                    <X className="w-4 h-4" />
-                  </DrawerClose>
                 </DrawerHeader>
                 {bookingDetailsBody}
               </div>
