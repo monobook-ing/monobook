@@ -740,7 +740,10 @@ export function GuestManagement() {
 
       {isMobile ? (
         <Drawer open={isDetailOpen} onOpenChange={(open) => !open && closeDetail()}>
-          <DrawerContent className="max-h-[85vh]">
+          <DrawerContent
+            data-testid="guest-detail-drawer"
+            className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
+          >
             <DrawerHeader className="sr-only">
               <DrawerTitle>{selectedGuestDetail?.name || selectedGuestFromList?.name || "Guest Details"}</DrawerTitle>
               <DrawerDescription>Guest booking and conversation history</DrawerDescription>

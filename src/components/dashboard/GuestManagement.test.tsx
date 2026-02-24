@@ -302,6 +302,19 @@ describe("GuestManagement URL sync", () => {
     });
   });
 
+  it("uses glass bottom-sheet styles for mobile guest detail drawer", async () => {
+    isMobileRef.current = true;
+    renderGuestManagement("/guests");
+
+    await screen.findByText("Sarah Chen");
+    fireEvent.click(screen.getByText("Sarah Chen"));
+
+    const drawer = await screen.findByTestId("guest-detail-drawer");
+    expect(drawer).toHaveClass("rounded-t-[32px]");
+    expect(drawer).toHaveClass("bg-background/80");
+    expect(drawer).toHaveClass("backdrop-blur-2xl");
+  });
+
   it("falls back to guestName query and canonicalizes to guestId", async () => {
     renderGuestManagement("/guests?guestId=unknown&guestName=Sarah%20Chen");
 
