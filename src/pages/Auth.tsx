@@ -109,9 +109,10 @@ export default function Auth() {
           <MessageSquare className="w-8 h-8 text-primary-foreground" />
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">
+        {/*<h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">
           monobook.ing
-        </h1>
+        </h1>*/}
+        <img src="/assets/hotel-3-CfwzuMyX.jpg" className="w-36" />
         <p className="text-muted-foreground mb-10">
           Sign in to manage your properties
         </p>
