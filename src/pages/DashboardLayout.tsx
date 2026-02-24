@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +15,7 @@ import { type Property, type PropertyAddress, formatAddress, formatAddressShort 
 import { clearAuthStorage, hydrateSessionFromStorage, readUserMe, type UserMe } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const emptyAddress: PropertyAddress = { street: "", city: "", state: "", postalCode: "", country: "" };
 
@@ -26,6 +27,15 @@ const navItems = [
   { id: "/settings", label: "Settings", icon: Settings },
   { id: "/audit", label: "Audit Log", icon: ScrollText },
 ];
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
+
+const readStoredSidebarCollapsed = () => {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
 
 function AddressFields({ value, onChange, size = "default" }: { value: PropertyAddress; onChange: (a: PropertyAddress) => void; size?: "default" | "sm" }) {
   const cls = size === "sm" ? "h-8 rounded-lg text-sm" : "rounded-xl";
@@ -140,10 +150,12 @@ function ManagePropertiesDialog({ open, onOpenChange }: { open: boolean; onOpenC
 export function PropertySwitcher({
   className,
   compact = false,
+  collapsed = false,
   testIdPrefix = "property-switcher",
 }: {
   className?: string;
   compact?: boolean;
+  collapsed?: boolean;
   testIdPrefix?: string;
 }) {
   const { selectedPropertyId, setSelectedPropertyId, properties, isPropertiesLoading, propertiesError } = useProperty();
@@ -160,25 +172,30 @@ export function PropertySwitcher({
         <PopoverTrigger asChild>
           <button
             data-testid={`${testIdPrefix}-trigger`}
-            className={`w-full flex items-center gap-2.5 rounded-xl hover:bg-secondary transition-colors text-left min-h-[44px] ${compact ? "px-2.5 py-2" : "px-3 py-2.5"} ${className ?? ""}`}
+            aria-label={collapsed ? "Property switcher" : undefined}
+            className={`w-full flex items-center rounded-xl hover:bg-secondary transition-colors text-left min-h-[44px] ${collapsed ? "justify-center px-2 py-2" : `gap-2.5 ${compact ? "px-2.5 py-2" : "px-3 py-2.5"}`} ${className ?? ""}`}
           >
             <div className="w-5 h-5 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4 text-primary" />
             </div>
-            <div className="flex-1 min-w-0">
-              {isPropertiesLoading ? (
-                <div className="space-y-1" data-testid={`${testIdPrefix}-trigger-skeleton`}>
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-3 w-20" />
+            {!collapsed && (
+              <>
+                <div className="flex-1 min-w-0">
+                  {isPropertiesLoading ? (
+                    <div className="space-y-1" data-testid={`${testIdPrefix}-trigger-skeleton`}>
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-foreground truncate leading-tight">{label}</p>
+                      {selectedProperty && <p className="text-[10px] text-muted-foreground truncate">{formatAddressShort(selectedProperty.address)}</p>}
+                    </>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold text-foreground truncate leading-tight">{label}</p>
-                  {selectedProperty && <p className="text-[10px] text-muted-foreground truncate">{formatAddressShort(selectedProperty.address)}</p>}
-                </>
-              )}
-            </div>
-            <ChevronsUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                <ChevronsUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
+              </>
+            )}
           </button>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="start" className={`w-56 rounded-2xl ${compact ? "p-1" : "p-1.5"}`}>
@@ -242,6 +259,7 @@ function DashboardInner() {
   const isMobile = useIsMobile();
   const activeTab = navItems.find((item) => item.id === location.pathname)?.id || "/dashboard";
   const me = readUserMe();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readStoredSidebarCollapsed);
 
   const buildDisplayName = (user: UserMe | null) => {
     if (!user) return "StayAI Hotel";
@@ -266,52 +284,91 @@ function DashboardInner() {
     navigate("/auth", { replace: true });
   };
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, isSidebarCollapsed ? "true" : "false");
+    } catch {
+      // Ignore storage write failures and keep in-memory state.
+    }
+  }, [isSidebarCollapsed]);
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col glass border-r border-border p-4 fixed inset-y-0 left-0 z-30">
-        <div className="flex items-center gap-2 mb-2 px-2">
+      <aside
+        data-testid="desktop-sidebar"
+        data-collapsed={isSidebarCollapsed ? "true" : "false"}
+        className={`hidden md:flex flex-col glass border-r border-border p-4 fixed inset-y-0 left-0 z-30 transition-[width] duration-200 ${isSidebarCollapsed ? "w-20" : "w-64"}`}
+      >
+        <div className={`flex items-center mb-2 ${isSidebarCollapsed ? "justify-center" : "gap-2 px-2"}`}>
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <MessageSquare className="w-4 h-4 text-primary-foreground" />
           </div>
-          <h2 className="font-bold text-foreground text-md tracking-tight">monobook.ing</h2>
+          {!isSidebarCollapsed && <h2 className="font-bold text-foreground text-md tracking-tight">monobook.ing</h2>}
+          <button
+            type="button"
+            data-testid={isSidebarCollapsed ? "sidebar-expand-button" : "sidebar-collapse-button"}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={`h-8 w-8 rounded-lg hover:bg-secondary transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground ${isSidebarCollapsed ? "absolute top-4 right-4" : "ml-auto"}`}
+            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+          >
+            {isSidebarCollapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Property Switcher */}
-        <div className="my-2">
-          <PropertySwitcher />
+        <div className={`my-2 ${isSidebarCollapsed ? "flex justify-center" : ""}`}>
+          <PropertySwitcher collapsed={isSidebarCollapsed} />
         </div>
 
-        <nav className="space-y-1 flex-1">
+        <nav className={`space-y-1 flex-1 ${isSidebarCollapsed ? "flex flex-col items-center" : ""}`}>
           {navItems.map((item) => (
-            <motion.button
-              key={item.id}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
-                activeTab === item.id
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(item.id)}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.label}
-            </motion.button>
+            <Tooltip key={item.id} delayDuration={0}>
+              <TooltipTrigger asChild>
+                <motion.button
+                  aria-label={item.label}
+                  className={`w-full flex items-center rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                    isSidebarCollapsed ? "justify-center px-2 py-2 max-w-[44px]" : "gap-3 px-3 py-2.5"
+                  } ${
+                    activeTab === item.id
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => navigate(item.id)}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {!isSidebarCollapsed && item.label}
+                </motion.button>
+              </TooltipTrigger>
+              {isSidebarCollapsed && (
+                <TooltipContent side="right" align="center">
+                  {item.label}
+                </TooltipContent>
+              )}
+            </Tooltip>
           ))}
         </nav>
 
         {/* User Footer */}
         <Popover>
           <PopoverTrigger asChild>
-            <button className="mt-auto flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+            <button
+              aria-label={isSidebarCollapsed ? "Account menu" : undefined}
+              className={`mt-auto flex items-center w-full rounded-xl hover:bg-secondary transition-colors min-h-[44px] ${isSidebarCollapsed ? "justify-center px-2 py-2 max-w-[44px] mx-auto" : "gap-3 px-3 py-2.5"}`}
+            >
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">{avatarInitials}</AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
-                <p className="text-[10px] text-muted-foreground">Pro plan</p>
-              </div>
-              <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+              {!isSidebarCollapsed && (
+                <>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
+                    <p className="text-[10px] text-muted-foreground">Pro plan</p>
+                  </div>
+                  <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+                </>
+              )}
             </button>
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-56 rounded-2xl p-1.5">
@@ -341,7 +398,7 @@ function DashboardInner() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 pb-24 md:pb-6">
+      <main className={`flex-1 pb-24 md:pb-6 transition-[margin] duration-200 ${isSidebarCollapsed ? "md:ml-20" : "md:ml-64"}`}>
         <div className="max-w-4xl mx-auto p-4 md:p-8">
           {isMobile && selectedPropertyId === "all" && (
             <div className="mb-4" data-testid="mobile-empty-property-switcher">
