@@ -113,7 +113,7 @@ export default function Auth() {
           monobook.ing
         </h1>*/}
         <div className="items-center justify-center">
-          <img src="/logo.png" className="w-52" />
+          <img src="/logo.png" className="w-60 mx-auto" />
         </div>
         <p className="text-muted-foreground mb-10">
           Sign in to manage your properties
