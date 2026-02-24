@@ -725,32 +725,12 @@ export function RoomManagement() {
             >
               <X className="h-4 w-4" />
             </button>
-            {isRoomDetailLoading && <RoomDetailSkeleton />}
-            {!isRoomDetailLoading && roomDetailError && (
-              <div
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
-                data-testid="room-detail-scroll-body"
-              >
-                <div className="p-5 space-y-4" data-testid="room-detail-error-state">
-                  <h3 className="text-sm font-semibold text-foreground">Could not load room details</h3>
-                  <p className="text-sm text-muted-foreground">{roomDetailError}</p>
-                  <Button variant="outline" size="sm" className="rounded-xl" onClick={retryRoomDetails}>
-                    Retry
-                  </Button>
-                </div>
-              </div>
-            )}
-            {!isRoomDetailLoading && !roomDetailError && selectedRoom && (
-              <>
-                <div className="shrink-0">{roomDetailHero}</div>
-                <div
-                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
-                  data-testid="room-detail-scroll-body"
-                >
-                  {roomDetailDetails}
-                </div>
-              </>
-            )}
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
+              data-testid="room-detail-scroll-body"
+            >
+              {roomDetailBody}
+            </div>
           </DrawerContent>
         </Drawer>
       ) : (
