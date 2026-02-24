@@ -297,7 +297,7 @@ export function InventoryCalendar() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border/60 bg-muted/20 p-2">
+      <div className="rounded-xl">
         <RoomImagePreview
           imageUrl={selectedRoomImage}
           alt={`${selectedBooking.roomName} preview`}
