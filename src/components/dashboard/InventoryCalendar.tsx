@@ -210,6 +210,11 @@ export function InventoryCalendar() {
     setSelectedBooking(null);
   };
 
+  const selectedRoomImage = useMemo(() => {
+    if (!selectedBooking) return undefined;
+    return rooms.find((room) => room.id === selectedBooking.roomId)?.images[0];
+  }, [rooms, selectedBooking]);
+
   const bookingDetailsBody = selectedBooking ? (
     <div className="space-y-4 pt-2">
       <div className="flex items-center justify-between">
@@ -242,6 +247,14 @@ export function InventoryCalendar() {
           <p className="text-sm font-semibold text-foreground">{selectedBooking.roomName}</p>
           <p className="text-xs text-muted-foreground">{selectedBooking.roomType}</p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-muted/20 p-2">
+        <RoomImagePreview
+          imageUrl={selectedRoomImage}
+          alt={`${selectedBooking.roomName} preview`}
+          className="w-full h-40 md:h-44 rounded-lg border-0 shadow-none"
+        />
       </div>
 
       <div className="flex items-center gap-3">

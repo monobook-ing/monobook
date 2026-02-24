@@ -264,6 +264,8 @@ describe("InventoryCalendar", () => {
     expect(within(dialog).getByText("Booking Details")).toBeInTheDocument();
     expect(within(dialog).getByText("ID: booking-1")).toBeInTheDocument();
     expect(within(dialog).getByText("$2100.00")).toBeInTheDocument();
+    const previewImage = within(dialog).getByRole("img", { name: /ocean view deluxe suite preview/i });
+    expect(previewImage).toHaveAttribute("src", "https://example.com/1.jpg");
   });
 
   it("renders booking details in a mobile bottom sheet and closes it", async () => {
@@ -282,6 +284,8 @@ describe("InventoryCalendar", () => {
     expect(within(drawer).getByText("Booking Details")).toBeInTheDocument();
     expect(within(drawer).getByText("ID: booking-1")).toBeInTheDocument();
     expect(within(drawer).getByText("$2100.00")).toBeInTheDocument();
+    const previewImage = within(drawer).getByRole("img", { name: /ocean view deluxe suite preview/i });
+    expect(previewImage).toHaveAttribute("src", "https://example.com/1.jpg");
 
     fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
 
@@ -290,6 +294,21 @@ describe("InventoryCalendar", () => {
       expect(closedDrawer).toHaveAttribute("data-state", "closed");
       expect(screen.queryByText("ID: booking-1")).not.toBeInTheDocument();
     });
+  });
+
+  it("shows room preview fallback in booking details when room has no images", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([{ ...baseRoom, images: [] }]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await screen.findByText("Sarah Chen");
+    fireEvent.click(screen.getByText("Sarah Chen"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText(/ocean view deluxe suite preview image unavailable/i)).toBeInTheDocument();
   });
 
   it("shows room image preview on room hover", async () => {
