@@ -252,7 +252,10 @@ export function AuditLog() {
                       className="w-full p-0 pointer-events-auto"
                       classNames={{
                         months: "w-full",
-                        month: "w-full space-y-4",
+                        month: "w-full space-y-4 px-4",
+                        nav_button: "h-14 w-14 p-0 rounded-full",
+                        nav_button_previous: "absolute left-4",
+                        nav_button_next: "absolute right-4",
                         table: "w-full border-collapse space-y-1",
                         head_row: "grid grid-cols-7",
                         head_cell: "text-muted-foreground rounded-md w-full font-normal text-[0.8rem] text-center",

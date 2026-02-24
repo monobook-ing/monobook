@@ -41,6 +41,10 @@ vi.mock("@/components/ui/calendar", () => ({
       data-row={classNames?.row ?? ""}
       data-head-cell={classNames?.head_cell ?? ""}
       data-day={classNames?.day ?? ""}
+      data-month={classNames?.month ?? ""}
+      data-nav-button={classNames?.nav_button ?? ""}
+      data-nav-button-previous={classNames?.nav_button_previous ?? ""}
+      data-nav-button-next={classNames?.nav_button_next ?? ""}
     >
       <button
         type="button"
@@ -371,6 +375,22 @@ describe("AuditLog", () => {
     expect(mobileCalendar).toHaveAttribute(
       "data-day",
       expect.stringContaining("rounded-md")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-month",
+      expect.stringContaining("px-4")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-nav-button",
+      expect.stringContaining("h-14 w-14")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-nav-button-previous",
+      expect.stringContaining("left-4")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-nav-button-next",
+      expect.stringContaining("right-4")
     );
     fireEvent.click(screen.getByRole("button", { name: "Pick Feb 22" }));
 
