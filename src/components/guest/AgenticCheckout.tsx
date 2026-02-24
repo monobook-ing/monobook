@@ -63,9 +63,9 @@ export function AgenticCheckout({
         await new Promise((resolve) => setTimeout(resolve, 2200));
       }
 
-      const nextTotal = checkoutResult?.total ?? total;
+      const nextTotal = (checkoutResult && "total" in checkoutResult ? checkoutResult.total : undefined) ?? total;
       const nextConfirmationId =
-        checkoutResult?.confirmationId ?? fallbackConfirmationIdRef.current;
+        (checkoutResult && "confirmationId" in checkoutResult ? checkoutResult.confirmationId : undefined) ?? fallbackConfirmationIdRef.current;
 
       setResolvedTotal(nextTotal);
       setResolvedConfirmationId(nextConfirmationId);

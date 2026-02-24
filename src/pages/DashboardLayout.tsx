@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +22,7 @@ const navItems = [
   { id: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "/inventory", label: "Inventory", icon: CalendarDays },
   { id: "/rooms", label: "Rooms", icon: BedDouble },
+  { id: "/guests", label: "Guests", icon: Users },
   { id: "/settings", label: "Settings", icon: Settings },
   { id: "/audit", label: "Audit Log", icon: ScrollText },
 ];
