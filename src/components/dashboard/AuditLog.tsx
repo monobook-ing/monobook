@@ -59,6 +59,21 @@ const isKnownStatus = (value: string): value is keyof typeof statusConfig => {
   return value === "success" || value === "error" || value === "pending";
 };
 
+const toRangeParams = (dateRange: DateRange | undefined): { from?: string; to?: string } => {
+  if (!dateRange?.from) return {};
+
+  const fromDate = new Date(dateRange.from);
+  fromDate.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(dateRange.to ?? dateRange.from);
+  endDate.setHours(23, 59, 59, 999);
+
+  return {
+    from: fromDate.toISOString(),
+    to: endDate.toISOString(),
+  };
+};
+
 export function AuditLog() {
   const { selectedPropertyId } = useProperty();
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -69,6 +84,7 @@ export function AuditLog() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const requestIdRef = useRef(0);
+  const rangeParams = toRangeParams(dateRange);
 
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
@@ -102,6 +118,8 @@ export function AuditLog() {
     const source = activeFilter === "all" ? undefined : activeFilter;
     fetchAuditEntries(accessToken, selectedPropertyId, {
       source,
+      from: rangeParams.from,
+      to: rangeParams.to,
       limit: PAGE_SIZE,
     })
       .then((result) => {
@@ -121,7 +139,7 @@ export function AuditLog() {
           setIsLoading(false);
         }
       });
-  }, [activeFilter, selectedPropertyId]);
+  }, [activeFilter, rangeParams.from, rangeParams.to, selectedPropertyId]);
 
   const loadMore = async () => {
     if (selectedPropertyId === "all" || !nextCursor || isLoadingMore) return;
@@ -137,6 +155,8 @@ export function AuditLog() {
     try {
       const result = await fetchAuditEntries(accessToken, selectedPropertyId, {
         source,
+        from: rangeParams.from,
+        to: rangeParams.to,
         limit: PAGE_SIZE,
         cursor: nextCursor,
       });
@@ -151,19 +171,7 @@ export function AuditLog() {
     }
   };
 
-  const filteredEntries = entries
-    .filter((entry) => activeFilter === "all" || entry.source === activeFilter)
-    .filter((e) => {
-      const entryDate = new Date(e.createdAt);
-      if (Number.isNaN(entryDate.getTime())) return false;
-      if (dateRange?.from && entryDate < dateRange.from) return false;
-      if (dateRange?.to) {
-        const toEnd = new Date(dateRange.to);
-        toEnd.setHours(23, 59, 59, 999);
-        if (entryDate > toEnd) return false;
-      }
-      return true;
-    });
+  const filteredEntries = entries;
 
   return (
     <motion.div

@@ -380,24 +380,27 @@ describe("fetchAuditEntries", () => {
     });
   });
 
-  it("applies source, limit, and cursor query params", async () => {
+  it("applies source, from, to, limit, and cursor query params", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200 })
     );
 
     await fetchAuditEntries("jwt", "prop-1", {
       source: "mcp",
+      from: "2026-02-22T00:00:00.000Z",
+      to: "2026-02-22T23:59:59.999Z",
       limit: 10,
       cursor: "cursor-1",
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      expect.stringContaining("/v1.0/properties/prop-1/audit?source=mcp&limit=10&cursor=cursor-1"),
-      expect.objectContaining({
-        method: "GET",
-      })
-    );
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/properties/prop-1/audit?");
+    expect(url).toContain("source=mcp");
+    expect(url).toContain("from=2026-02-22T00%3A00%3A00.000Z");
+    expect(url).toContain("to=2026-02-22T23%3A59%3A59.999Z");
+    expect(url).toContain("limit=10");
+    expect(url).toContain("cursor=cursor-1");
   });
 
   it("throws when audit payload shape is invalid", async () => {

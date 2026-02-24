@@ -63,6 +63,17 @@ const firstPageItems = [
   },
 ];
 
+const getExpectedRange = () => {
+  const fromDate = new Date(2026, 1, 22);
+  fromDate.setHours(0, 0, 0, 0);
+  const toDate = new Date(2026, 1, 22);
+  toDate.setHours(23, 59, 59, 999);
+  return {
+    from: fromDate.toISOString(),
+    to: toDate.toISOString(),
+  };
+};
+
 describe("AuditLog", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -106,10 +117,16 @@ describe("AuditLog", () => {
     render(<AuditLog />);
 
     await waitFor(() => {
-      expect(fetchAuditEntriesMock).toHaveBeenCalledWith("jwt", "prop-1", {
-        source: undefined,
-        limit: 20,
-      });
+      expect(fetchAuditEntriesMock).toHaveBeenCalledWith(
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          source: undefined,
+          from: undefined,
+          to: undefined,
+          limit: 20,
+        })
+      );
       expect(
         screen.getByText("Searched available rooms for March 15-20")
       ).toBeInTheDocument();
@@ -139,10 +156,16 @@ describe("AuditLog", () => {
 
     await waitFor(() => {
       expect(fetchAuditEntriesMock).toHaveBeenCalledTimes(2);
-      expect(fetchAuditEntriesMock).toHaveBeenLastCalledWith("jwt", "prop-1", {
-        source: "mcp",
-        limit: 20,
-      });
+      expect(fetchAuditEntriesMock).toHaveBeenLastCalledWith(
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          source: "mcp",
+          from: undefined,
+          to: undefined,
+          limit: 20,
+        })
+      );
       expect(screen.queryByText("Guest initiated booking via widget")).not.toBeInTheDocument();
       expect(
         screen.getByText("Searched available rooms for March 15-20")
@@ -150,32 +173,69 @@ describe("AuditLog", () => {
     });
   });
 
-  it("filters by date range client-side", async () => {
+  it("refetches when date range changes and when it is cleared", async () => {
     readAccessTokenMock.mockReturnValue("jwt");
-    fetchAuditEntriesMock.mockResolvedValue({
-      items: firstPageItems,
-      nextCursor: null,
-    });
+    fetchAuditEntriesMock
+      .mockResolvedValueOnce({
+        items: firstPageItems,
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        items: [firstPageItems[0]],
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        items: firstPageItems,
+        nextCursor: null,
+      });
 
     render(<AuditLog />);
 
     await screen.findByText("Searched available rooms for March 15-20");
     expect(screen.getByText("Guest initiated booking via widget")).toBeInTheDocument();
+    const expectedRange = getExpectedRange();
 
     fireEvent.click(screen.getByRole("button", { name: /date range/i }));
     fireEvent.click(screen.getByRole("button", { name: "Pick Feb 22" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Searched available rooms for March 15-20")
-      ).toBeInTheDocument();
-      expect(screen.queryByText("Guest initiated booking via widget")).not.toBeInTheDocument();
+      expect(fetchAuditEntriesMock).toHaveBeenNthCalledWith(
+        2,
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          source: undefined,
+          from: expectedRange.from,
+          to: expectedRange.to,
+          limit: 20,
+        })
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    await waitFor(() => {
+      expect(fetchAuditEntriesMock).toHaveBeenNthCalledWith(
+        3,
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          source: undefined,
+          from: undefined,
+          to: undefined,
+          limit: 20,
+        })
+      );
     });
   });
 
   it("loads next page and appends entries", async () => {
     readAccessTokenMock.mockReturnValue("jwt");
     fetchAuditEntriesMock
+      .mockResolvedValueOnce({
+        items: [firstPageItems[0]],
+        nextCursor: "cursor-1",
+      })
       .mockResolvedValueOnce({
         items: [firstPageItems[0]],
         nextCursor: "cursor-1",
@@ -199,15 +259,38 @@ describe("AuditLog", () => {
     render(<AuditLog />);
 
     await screen.findByText("Searched available rooms for March 15-20");
+    const expectedRange = getExpectedRange();
+
+    fireEvent.click(screen.getByRole("button", { name: /date range/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Pick Feb 22" }));
+
+    await waitFor(() => {
+      expect(fetchAuditEntriesMock).toHaveBeenNthCalledWith(
+        2,
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          from: expectedRange.from,
+          to: expectedRange.to,
+        })
+      );
+    });
 
     fireEvent.click(screen.getByTestId("audit-load-more-button"));
 
     await waitFor(() => {
-      expect(fetchAuditEntriesMock).toHaveBeenNthCalledWith(2, "jwt", "prop-1", {
-        source: undefined,
-        limit: 20,
-        cursor: "cursor-1",
-      });
+      expect(fetchAuditEntriesMock).toHaveBeenNthCalledWith(
+        3,
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          source: undefined,
+          from: expectedRange.from,
+          to: expectedRange.to,
+          limit: 20,
+          cursor: "cursor-1",
+        })
+      );
       expect(screen.getByText("Loaded guest profile")).toBeInTheDocument();
       expect(screen.queryByTestId("audit-load-more-button")).not.toBeInTheDocument();
     });
