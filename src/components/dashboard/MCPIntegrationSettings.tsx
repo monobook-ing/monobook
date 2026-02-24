@@ -404,7 +404,7 @@ function HostDetailsSection() {
                 setEditing(true);
               }}
             >
-              <Pencil className="w-3.5 h-3.5" /> Edit
+              <Pencil className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>
