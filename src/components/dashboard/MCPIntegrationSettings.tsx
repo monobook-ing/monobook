@@ -1426,8 +1426,8 @@ export function MCPIntegrationSettings() {
       </div>
 
       {isMobile && (
-        <div className="rounded-2xl bg-card apple-shadow mb-6 mt-2 border-t border-border">
-          <div className="p-5 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
+        <div className="">
+          <div className="py-5 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
             <Button
               type="button"
               variant="outline"
