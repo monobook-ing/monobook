@@ -1112,11 +1112,17 @@ export const updateBooking = async (
 export const fetchAuditEntries = async (
   accessToken: string,
   propertyId: string,
-  options?: { source?: string; limit?: number; cursor?: string | null }
+  options?: { source?: string; from?: string; to?: string; limit?: number; cursor?: string | null }
 ): Promise<{ items: AuditEntry[]; nextCursor: string | null }> => {
   const params = new URLSearchParams();
   if (options?.source) {
     params.set("source", options.source);
+  }
+  if (options?.from) {
+    params.set("from", options.from);
+  }
+  if (options?.to) {
+    params.set("to", options.to);
   }
   if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
     params.set("limit", String(options.limit));
