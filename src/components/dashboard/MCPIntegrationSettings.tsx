@@ -1427,7 +1427,7 @@ export function MCPIntegrationSettings() {
 
       {isMobile && (
         <div className="">
-          <div className="py-5 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
+          <div className="py-2 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
             <Button
               type="button"
               variant="outline"
