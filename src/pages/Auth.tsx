@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { MessageSquare, Mail, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { hydrateSessionFromStorage } from "@/lib/auth";
 
 const API_BASE = "https://api-fexi.onrender.com";
 const GOOGLE_CLIENT_ID =
@@ -13,6 +14,40 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrateAuth = async () => {
+      const result = await hydrateSessionFromStorage();
+      if (!active) return;
+
+      if (result.status === "ready") {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      setCheckingSession(false);
+    };
+
+    hydrateAuth();
+
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Checking session...
+        </div>
+      </div>
+    );
+  }
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
