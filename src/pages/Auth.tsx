@@ -112,7 +112,7 @@ export default function Auth() {
         {/*<h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">
           monobook.ing
         </h1>*/}
-        <img src="/assets/hotel-3-CfwzuMyX.jpg" className="w-36" />
+        <img src="/assets/logo.png" className="w-52" />
         <p className="text-muted-foreground mb-10">
           Sign in to manage your properties
         </p>
