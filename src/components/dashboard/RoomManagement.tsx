@@ -37,6 +37,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
@@ -193,6 +201,7 @@ export function RoomManagement() {
   const [roomDetailError, setRoomDetailError] = useState<string | null>(null);
   const [showDeleteRoomDialog, setShowDeleteRoomDialog] = useState(false);
   const [isDeletingRoom, setIsDeletingRoom] = useState(false);
+  const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
   const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = false;
   const isRoomDetailOpen = !!selectedRoomId;
@@ -580,6 +589,7 @@ export function RoomManagement() {
           className="rounded-xl gap-2"
           disabled={isReadOnly}
           data-testid="add-room-button"
+          onClick={() => setShowAddRoomDialog(true)}
         >
           <Plus className="w-4 h-4" /> Add Room
         </Button>
@@ -786,6 +796,28 @@ export function RoomManagement() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+      <Dialog open={showAddRoomDialog} onOpenChange={setShowAddRoomDialog}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add room</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Start a manual room listing to manage it in this dashboard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              We'll guide you through property selection, rates, and amenities as soon as
+              manual room creation is supported.
+            </p>
+          </div>
+          <DialogFooter className="pt-4">
+            <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => setShowAddRoomDialog(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
