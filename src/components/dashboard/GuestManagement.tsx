@@ -312,7 +312,7 @@ function GuestDetailContent({
               Latest Booking
             </h4>
             <Card className="rounded-xl">
-              <CardContent className="p-4">
+              <CardContent className="">
                 {latestBookingImage && !isLatestBookingImageErrored && (
                   <div
                     className="relative mb-3 h-32 w-full overflow-hidden rounded-lg bg-muted/30"
@@ -333,23 +333,25 @@ function GuestDetailContent({
                     />
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <p className="font-medium text-foreground">{latestBooking.roomName}</p>
-                  <Badge variant="outline" className={statusColor[latestBooking.status] || ""}>
-                    {statusLabel[latestBooking.status] || latestBooking.status}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-1">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {format(new Date(latestBooking.checkIn), "MMM d")} - {format(new Date(latestBooking.checkOut), "MMM d, yyyy")}
-                </div>
-                <p className="text-lg font-bold text-foreground">${latestBooking.totalPrice.toLocaleString()}</p>
-                {latestBooking.aiHandled && (
-                  <div className="flex items-center gap-1 mt-2 text-xs text-primary">
-                    <Bot className="w-3 h-3" />
-                    Booked via AI
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <p className="font-medium text-foreground">{latestBooking.roomName}</p>
+                    <Badge variant="outline" className={statusColor[latestBooking.status] || ""}>
+                      {statusLabel[latestBooking.status] || latestBooking.status}
+                    </Badge>
                   </div>
-                )}
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {format(new Date(latestBooking.checkIn), "MMM d")} - {format(new Date(latestBooking.checkOut), "MMM d, yyyy")}
+                  </div>
+                  <p className="text-lg font-bold text-foreground">${latestBooking.totalPrice.toLocaleString()}</p>
+                  {latestBooking.aiHandled && (
+                    <div className="flex items-center gap-1 mt-2 text-xs text-primary">
+                      <Bot className="w-3 h-3" />
+                      Booked via AI
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
