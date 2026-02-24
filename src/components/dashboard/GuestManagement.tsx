@@ -312,10 +312,10 @@ function GuestDetailContent({
               Latest Booking
             </h4>
             <Card className="rounded-xl">
-              <CardContent className="">
+              <CardContent className="p-0">
                 {latestBookingImage && !isLatestBookingImageErrored && (
                   <div
-                    className="relative mb-3 h-32 w-full overflow-hidden rounded-lg bg-muted/30"
+                    className="relative mb-3 h-32 w-full overflow-hidden rounded-t-xl bg-muted/30"
                     data-testid="latest-booking-room-image-container"
                   >
                     {!isLatestBookingImageLoaded && (
