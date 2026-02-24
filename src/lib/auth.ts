@@ -1308,11 +1308,21 @@ export const fetchBookings = async (
 export const fetchGuests = async (
   accessToken: string,
   propertyId: string,
-  options?: { search?: string }
+  options?: {
+    search?: string;
+    roomId?: string;
+    status?: "confirmed" | "ai_pending";
+  }
 ): Promise<GuestSummary[]> => {
   const params = new URLSearchParams();
   if (options?.search && options.search.trim()) {
     params.set("search", options.search.trim());
+  }
+  if (options?.roomId && options.roomId.trim()) {
+    params.set("room_id", options.roomId.trim());
+  }
+  if (options?.status) {
+    params.set("status", options.status);
   }
   const query = params.toString();
   const url = `${API_BASE}/v1.0/properties/${propertyId}/guests${query ? `?${query}` : ""}`;
