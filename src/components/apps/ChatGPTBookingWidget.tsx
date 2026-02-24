@@ -56,13 +56,8 @@ type OpenAIWithState = {
   getToolOutput?: () => Promise<unknown> | unknown;
   toolOutput?: unknown;
   output?: unknown;
+  [key: string]: unknown;
 };
-
-declare global {
-  interface Window {
-    openai?: OpenAIWithState;
-  }
-}
 
 const WIDGET_MODES: WidgetMode[] = [
   "search_rooms",
@@ -90,15 +85,43 @@ const extractStructuredContent = (payload: unknown): MCPStructuredPayload | null
   if (!payload || typeof payload !== "object") return null;
   const data = payload as Record<string, unknown>;
 
+  // Direct structuredContent (standard MCP tool result shape)
   if (data.structuredContent && typeof data.structuredContent === "object") {
     return data.structuredContent as MCPStructuredPayload;
   }
+  // Nested under result.structuredContent
   if (data.result && typeof data.result === "object") {
     const nested = data.result as Record<string, unknown>;
     if (nested.structuredContent && typeof nested.structuredContent === "object") {
       return nested.structuredContent as MCPStructuredPayload;
     }
   }
+  // Nested under output.structuredContent
+  if (data.output && typeof data.output === "object") {
+    const nested = data.output as Record<string, unknown>;
+    if (nested.structuredContent && typeof nested.structuredContent === "object") {
+      return nested.structuredContent as MCPStructuredPayload;
+    }
+  }
+  // Content array with text JSON (some transports serialize as text)
+  if (Array.isArray(data.content)) {
+    for (const item of data.content) {
+      if (item && typeof item === "object" && typeof (item as Record<string, unknown>).text === "string") {
+        try {
+          const parsed = JSON.parse((item as Record<string, unknown>).text as string);
+          if (parsed && typeof parsed === "object" &&
+            (Object.prototype.hasOwnProperty.call(parsed, "rooms") ||
+              Object.prototype.hasOwnProperty.call(parsed, "room") ||
+              Object.prototype.hasOwnProperty.call(parsed, "booking_id"))) {
+            return parsed as MCPStructuredPayload;
+          }
+        } catch {
+          // Not valid JSON, skip
+        }
+      }
+    }
+  }
+  // Payload itself is the structured data
   if (
     Object.prototype.hasOwnProperty.call(data, "rooms") ||
     Object.prototype.hasOwnProperty.call(data, "room") ||
@@ -172,9 +195,10 @@ export function ChatGPTBookingWidget() {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<WidgetStep>("browse");
+  const [bridgeLoading, setBridgeLoading] = useState(!bootstrapPayload);
 
   const loadInitialFromBridge = useCallback(async () => {
-    const bridge = window.openai;
+    const bridge = window.openai as OpenAIWithState | undefined;
     if (!bridge) return null;
 
     const candidates: unknown[] = [bridge.toolOutput, bridge.output];
@@ -197,15 +221,36 @@ export function ChatGPTBookingWidget() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    if (bootstrapPayload) {
+      setBridgeLoading(false);
+      return;
+    }
 
-    (async () => {
-      if (bootstrapPayload) return;
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 30; // ~3 seconds at 100ms intervals
+
+    const poll = async () => {
+      if (cancelled) return;
       const bridgePayload = await loadInitialFromBridge();
-      if (!cancelled && bridgePayload) {
+      if (cancelled) return;
+
+      if (bridgePayload) {
         setPayload(bridgePayload);
+        setBridgeLoading(false);
+        return;
       }
-    })();
+
+      attempts += 1;
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(poll, 100);
+      } else {
+        // Bridge never provided data — stop loading
+        setBridgeLoading(false);
+      }
+    };
+
+    poll();
 
     return () => {
       cancelled = true;
@@ -381,29 +426,38 @@ export function ChatGPTBookingWidget() {
               </div>
             )}
 
-            {(step === "browse" || step === "configure") && (
-              <PropertyCarousel
-                properties={properties}
-                onSelect={handleSelectProperty}
-                title={widget === "search_rooms" ? "Recommended for you" : "Room options"}
-              />
-            )}
+            {bridgeLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Loading rooms…</p>
+              </div>
+            ) : (
+              <>
+                {(step === "browse" || step === "configure") && (
+                  <PropertyCarousel
+                    properties={properties}
+                    onSelect={handleSelectProperty}
+                    title={widget === "search_rooms" ? "Recommended for you" : "Room options"}
+                  />
+                )}
 
-            {step === "checkout" && selectedProperty && bookingConfig && (
-              <AgenticCheckout
-                property={selectedProperty}
-                bookingConfig={bookingConfig}
-                onPay={handleCreateBooking}
-                onComplete={() => setStep("complete")}
-              />
-            )}
+                {step === "checkout" && selectedProperty && bookingConfig && (
+                  <AgenticCheckout
+                    property={selectedProperty}
+                    bookingConfig={bookingConfig}
+                    onPay={handleCreateBooking}
+                    onComplete={() => setStep("complete")}
+                  />
+                )}
 
-            {step === "configure" && selectedProperty && (
-              <BookingConfigurator
-                property={selectedProperty}
-                onClose={() => setStep("browse")}
-                onConfirm={handleConfirmConfig}
-              />
+                {step === "configure" && selectedProperty && (
+                  <BookingConfigurator
+                    property={selectedProperty}
+                    onClose={() => setStep("browse")}
+                    onConfirm={handleConfirmConfig}
+                  />
+                )}
+              </>
             )}
 
             {isBusy && (
