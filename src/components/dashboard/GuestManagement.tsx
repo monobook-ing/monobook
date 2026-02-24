@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -14,6 +14,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,19 +25,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProperty } from "@/contexts/PropertyContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  mockGuests,
-  mockGuestBookings,
-  mockGuestConversations,
-  type Guest,
+  fetchGuestById,
+  fetchGuests,
+  readAccessToken,
+  type GuestDetail,
+  type GuestSummary,
   type GuestBooking,
   type GuestConversation,
-} from "@/data/mockGuestData";
+} from "@/lib/auth";
 import { format } from "date-fns";
 
 const statusColor: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
   checked_in: "bg-success/10 text-success border-success/20",
   checked_out: "bg-muted text-muted-foreground",
+  pending: "bg-muted text-muted-foreground",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   ai_pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
 };
@@ -45,20 +48,32 @@ const statusLabel: Record<string, string> = {
   confirmed: "Confirmed",
   checked_in: "Checked In",
   checked_out: "Checked Out",
+  pending: "Pending",
   cancelled: "Cancelled",
   ai_pending: "AI Pending",
 };
 
 const channelLabel: Record<string, string> = {
   widget: "Website Widget",
-  chatGPT: "ChatGPT",
+  chatgpt: "ChatGPT",
   claude: "Claude",
+  gemini: "Gemini",
+  mcp: "MCP",
 };
 
 const channelIcon: Record<string, React.ElementType> = {
   widget: MessageSquare,
-  chatGPT: Bot,
+  chatgpt: Bot,
   claude: Bot,
+  gemini: Bot,
+  mcp: Bot,
+};
+
+const formatGuestsError = (error: string) => {
+  if (error === "missing_token") {
+    return "You are not authenticated. Please sign in again to load guests.";
+  }
+  return error;
 };
 
 function getInitials(name: string) {
@@ -85,13 +100,34 @@ function GuestCardSkeleton() {
   );
 }
 
+function GuestDetailSkeleton() {
+  return (
+    <div className="p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-12 w-12 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-3 w-1/3" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+      </div>
+      <Skeleton className="h-28 w-full rounded-xl" />
+      <Skeleton className="h-28 w-full rounded-xl" />
+    </div>
+  );
+}
+
 function BookingRow({ booking }: { booking: GuestBooking }) {
   return (
     <div className="flex items-center justify-between gap-2 py-2.5 text-sm">
       <div className="min-w-0 flex-1">
         <p className="font-medium text-foreground truncate">{booking.roomName}</p>
         <p className="text-xs text-muted-foreground">
-          {format(new Date(booking.checkIn), "MMM d")} – {format(new Date(booking.checkOut), "MMM d, yyyy")}
+          {format(new Date(booking.checkIn), "MMM d")} - {format(new Date(booking.checkOut), "MMM d, yyyy")}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -106,7 +142,8 @@ function BookingRow({ booking }: { booking: GuestBooking }) {
 
 function ConversationThread({ conversation }: { conversation: GuestConversation }) {
   const [open, setOpen] = useState(false);
-  const ChannelIcon = channelIcon[conversation.channel] || MessageSquare;
+  const channelKey = conversation.channel.toLowerCase();
+  const ChannelIcon = channelIcon[channelKey] || MessageSquare;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -114,7 +151,7 @@ function ConversationThread({ conversation }: { conversation: GuestConversation 
         <ChannelIcon className="w-4 h-4 text-muted-foreground shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">
-            {channelLabel[conversation.channel] || conversation.channel}
+            {channelLabel[channelKey] || conversation.channel}
           </p>
           <p className="text-[10px] text-muted-foreground">
             {format(new Date(conversation.startedAt), "MMM d, yyyy · h:mm a")} · {conversation.messages.length} messages
@@ -125,7 +162,7 @@ function ConversationThread({ conversation }: { conversation: GuestConversation 
       <CollapsibleContent>
         <div className="ml-6 mr-2 mb-2 space-y-2 border-l-2 border-border pl-3 pt-2">
           {conversation.messages.map((msg, i) => (
-            <div key={i} className="text-sm">
+            <div key={`${conversation.id}-msg-${i}`} className="text-sm">
               <div className="flex items-center gap-1.5 mb-0.5">
                 {msg.role === "guest" ? (
                   <User className="w-3 h-3 text-muted-foreground" />
@@ -150,21 +187,16 @@ function ConversationThread({ conversation }: { conversation: GuestConversation 
 
 function GuestDetailContent({
   guest,
-  bookings,
-  conversations,
   onClose,
 }: {
-  guest: Guest;
-  bookings: GuestBooking[];
-  conversations: GuestConversation[];
+  guest: GuestDetail;
   onClose: () => void;
 }) {
-  const latestBooking = bookings[0];
+  const latestBooking = guest.bookings[0];
 
   return (
     <ScrollArea className="h-full">
       <div className="p-5 space-y-5">
-        {/* Profile header */}
         <div className="flex items-start gap-3">
           <Avatar className="h-12 w-12">
             <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
@@ -175,11 +207,11 @@ function GuestDetailContent({
             <h3 className="text-lg font-semibold text-foreground">{guest.name}</h3>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
               <Mail className="w-3.5 h-3.5" />
-              <span className="truncate">{guest.email}</span>
+              <span className="truncate">{guest.email || "-"}</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
               <Phone className="w-3.5 h-3.5" />
-              <span>{guest.phone}</span>
+              <span>{guest.phone || "-"}</span>
             </div>
           </div>
           <button
@@ -190,7 +222,6 @@ function GuestDetailContent({
           </button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <Card className="rounded-xl">
             <CardContent className="p-3 text-center">
@@ -200,9 +231,7 @@ function GuestDetailContent({
           </Card>
           <Card className="rounded-xl">
             <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-foreground">
-                ${bookings.reduce((sum, b) => sum + b.totalPrice, 0).toLocaleString()}
-              </p>
+              <p className="text-2xl font-bold text-foreground">${guest.totalSpent.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Total Spent</p>
             </CardContent>
           </Card>
@@ -219,7 +248,6 @@ function GuestDetailContent({
 
         <Separator />
 
-        {/* Latest Booking */}
         {latestBooking && (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -235,7 +263,7 @@ function GuestDetailContent({
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-1">
                   <Calendar className="w-3.5 h-3.5" />
-                  {format(new Date(latestBooking.checkIn), "MMM d")} – {format(new Date(latestBooking.checkOut), "MMM d, yyyy")}
+                  {format(new Date(latestBooking.checkIn), "MMM d")} - {format(new Date(latestBooking.checkOut), "MMM d, yyyy")}
                 </div>
                 <p className="text-lg font-bold text-foreground">${latestBooking.totalPrice.toLocaleString()}</p>
                 {latestBooking.aiHandled && (
@@ -249,16 +277,15 @@ function GuestDetailContent({
           </div>
         )}
 
-        {/* Booking History */}
-        {bookings.length > 1 && (
+        {guest.bookings.length > 1 && (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Booking History
             </h4>
             <Card className="rounded-xl">
               <CardContent className="p-3 divide-y divide-border">
-                {bookings.slice(1).map((b) => (
-                  <BookingRow key={b.id} booking={b} />
+                {guest.bookings.slice(1).map((booking) => (
+                  <BookingRow key={booking.id} booking={booking} />
                 ))}
               </CardContent>
             </Card>
@@ -267,15 +294,14 @@ function GuestDetailContent({
 
         <Separator />
 
-        {/* Conversations */}
-        {conversations.length > 0 && (
+        {guest.conversations.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Conversations ({conversations.length})
+              Conversations ({guest.conversations.length})
             </h4>
             <div className="space-y-1">
-              {conversations.map((c) => (
-                <ConversationThread key={c.id} conversation={c} />
+              {guest.conversations.map((conversation) => (
+                <ConversationThread key={conversation.id} conversation={conversation} />
               ))}
             </div>
           </div>
@@ -289,76 +315,167 @@ export function GuestManagement() {
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
+  const [guests, setGuests] = useState<GuestSummary[]>([]);
+  const [isGuestsLoading, setIsGuestsLoading] = useState(false);
+  const [guestsError, setGuestsError] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+  const [selectedGuestDetail, setSelectedGuestDetail] = useState<GuestDetail | null>(null);
+  const [isGuestDetailLoading, setIsGuestDetailLoading] = useState(false);
+  const [guestDetailError, setGuestDetailError] = useState<string | null>(null);
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
+  const listRequestIdRef = useRef(0);
+  const detailRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
+
+    const loadGuests = async () => {
+      setSelectedGuestId(null);
+      setSelectedGuestDetail(null);
+      setGuestDetailError(null);
+      setIsGuestDetailLoading(false);
+
+      if (selectedPropertyId === "all") {
+        if (!active) return;
+        setGuests([]);
+        setGuestsError(null);
+        setIsGuestsLoading(false);
+        return;
+      }
+
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        if (!active) return;
+        setGuests([]);
+        setGuestsError("missing_token");
+        setIsGuestsLoading(false);
+        return;
+      }
+
+      setIsGuestsLoading(true);
+      setGuestsError(null);
+
+      try {
+        const fetchedGuests = await fetchGuests(accessToken, selectedPropertyId);
+        if (!active || listRequestIdRef.current !== requestId) return;
+        setGuests(fetchedGuests);
+      } catch (error) {
+        if (!active || listRequestIdRef.current !== requestId) return;
+        const message = error instanceof Error ? error.message : "Failed to fetch guests";
+        setGuests([]);
+        setGuestsError(message);
+      } finally {
+        if (active && listRequestIdRef.current === requestId) {
+          setIsGuestsLoading(false);
+        }
+      }
+    };
+
+    loadGuests();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedPropertyId]);
+
+  useEffect(() => {
+    let active = true;
+    const requestId = detailRequestIdRef.current + 1;
+    detailRequestIdRef.current = requestId;
+
+    const loadGuestDetail = async () => {
+      if (!selectedGuestId || selectedPropertyId === "all") {
+        if (!active) return;
+        setSelectedGuestDetail(null);
+        setGuestDetailError(null);
+        setIsGuestDetailLoading(false);
+        return;
+      }
+
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        if (!active) return;
+        setSelectedGuestDetail(null);
+        setGuestDetailError("missing_token");
+        setIsGuestDetailLoading(false);
+        return;
+      }
+
+      setIsGuestDetailLoading(true);
+      setGuestDetailError(null);
+      setSelectedGuestDetail(null);
+
+      try {
+        const detail = await fetchGuestById(accessToken, selectedPropertyId, selectedGuestId);
+        if (!active || detailRequestIdRef.current !== requestId) return;
+        setSelectedGuestDetail(detail);
+      } catch (error) {
+        if (!active || detailRequestIdRef.current !== requestId) return;
+        const message = error instanceof Error ? error.message : "Failed to fetch guest details";
+        setSelectedGuestDetail(null);
+        setGuestDetailError(message);
+      } finally {
+        if (active && detailRequestIdRef.current === requestId) {
+          setIsGuestDetailLoading(false);
+        }
+      }
+    };
+
+    loadGuestDetail();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedGuestId, selectedPropertyId, detailReloadKey]);
 
   const filteredGuests = useMemo(() => {
-    let guests = mockGuests;
-
-    // Filter by property if one is selected
-    if (selectedPropertyId !== "all") {
-      const guestIdsForProperty = new Set(
-        mockGuestBookings
-          .filter((b) => b.propertyId === selectedPropertyId)
-          .map((b) => b.guestId)
-      );
-      guests = guests.filter((g) => guestIdsForProperty.has(g.id));
+    if (!search.trim()) {
+      return guests;
     }
 
-    // Filter by search
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      guests = guests.filter(
-        (g) =>
-          g.name.toLowerCase().includes(q) ||
-          g.email.toLowerCase().includes(q) ||
-          g.phone.includes(q)
-      );
-    }
+    const query = search.toLowerCase();
+    return guests.filter(
+      (guest) =>
+        guest.name.toLowerCase().includes(query) ||
+        (guest.email || "").toLowerCase().includes(query) ||
+        (guest.phone || "").toLowerCase().includes(query)
+    );
+  }, [guests, search]);
 
-    return guests;
-  }, [selectedPropertyId, search]);
+  const selectedGuestFromList = selectedGuestId
+    ? guests.find((guest) => guest.id === selectedGuestId) || null
+    : null;
 
-  const selectedGuest = selectedGuestId ? mockGuests.find((g) => g.id === selectedGuestId) : null;
-
-  const selectedGuestBookings = useMemo(
-    () =>
-      selectedGuestId
-        ? mockGuestBookings
-            .filter((b) => b.guestId === selectedGuestId)
-            .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())
-        : [],
-    [selectedGuestId]
-  );
-
-  const selectedGuestConversations = useMemo(
-    () =>
-      selectedGuestId
-        ? mockGuestConversations
-            .filter((c) => c.guestId === selectedGuestId)
-            .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-        : [],
-    [selectedGuestId]
-  );
-
-  const latestBookingForGuest = (guestId: string) => {
-    const bookings = mockGuestBookings
-      .filter((b) => b.guestId === guestId)
-      .sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime());
-    return bookings[0] || null;
+  const closeDetail = () => {
+    detailRequestIdRef.current += 1;
+    setSelectedGuestId(null);
+    setSelectedGuestDetail(null);
+    setIsGuestDetailLoading(false);
+    setGuestDetailError(null);
   };
 
-  const isDetailOpen = !!selectedGuestId;
+  const retryDetail = () => {
+    if (!selectedGuestId) return;
+    setDetailReloadKey((current) => current + 1);
+  };
 
-  const closeDetail = () => setSelectedGuestId(null);
-
-  const detailContent = selectedGuest ? (
-    <GuestDetailContent
-      guest={selectedGuest}
-      bookings={selectedGuestBookings}
-      conversations={selectedGuestConversations}
-      onClose={closeDetail}
-    />
+  const detailContent = isGuestDetailLoading ? (
+    <GuestDetailSkeleton />
+  ) : guestDetailError ? (
+    <div className="p-5 space-y-3">
+      <h3 className="text-sm font-semibold text-foreground">Could not load guest details</h3>
+      <p className="text-sm text-muted-foreground">{formatGuestsError(guestDetailError)}</p>
+      <Button variant="outline" size="sm" className="rounded-xl" onClick={retryDetail}>
+        Retry
+      </Button>
+    </div>
+  ) : selectedGuestDetail ? (
+    <GuestDetailContent guest={selectedGuestDetail} onClose={closeDetail} />
   ) : null;
+
+  const isDetailOpen = !!selectedGuestId;
 
   return (
     <div>
@@ -371,23 +488,34 @@ export function GuestManagement() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search guests…"
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search guests..."
           className="pl-9 rounded-xl"
         />
       </div>
 
-      {/* Guest list */}
       {selectedPropertyId === "all" ? (
         <div className="text-center py-16">
           <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-muted-foreground text-sm">Select a property to view guests</p>
         </div>
+      ) : isGuestsLoading ? (
+        <div className="space-y-2" data-testid="guests-loading-state">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <GuestCardSkeleton key={`guest-skeleton-${index}`} />
+          ))}
+        </div>
+      ) : guestsError ? (
+        <Card className="rounded-xl border-destructive/30" data-testid="guests-error-state">
+          <CardContent className="p-6">
+            <h3 className="text-sm font-semibold text-foreground">Could not load guests</h3>
+            <p className="text-sm text-muted-foreground mt-1">{formatGuestsError(guestsError)}</p>
+          </CardContent>
+        </Card>
       ) : filteredGuests.length === 0 ? (
         <div className="text-center py-16">
           <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
@@ -398,15 +526,15 @@ export function GuestManagement() {
       ) : (
         <div className="space-y-2">
           <AnimatePresence>
-            {filteredGuests.map((guest, i) => {
-              const latest = latestBookingForGuest(guest.id);
+            {filteredGuests.map((guest, index) => {
+              const latest = guest.latestBooking;
               return (
                 <motion.div
                   key={guest.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  transition={{ delay: i * 0.03 }}
+                  transition={{ delay: index * 0.03 }}
                 >
                   <Card
                     className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
@@ -420,10 +548,10 @@ export function GuestManagement() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate">{guest.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{guest.email}</p>
+                        <p className="text-xs text-muted-foreground truncate">{guest.email || "-"}</p>
                         {latest && (
                           <p className="text-[10px] text-muted-foreground mt-0.5">
-                            Last: {latest.roomName} · {format(new Date(latest.checkIn), "MMM d")} – {format(new Date(latest.checkOut), "MMM d")}
+                            Last: {latest.roomName} · {format(new Date(latest.checkIn), "MMM d")} - {format(new Date(latest.checkOut), "MMM d")}
                           </p>
                         )}
                       </div>
@@ -445,21 +573,20 @@ export function GuestManagement() {
         </div>
       )}
 
-      {/* Detail panel */}
       {isMobile ? (
-        <Drawer open={isDetailOpen} onOpenChange={(o) => !o && closeDetail()}>
+        <Drawer open={isDetailOpen} onOpenChange={(open) => !open && closeDetail()}>
           <DrawerContent className="max-h-[85vh]">
             <DrawerHeader className="sr-only">
-              <DrawerTitle>{selectedGuest?.name || "Guest Details"}</DrawerTitle>
+              <DrawerTitle>{selectedGuestDetail?.name || selectedGuestFromList?.name || "Guest Details"}</DrawerTitle>
               <DrawerDescription>Guest booking and conversation history</DrawerDescription>
             </DrawerHeader>
             {detailContent}
           </DrawerContent>
         </Drawer>
       ) : (
-        <Sheet open={isDetailOpen} onOpenChange={(o) => !o && closeDetail()}>
+        <Sheet open={isDetailOpen} onOpenChange={(open) => !open && closeDetail()}>
           <SheetContent className="w-[420px] sm:max-w-[420px] p-0 overflow-hidden">
-            <SheetTitle className="sr-only">{selectedGuest?.name || "Guest Details"}</SheetTitle>
+            <SheetTitle className="sr-only">{selectedGuestDetail?.name || selectedGuestFromList?.name || "Guest Details"}</SheetTitle>
             <SheetDescription className="sr-only">Guest booking and conversation history</SheetDescription>
             {detailContent}
           </SheetContent>

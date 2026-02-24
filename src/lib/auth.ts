@@ -144,6 +144,70 @@ export type ApiBooking = {
   cancelled_at: string | null;
 };
 
+export type ApiGuestBookingStatus =
+  | ApiBookingStatus
+  | "checked_in"
+  | "checked_out";
+
+export type ApiGuestLatestBooking = {
+  id: string;
+  room_id: string;
+  room_name: string;
+  check_in: string;
+  check_out: string;
+  status: ApiGuestBookingStatus;
+  total_price: number;
+  ai_handled: boolean;
+};
+
+export type ApiGuestSummary = {
+  id: string;
+  property_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string;
+  total_stays: number;
+  last_stay_date: string | null;
+  total_spent: number;
+  latest_booking: ApiGuestLatestBooking | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ApiGuestBooking = {
+  id: string;
+  guest_id: string;
+  room_id: string;
+  room_name: string;
+  property_id: string;
+  check_in: string;
+  check_out: string;
+  status: ApiGuestBookingStatus;
+  total_price: number;
+  ai_handled: boolean;
+  conversation_id: string | null;
+};
+
+export type ApiGuestConversationMessage = {
+  role: "guest" | "ai";
+  text: string;
+  timestamp: string;
+};
+
+export type ApiGuestConversation = {
+  id: string;
+  guest_id: string | null;
+  channel: string;
+  started_at: string;
+  messages: ApiGuestConversationMessage[];
+};
+
+export type ApiGuestDetail = ApiGuestSummary & {
+  bookings: ApiGuestBooking[];
+  conversations: ApiGuestConversation[];
+};
+
 export type HostProfile = {
   id: string;
   propertyId: string;
@@ -208,6 +272,65 @@ export type Booking = {
   cancelledAt: string | null;
 };
 
+export type GuestLatestBooking = {
+  id: string;
+  roomId: string;
+  roomName: string;
+  checkIn: string;
+  checkOut: string;
+  status: ApiGuestBookingStatus;
+  totalPrice: number;
+  aiHandled: boolean;
+};
+
+export type GuestSummary = {
+  id: string;
+  propertyId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notes: string;
+  totalStays: number;
+  lastStayDate: string | null;
+  totalSpent: number;
+  latestBooking: GuestLatestBooking | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuestBooking = {
+  id: string;
+  guestId: string;
+  roomId: string;
+  roomName: string;
+  propertyId: string;
+  checkIn: string;
+  checkOut: string;
+  status: ApiGuestBookingStatus;
+  totalPrice: number;
+  aiHandled: boolean;
+  conversationId: string | null;
+};
+
+export type GuestConversationMessage = {
+  role: "guest" | "ai";
+  text: string;
+  timestamp: string;
+};
+
+export type GuestConversation = {
+  id: string;
+  guestId: string | null;
+  channel: string;
+  startedAt: string;
+  messages: GuestConversationMessage[];
+};
+
+export type GuestDetail = GuestSummary & {
+  bookings: GuestBooking[];
+  conversations: GuestConversation[];
+};
+
 export type UpdateHostProfileInput = {
   name: string;
   location: string;
@@ -257,6 +380,13 @@ export type UpdateBookingInput = {
   cancelledAt?: string | null;
 };
 
+export type UpdateGuestInput = {
+  name?: string;
+  email?: string | null;
+  phone?: string | null;
+  notes?: string | null;
+};
+
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
   next_cursor: string | null;
@@ -276,6 +406,10 @@ export type PaymentConnectionsResponse = {
 
 export type BookingsResponse = {
   items: ApiBooking[];
+};
+
+export type GuestsResponse = {
+  items: ApiGuestSummary[];
 };
 
 export type DeleteKnowledgeFileResponse = {
@@ -623,6 +757,106 @@ const isApiBooking = (value: unknown): value is ApiBooking => {
   );
 };
 
+const isApiGuestBookingStatus = (value: unknown): value is ApiGuestBookingStatus => {
+  return (
+    isApiBookingStatus(value) ||
+    value === "checked_in" ||
+    value === "checked_out"
+  );
+};
+
+const isApiGuestLatestBooking = (value: unknown): value is ApiGuestLatestBooking => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.room_id === "string" &&
+    typeof candidate.room_name === "string" &&
+    typeof candidate.check_in === "string" &&
+    typeof candidate.check_out === "string" &&
+    isApiGuestBookingStatus(candidate.status) &&
+    typeof candidate.total_price === "number" &&
+    Number.isFinite(candidate.total_price) &&
+    typeof candidate.ai_handled === "boolean"
+  );
+};
+
+const isApiGuestSummary = (value: unknown): value is ApiGuestSummary => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.name === "string" &&
+    (candidate.email === null || typeof candidate.email === "string") &&
+    (candidate.phone === null || typeof candidate.phone === "string") &&
+    typeof candidate.notes === "string" &&
+    typeof candidate.total_stays === "number" &&
+    Number.isFinite(candidate.total_stays) &&
+    (candidate.last_stay_date === null || typeof candidate.last_stay_date === "string") &&
+    typeof candidate.total_spent === "number" &&
+    Number.isFinite(candidate.total_spent) &&
+    (candidate.latest_booking === null || isApiGuestLatestBooking(candidate.latest_booking)) &&
+    typeof candidate.created_at === "string" &&
+    typeof candidate.updated_at === "string"
+  );
+};
+
+const isApiGuestBooking = (value: unknown): value is ApiGuestBooking => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.guest_id === "string" &&
+    typeof candidate.room_id === "string" &&
+    typeof candidate.room_name === "string" &&
+    typeof candidate.property_id === "string" &&
+    typeof candidate.check_in === "string" &&
+    typeof candidate.check_out === "string" &&
+    isApiGuestBookingStatus(candidate.status) &&
+    typeof candidate.total_price === "number" &&
+    Number.isFinite(candidate.total_price) &&
+    typeof candidate.ai_handled === "boolean" &&
+    (candidate.conversation_id === null || typeof candidate.conversation_id === "string")
+  );
+};
+
+const isApiGuestConversationMessage = (
+  value: unknown
+): value is ApiGuestConversationMessage => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    (candidate.role === "guest" || candidate.role === "ai") &&
+    typeof candidate.text === "string" &&
+    typeof candidate.timestamp === "string"
+  );
+};
+
+const isApiGuestConversation = (value: unknown): value is ApiGuestConversation => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    (candidate.guest_id === null || typeof candidate.guest_id === "string") &&
+    typeof candidate.channel === "string" &&
+    typeof candidate.started_at === "string" &&
+    Array.isArray(candidate.messages) &&
+    candidate.messages.every(isApiGuestConversationMessage)
+  );
+};
+
+const isApiGuestDetail = (value: unknown): value is ApiGuestDetail => {
+  if (!isApiGuestSummary(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    Array.isArray(candidate.bookings) &&
+    candidate.bookings.every(isApiGuestBooking) &&
+    Array.isArray(candidate.conversations) &&
+    candidate.conversations.every(isApiGuestConversation)
+  );
+};
+
 const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -661,6 +895,12 @@ const isValidBookingsResponse = (value: unknown): value is BookingsResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return Array.isArray(candidate.items) && candidate.items.every(isApiBooking);
+};
+
+const isValidGuestsResponse = (value: unknown): value is GuestsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiGuestSummary);
 };
 
 const isValidDeleteKnowledgeFileResponse = (
@@ -820,6 +1060,77 @@ const mapApiBooking = (item: ApiBooking): Booking => {
     createdAt: item.created_at,
     updatedAt: item.updated_at,
     cancelledAt: item.cancelled_at,
+  };
+};
+
+const mapApiGuestLatestBooking = (
+  item: ApiGuestLatestBooking | null
+): GuestLatestBooking | null => {
+  if (!item) return null;
+  return {
+    id: item.id,
+    roomId: item.room_id,
+    roomName: item.room_name,
+    checkIn: item.check_in,
+    checkOut: item.check_out,
+    status: item.status,
+    totalPrice: item.total_price,
+    aiHandled: item.ai_handled,
+  };
+};
+
+const mapApiGuestSummary = (item: ApiGuestSummary): GuestSummary => {
+  return {
+    id: item.id,
+    propertyId: item.property_id,
+    name: item.name,
+    email: item.email,
+    phone: item.phone,
+    notes: item.notes,
+    totalStays: item.total_stays,
+    lastStayDate: item.last_stay_date,
+    totalSpent: item.total_spent,
+    latestBooking: mapApiGuestLatestBooking(item.latest_booking),
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+  };
+};
+
+const mapApiGuestBooking = (item: ApiGuestBooking): GuestBooking => {
+  return {
+    id: item.id,
+    guestId: item.guest_id,
+    roomId: item.room_id,
+    roomName: item.room_name,
+    propertyId: item.property_id,
+    checkIn: item.check_in,
+    checkOut: item.check_out,
+    status: item.status,
+    totalPrice: item.total_price,
+    aiHandled: item.ai_handled,
+    conversationId: item.conversation_id,
+  };
+};
+
+const mapApiGuestConversation = (item: ApiGuestConversation): GuestConversation => {
+  return {
+    id: item.id,
+    guestId: item.guest_id,
+    channel: item.channel,
+    startedAt: item.started_at,
+    messages: item.messages.map((message) => ({
+      role: message.role,
+      text: message.text,
+      timestamp: message.timestamp,
+    })),
+  };
+};
+
+const mapApiGuestDetail = (item: ApiGuestDetail): GuestDetail => {
+  return {
+    ...mapApiGuestSummary(item),
+    bookings: item.bookings.map(mapApiGuestBooking),
+    conversations: item.conversations.map(mapApiGuestConversation),
   };
 };
 
@@ -992,6 +1303,100 @@ export const fetchBookings = async (
   }
 
   return data.items.map(mapApiBooking);
+};
+
+export const fetchGuests = async (
+  accessToken: string,
+  propertyId: string,
+  options?: { search?: string }
+): Promise<GuestSummary[]> => {
+  const params = new URLSearchParams();
+  if (options?.search && options.search.trim()) {
+    params.set("search", options.search.trim());
+  }
+  const query = params.toString();
+  const url = `${API_BASE}/v1.0/properties/${propertyId}/guests${query ? `?${query}` : ""}`;
+
+  const res = await requestWithAuthInterceptor(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidGuestsResponse(data)) {
+    throw new AuthApiError("Invalid guests response", res.status);
+  }
+
+  return data.items.map(mapApiGuestSummary);
+};
+
+export const fetchGuestById = async (
+  accessToken: string,
+  propertyId: string,
+  guestId: string
+): Promise<GuestDetail> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/guests/${guestId}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiGuestDetail(data)) {
+    throw new AuthApiError("Invalid guest detail response", res.status);
+  }
+
+  return mapApiGuestDetail(data);
+};
+
+export const updateGuest = async (
+  accessToken: string,
+  propertyId: string,
+  guestId: string,
+  input: UpdateGuestInput
+): Promise<GuestDetail> => {
+  const payload: Record<string, unknown> = {};
+  if (input.name !== undefined) payload.name = input.name;
+  if (input.email !== undefined) payload.email = input.email;
+  if (input.phone !== undefined) payload.phone = input.phone;
+  if (input.notes !== undefined) payload.notes = input.notes;
+
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/guests/${guestId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiGuestDetail(data)) {
+    throw new AuthApiError("Invalid guest detail response", res.status);
+  }
+
+  return mapApiGuestDetail(data);
 };
 
 export const fetchBookingById = async (

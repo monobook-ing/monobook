@@ -7,6 +7,8 @@ import {
   fetchAuditEntries,
   fetchBookingById,
   fetchBookings,
+  fetchGuestById,
+  fetchGuests,
   fetchHostProfile,
   fetchKnowledgeFiles,
   fetchMe,
@@ -16,6 +18,7 @@ import {
   fetchRooms,
   readUserMe,
   updateBooking,
+  updateGuest,
   updatePaymentConnection,
   updatePmsConnection,
   updateHostProfile,
@@ -1266,6 +1269,204 @@ describe("bookings api", () => {
     expect(result).toHaveLength(1);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(replaceSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("guests api", () => {
+  const validGuestDetailPayload = {
+    id: "guest-1",
+    property_id: "prop-1",
+    name: "Sarah Chen",
+    email: "sarah@example.com",
+    phone: "+1 415-555-0142",
+    notes: "VIP guest",
+    total_stays: 4,
+    last_stay_date: "2026-02-20",
+    total_spent: 2578,
+    latest_booking: {
+      id: "booking-1",
+      room_id: "room-1",
+      room_name: "Ocean View Deluxe Suite",
+      check_in: "2026-02-18",
+      check_out: "2026-02-20",
+      status: "confirmed",
+      total_price: 578,
+      ai_handled: true,
+    },
+    created_at: "2026-02-01T10:00:00Z",
+    updated_at: "2026-02-21T10:00:00Z",
+    bookings: [
+      {
+        id: "booking-1",
+        guest_id: "guest-1",
+        room_id: "room-1",
+        room_name: "Ocean View Deluxe Suite",
+        property_id: "prop-1",
+        check_in: "2026-02-18",
+        check_out: "2026-02-20",
+        status: "checked_out",
+        total_price: 578,
+        ai_handled: true,
+        conversation_id: "session-1",
+      },
+    ],
+    conversations: [
+      {
+        id: "session-1",
+        guest_id: "guest-1",
+        channel: "widget",
+        started_at: "2026-02-17T09:30:00Z",
+        messages: [
+          {
+            role: "guest",
+            text: "Hi there",
+            timestamp: "2026-02-17T09:30:00Z",
+          },
+        ],
+      },
+    ],
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("maps valid guests list response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "guest-1",
+              property_id: "prop-1",
+              name: "Sarah Chen",
+              email: "sarah@example.com",
+              phone: "+1 415-555-0142",
+              notes: "",
+              total_stays: 2,
+              last_stay_date: "2026-02-20",
+              total_spent: 578,
+              latest_booking: null,
+              created_at: "2026-02-01T10:00:00Z",
+              updated_at: "2026-02-01T10:00:00Z",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchGuests("jwt", "prop-1")).resolves.toEqual([
+      {
+        id: "guest-1",
+        propertyId: "prop-1",
+        name: "Sarah Chen",
+        email: "sarah@example.com",
+        phone: "+1 415-555-0142",
+        notes: "",
+        totalStays: 2,
+        lastStayDate: "2026-02-20",
+        totalSpent: 578,
+        latestBooking: null,
+        createdAt: "2026-02-01T10:00:00Z",
+        updatedAt: "2026-02-01T10:00:00Z",
+      },
+    ]);
+  });
+
+  it("includes search query param when provided", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [] }), { status: 200 })
+    );
+
+    await fetchGuests("jwt", "prop-1", { search: "Sarah" });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/properties/prop-1/guests?search=Sarah");
+  });
+
+  it("rejects invalid guests list response payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [{ id: "guest-1" }],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchGuests("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid guests response",
+      status: 200,
+    });
+  });
+
+  it("maps valid guest detail response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(validGuestDetailPayload), { status: 200 })
+    );
+
+    await expect(fetchGuestById("jwt", "prop-1", "guest-1")).resolves.toMatchObject({
+      id: "guest-1",
+      propertyId: "prop-1",
+      totalStays: 4,
+      latestBooking: expect.objectContaining({
+        roomName: "Ocean View Deluxe Suite",
+      }),
+      bookings: [
+        expect.objectContaining({
+          status: "checked_out",
+        }),
+      ],
+      conversations: [
+        expect.objectContaining({
+          channel: "widget",
+        }),
+      ],
+    });
+  });
+
+  it("sends partial update payload and maps guest detail response", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...validGuestDetailPayload,
+          notes: "Updated notes",
+          updated_at: "2026-02-23T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await updateGuest("jwt", "prop-1", "guest-1", {
+      notes: "Updated notes",
+      phone: null,
+    });
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      notes: "Updated notes",
+      phone: null,
+    });
+    expect(result).toMatchObject({
+      id: "guest-1",
+      notes: "Updated notes",
+    });
+  });
+
+  it("throws parsed api error on guests non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(fetchGuests("jwt", "prop-1")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
   });
 });
 
