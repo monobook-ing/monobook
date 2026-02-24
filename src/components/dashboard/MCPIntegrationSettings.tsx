@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { AIProviderSettings } from "./AIProviderSettings";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,6 +23,7 @@ import {
   type KnowledgeFile,
   type PaymentConnection,
   type PmsConnection,
+  clearAuthStorage,
   readAccessToken,
   type HostProfile,
   updatePaymentConnection,
@@ -597,6 +599,7 @@ function HostDetailsSection() {
 export function MCPIntegrationSettings() {
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [pmsConnections, setPmsConnections] = useState<PmsConnection[]>([]);
   const [isPmsLoading, setIsPmsLoading] = useState(false);
   const [pmsError, setPmsError] = useState<string | null>(null);
@@ -1085,6 +1088,11 @@ export function MCPIntegrationSettings() {
     };
   });
 
+  const handleLogout = () => {
+    clearAuthStorage();
+    navigate("/auth", { replace: true });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -1416,6 +1424,23 @@ export function MCPIntegrationSettings() {
           </>
         )}
       </div>
+
+      {isMobile && (
+        <div className="rounded-2xl bg-card apple-shadow mb-6 mt-2 border-t border-border">
+          <div className="p-5 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="mobile-settings-logout-button"
+              onClick={handleLogout}
+              className="h-12 w-full rounded-2xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="w-4 h-4" />
+              Log out
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* File Preview Overlay */}
       <AnimatePresence>

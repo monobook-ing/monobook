@@ -12,8 +12,13 @@ const updatePmsConnectionMock = vi.hoisted(() => vi.fn());
 const fetchPaymentConnectionsMock = vi.hoisted(() => vi.fn());
 const updatePaymentConnectionMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const clearAuthStorageMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
 const triggerSelectionHapticMock = vi.hoisted(() => vi.fn());
+const navigateMock = vi.hoisted(() => vi.fn());
+const isMobileRef = vi.hoisted(() => ({
+  current: false,
+}));
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "prop-1",
@@ -37,6 +42,7 @@ vi.mock("@/lib/auth", () => ({
   fetchPaymentConnections: fetchPaymentConnectionsMock,
   updatePaymentConnection: updatePaymentConnectionMock,
   readAccessToken: readAccessTokenMock,
+  clearAuthStorage: clearAuthStorageMock,
 }));
 
 vi.mock("@/contexts/PropertyContext", () => ({
@@ -46,6 +52,18 @@ vi.mock("@/contexts/PropertyContext", () => ({
 vi.mock("@/lib/haptics", () => ({
   triggerSelectionHaptic: triggerSelectionHapticMock,
 }));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => isMobileRef.current,
+}));
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 const hostProfile = {
   id: "hp-uuid",
@@ -130,8 +148,11 @@ describe("MCPIntegrationSettings Host Details", () => {
     fetchPaymentConnectionsMock.mockReset();
     updatePaymentConnectionMock.mockReset();
     readAccessTokenMock.mockReset();
+    clearAuthStorageMock.mockReset();
     toastErrorMock.mockReset();
     triggerSelectionHapticMock.mockReset();
+    navigateMock.mockReset();
+    isMobileRef.current = false;
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
     createKnowledgeFileMock.mockResolvedValue(knowledgeFiles[0]);
@@ -582,6 +603,40 @@ describe("MCPIntegrationSettings Host Details", () => {
     await waitFor(() => {
       expect(screen.getByText("ZZ")).toBeInTheDocument();
     });
+  });
+
+  it("renders mobile logout button only on mobile", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
+
+    isMobileRef.current = true;
+    const { rerender } = render(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mobile-settings-logout-button")).toBeInTheDocument();
+    });
+
+    isMobileRef.current = false;
+    rerender(<MCPIntegrationSettings />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("mobile-settings-logout-button")).not.toBeInTheDocument();
+    });
+  });
+
+  it("clears auth storage and navigates to auth when mobile logout is clicked", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
+    isMobileRef.current = true;
+
+    render(<MCPIntegrationSettings />);
+
+    fireEvent.click(await screen.findByTestId("mobile-settings-logout-button"));
+
+    expect(clearAuthStorageMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith("/auth", { replace: true });
   });
 });
 
