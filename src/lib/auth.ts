@@ -159,6 +159,7 @@ export type ApiGuestLatestBooking = {
   status: ApiGuestBookingStatus;
   total_price: number;
   ai_handled: boolean;
+  source: string | null;
 };
 
 export type ApiGuestSummary = {
@@ -187,6 +188,7 @@ export type ApiGuestBooking = {
   status: ApiGuestBookingStatus;
   total_price: number;
   ai_handled: boolean;
+  source: string | null;
   conversation_id: string | null;
 };
 
@@ -283,6 +285,7 @@ export type GuestLatestBooking = {
   status: ApiGuestBookingStatus;
   totalPrice: number;
   aiHandled: boolean;
+  source: string | null;
 };
 
 export type GuestSummary = {
@@ -311,6 +314,7 @@ export type GuestBooking = {
   status: ApiGuestBookingStatus;
   totalPrice: number;
   aiHandled: boolean;
+  source: string | null;
   conversationId: string | null;
 };
 
@@ -782,7 +786,8 @@ const isApiGuestLatestBooking = (value: unknown): value is ApiGuestLatestBooking
     isApiGuestBookingStatus(candidate.status) &&
     typeof candidate.total_price === "number" &&
     Number.isFinite(candidate.total_price) &&
-    typeof candidate.ai_handled === "boolean"
+    typeof candidate.ai_handled === "boolean" &&
+    (candidate.source === null || typeof candidate.source === "string")
   );
 };
 
@@ -822,6 +827,7 @@ const isApiGuestBooking = (value: unknown): value is ApiGuestBooking => {
     typeof candidate.total_price === "number" &&
     Number.isFinite(candidate.total_price) &&
     typeof candidate.ai_handled === "boolean" &&
+    (candidate.source === null || typeof candidate.source === "string") &&
     (candidate.conversation_id === null || typeof candidate.conversation_id === "string")
   );
 };
@@ -1082,6 +1088,7 @@ const mapApiGuestLatestBooking = (
     status: item.status,
     totalPrice: item.total_price,
     aiHandled: item.ai_handled,
+    source: item.source,
   };
 };
 
@@ -1114,6 +1121,7 @@ const mapApiGuestBooking = (item: ApiGuestBooking): GuestBooking => {
     status: item.status,
     totalPrice: item.total_price,
     aiHandled: item.ai_handled,
+    source: item.source,
     conversationId: item.conversation_id,
   };
 };

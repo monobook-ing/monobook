@@ -51,6 +51,7 @@ const guestSummaries = [
       status: "confirmed",
       totalPrice: 578,
       aiHandled: true,
+      source: "chatgpt",
     },
     createdAt: "2026-02-01T00:00:00Z",
     updatedAt: "2026-02-20T00:00:00Z",
@@ -86,6 +87,7 @@ const guestDetailsById = {
         status: "confirmed",
         totalPrice: 578,
         aiHandled: true,
+        source: "chatgpt",
         conversationId: "conv-1",
       },
     ],
@@ -412,6 +414,85 @@ describe("GuestManagement URL sync", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("latest-booking-room-image-skeleton")).not.toBeInTheDocument();
     });
+  });
+
+  it("renders provider label for gemini source", async () => {
+    const guestWithGeminiSource = {
+      ...guestDetailsById["guest-1"],
+      latestBooking: {
+        ...guestDetailsById["guest-1"].latestBooking,
+        source: "Gemini",
+      },
+    };
+    fetchGuestByIdMock.mockImplementation(
+      (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
+        Promise.resolve(guestId === "guest-1" ? guestWithGeminiSource : guestDetailsById[guestId])
+    );
+
+    renderGuestManagement("/guests?guestId=guest-1");
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByText("Gemini")).toBeInTheDocument();
+  });
+
+  it("renders provider label for claude source", async () => {
+    const guestWithClaudeSource = {
+      ...guestDetailsById["guest-1"],
+      latestBooking: {
+        ...guestDetailsById["guest-1"].latestBooking,
+        source: "claude",
+      },
+    };
+    fetchGuestByIdMock.mockImplementation(
+      (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
+        Promise.resolve(guestId === "guest-1" ? guestWithClaudeSource : guestDetailsById[guestId])
+    );
+
+    renderGuestManagement("/guests?guestId=guest-1");
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByText("Claude")).toBeInTheDocument();
+  });
+
+  it("renders provider label for chatgpt source", async () => {
+    renderGuestManagement("/guests?guestId=guest-1");
+
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByText("ChatGPT")).toBeInTheDocument();
+  });
+
+  it("falls back to generic ai label for unknown source", async () => {
+    const guestWithUnknownSource = {
+      ...guestDetailsById["guest-1"],
+      latestBooking: {
+        ...guestDetailsById["guest-1"].latestBooking,
+        source: "widget",
+      },
+    };
+    fetchGuestByIdMock.mockImplementation(
+      (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
+        Promise.resolve(guestId === "guest-1" ? guestWithUnknownSource : guestDetailsById[guestId])
+    );
+
+    renderGuestManagement("/guests?guestId=guest-1");
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByText("Booked via AI")).toBeInTheDocument();
+  });
+
+  it("falls back to generic ai label for null source", async () => {
+    const guestWithNullSource = {
+      ...guestDetailsById["guest-1"],
+      latestBooking: {
+        ...guestDetailsById["guest-1"].latestBooking,
+        source: null,
+      },
+    };
+    fetchGuestByIdMock.mockImplementation(
+      (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
+        Promise.resolve(guestId === "guest-1" ? guestWithNullSource : guestDetailsById[guestId])
+    );
+
+    renderGuestManagement("/guests?guestId=guest-1");
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByText("Booked via AI")).toBeInTheDocument();
   });
 
   it("does not render latest booking room image section when room image is missing", async () => {
