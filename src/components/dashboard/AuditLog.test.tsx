@@ -25,8 +25,23 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 vi.mock("@/components/ui/calendar", () => ({
-  Calendar: ({ onSelect }: { onSelect?: (value: { from?: Date; to?: Date } | undefined) => void }) => (
-    <div>
+  Calendar: ({
+    onSelect,
+    className,
+    classNames,
+  }: {
+    onSelect?: (value: { from?: Date; to?: Date } | undefined) => void;
+    className?: string;
+    classNames?: Record<string, string>;
+  }) => (
+    <div
+      data-testid="mock-calendar"
+      data-class-name={className ?? ""}
+      data-head-row={classNames?.head_row ?? ""}
+      data-row={classNames?.row ?? ""}
+      data-head-cell={classNames?.head_cell ?? ""}
+      data-day={classNames?.day ?? ""}
+    >
       <button
         type="button"
         onClick={() =>
@@ -336,6 +351,27 @@ describe("AuditLog", () => {
     fireEvent.click(screen.getByRole("button", { name: /date range/i }));
 
     expect(await screen.findByTestId("audit-date-drawer")).toBeInTheDocument();
+    const mobileCalendar = screen.getByTestId("mock-calendar");
+    expect(mobileCalendar).toHaveAttribute(
+      "data-class-name",
+      expect.stringContaining("w-full")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-head-row",
+      expect.stringContaining("grid grid-cols-7")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-row",
+      expect.stringContaining("grid grid-cols-7")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-head-cell",
+      expect.stringContaining("w-full")
+    );
+    expect(mobileCalendar).toHaveAttribute(
+      "data-day",
+      expect.stringContaining("w-full")
+    );
     fireEvent.click(screen.getByRole("button", { name: "Pick Feb 22" }));
 
     const expectedRange = getExpectedRange();

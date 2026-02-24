@@ -13,6 +13,7 @@ const fetchPaymentConnectionsMock = vi.hoisted(() => vi.fn());
 const updatePaymentConnectionMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
+const triggerSelectionHapticMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "prop-1",
@@ -40,6 +41,10 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/contexts/PropertyContext", () => ({
   useProperty: () => propertyStateRef.current,
+}));
+
+vi.mock("@/lib/haptics", () => ({
+  triggerSelectionHaptic: triggerSelectionHapticMock,
 }));
 
 const hostProfile = {
@@ -126,6 +131,7 @@ describe("MCPIntegrationSettings Host Details", () => {
     updatePaymentConnectionMock.mockReset();
     readAccessTokenMock.mockReset();
     toastErrorMock.mockReset();
+    triggerSelectionHapticMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
     createKnowledgeFileMock.mockResolvedValue(knowledgeFiles[0]);
@@ -244,6 +250,7 @@ describe("MCPIntegrationSettings Host Details", () => {
     await waitFor(() => {
       expect(screen.queryByText("Disable JP Morgan?")).not.toBeInTheDocument();
       expect(updatePaymentConnectionMock).not.toHaveBeenCalled();
+      expect(triggerSelectionHapticMock).not.toHaveBeenCalled();
     });
   });
 
@@ -266,6 +273,7 @@ describe("MCPIntegrationSettings Host Details", () => {
       expect(updatePaymentConnectionMock).toHaveBeenCalledWith("jwt", "prop-1", "jpmorgan", {
         enabled: false,
       });
+      expect(triggerSelectionHapticMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -288,6 +296,7 @@ describe("MCPIntegrationSettings Host Details", () => {
         enabled: true,
       });
       expect(screen.getByTestId("payment-toggle-stripe")).toBeInTheDocument();
+      expect(triggerSelectionHapticMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -307,6 +316,7 @@ describe("MCPIntegrationSettings Host Details", () => {
         enabled: true,
       });
       expect(toastErrorMock).toHaveBeenCalledWith("payment update failed");
+      expect(triggerSelectionHapticMock).not.toHaveBeenCalled();
     });
   });
 
@@ -388,6 +398,7 @@ describe("MCPIntegrationSettings Host Details", () => {
         enabled: true,
       });
       expect(screen.getByTestId("pms-toggle-mews")).toBeInTheDocument();
+      expect(triggerSelectionHapticMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -407,6 +418,7 @@ describe("MCPIntegrationSettings Host Details", () => {
         enabled: true,
       });
       expect(toastErrorMock).toHaveBeenCalledWith("pms update failed");
+      expect(triggerSelectionHapticMock).not.toHaveBeenCalled();
     });
   });
 

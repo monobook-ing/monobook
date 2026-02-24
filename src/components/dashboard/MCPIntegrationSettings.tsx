@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useProperty } from "@/contexts/PropertyContext";
+import { triggerSelectionHaptic } from "@/lib/haptics";
 import {
   createKnowledgeFile,
   deleteKnowledgeFile,
@@ -934,6 +935,7 @@ export function MCPIntegrationSettings() {
             item.provider === updated.provider ? updated : item
           )
         );
+        triggerSelectionHaptic();
       } catch (updateError) {
         const message =
           updateError instanceof Error ? updateError.message : "Failed to update PMS connection";
@@ -959,13 +961,13 @@ export function MCPIntegrationSettings() {
 
   const updatePaymentConnectionEnabledState = useCallback(
     async (connection: PaymentConnection, nextEnabled: boolean) => {
-      if (selectedPropertyId === "all") return;
+      if (selectedPropertyId === "all") return false;
       const accessToken = readAccessToken();
       if (!accessToken) {
         setPaymentError("missing_token");
-        return;
+        return false;
       }
-      if (updatingPaymentProviders.has(connection.provider)) return;
+      if (updatingPaymentProviders.has(connection.provider)) return false;
 
       setPaymentError(null);
       setUpdatingPaymentProviders((prev) => {
@@ -993,6 +995,7 @@ export function MCPIntegrationSettings() {
             item.provider === updated.provider ? updated : item
           )
         );
+        return true;
       } catch (updateError) {
         const message =
           updateError instanceof Error ? updateError.message : "Failed to update payment connection";
@@ -1005,6 +1008,7 @@ export function MCPIntegrationSettings() {
         );
         setPaymentError(message);
         toast.error(message);
+        return false;
       } finally {
         setUpdatingPaymentProviders((prev) => {
           const next = new Set(prev);
@@ -1017,21 +1021,27 @@ export function MCPIntegrationSettings() {
   );
 
   const togglePaymentConnection = useCallback(
-    (connection: PaymentConnection) => {
+    async (connection: PaymentConnection) => {
       if (connection.enabled) {
         setPendingDisablePaymentProvider(connection);
         setShowDisablePaymentDialog(true);
         return;
       }
 
-      void updatePaymentConnectionEnabledState(connection, true);
+      const didUpdate = await updatePaymentConnectionEnabledState(connection, true);
+      if (didUpdate) {
+        triggerSelectionHaptic();
+      }
     },
     [updatePaymentConnectionEnabledState]
   );
 
-  const confirmDisablePaymentConnection = useCallback(() => {
+  const confirmDisablePaymentConnection = useCallback(async () => {
     if (!pendingDisablePaymentProvider) return;
-    void updatePaymentConnectionEnabledState(pendingDisablePaymentProvider, false);
+    const didUpdate = await updatePaymentConnectionEnabledState(pendingDisablePaymentProvider, false);
+    if (didUpdate) {
+      triggerSelectionHaptic();
+    }
     setShowDisablePaymentDialog(false);
     setPendingDisablePaymentProvider(null);
   }, [pendingDisablePaymentProvider, updatePaymentConnectionEnabledState]);

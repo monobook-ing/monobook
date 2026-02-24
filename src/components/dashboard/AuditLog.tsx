@@ -235,7 +235,7 @@ export function AuditLog() {
                   data-testid="audit-date-drawer"
                   className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
                 >
-                  <div className="px-5 pb-4">
+                  <div className="px-5 pb-2">
                     <DrawerHeader className="relative px-0 pt-3 text-center">
                       <DrawerTitle className="text-lg">Date range</DrawerTitle>
                       <DrawerDescription className="sr-only">
@@ -250,12 +250,24 @@ export function AuditLog() {
                         <X className="w-4 h-4" />
                       </button>
                     </DrawerHeader>
+                  </div>
+                  <div className="pb-4">
                     <Calendar
                       mode="range"
                       selected={dateRange}
                       onSelect={handleDateRangeSelect}
                       numberOfMonths={1}
-                      className="p-0 pointer-events-auto"
+                      className="w-full p-0 pointer-events-auto"
+                      classNames={{
+                        months: "w-full",
+                        month: "w-full space-y-4",
+                        table: "w-full border-collapse space-y-1",
+                        head_row: "grid grid-cols-7",
+                        head_cell: "text-muted-foreground rounded-md w-full font-normal text-[0.8rem] text-center",
+                        row: "grid grid-cols-7 w-full mt-2",
+                        cell: "h-9 w-full text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                        day: "h-9 w-full p-0 font-normal aria-selected:opacity-100",
+                      }}
                     />
                   </div>
                 </DrawerContent>
