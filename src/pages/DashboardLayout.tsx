@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -300,7 +300,7 @@ function DashboardInner() {
         data-collapsed={isSidebarCollapsed ? "true" : "false"}
         className={`hidden md:flex flex-col glass border-r border-border p-4 fixed inset-y-0 left-0 z-30 transition-[width] duration-200 ${isSidebarCollapsed ? "w-20" : "w-64"}`}
       >
-        <div className={`flex items-center mb-2 ${isSidebarCollapsed ? "justify-center" : "gap-2 px-2"}`}>
+        <div className={`flex items-center mb-2 ${isSidebarCollapsed ? "justify-center" : "gap-2 px-0"}`}>
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <MessageSquare className="w-4 h-4 text-primary-foreground" />
           </div>
@@ -313,7 +313,7 @@ function DashboardInner() {
             className={`h-8 w-8 rounded-lg hover:bg-secondary transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground ${isSidebarCollapsed ? "absolute top-4 right-4" : "ml-auto"}`}
             onClick={() => setIsSidebarCollapsed((prev) => !prev)}
           >
-            {isSidebarCollapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+            {isSidebarCollapsed ? <PanelRight className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
           </button>
         </div>
 
