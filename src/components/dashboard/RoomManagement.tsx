@@ -40,6 +40,7 @@ import {
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
+import { MobileDestructiveConfirmSheet } from "@/components/dashboard/MobileDestructiveConfirmSheet";
 import { useProperty } from "@/contexts/PropertyContext";
 import { deleteRoom, fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -753,38 +754,20 @@ export function RoomManagement() {
       )}
 
       {isMobile ? (
-        <Drawer open={showDeleteRoomDialog} onOpenChange={setShowDeleteRoomDialog}>
-          <DrawerContent
-            data-testid="delete-room-drawer"
-            className="rounded-t-[32px] border-white/40 bg-background shadow-xl max-h-[85vh] px-5 pb-[max(1rem,env(safe-area-inset-bottom))]"
-          >
-            <DrawerHeader className="px-0 pt-3 text-center">
-              <DrawerTitle className="text-2xl font-semibold">Delete room?</DrawerTitle>
-              <DrawerDescription className="mt-2 text-base text-muted-foreground">
-                Are you sure you want to delete room?
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="mx-auto w-full max-w-md pb-3 pt-2">
-              <Button
-                onClick={() => {
-                  void handleConfirmDeleteRoom();
-                }}
-                disabled={isDeletingRoom}
-                className="h-14 w-full rounded-2xl bg-destructive text-destructive-foreground text-xl font-semibold hover:bg-destructive/90"
-              >
-                Yes
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteRoomDialog(false)}
-                disabled={isDeletingRoom}
-                className="mt-3 h-14 w-full rounded-2xl text-xl"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DrawerContent>
-        </Drawer>
+        <MobileDestructiveConfirmSheet
+          open={showDeleteRoomDialog}
+          onOpenChange={setShowDeleteRoomDialog}
+          title="Delete room?"
+          description="Are you sure you want to delete room?"
+          confirmLabel="Yes"
+          onConfirm={() => {
+            void handleConfirmDeleteRoom();
+          }}
+          onCancel={() => setShowDeleteRoomDialog(false)}
+          confirmDisabled={isDeletingRoom}
+          cancelDisabled={isDeletingRoom}
+          testId="delete-room-drawer"
+        />
       ) : (
         <AlertDialog open={showDeleteRoomDialog} onOpenChange={setShowDeleteRoomDialog}>
           <AlertDialogContent className="rounded-2xl">

@@ -41,10 +41,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileDestructiveConfirmSheet } from "@/components/dashboard/MobileDestructiveConfirmSheet";
 
 const pmsProviderDescriptions: Record<string, string> = {
   mews: "Sync rooms & rates automatically",
@@ -1527,40 +1527,22 @@ export function MCPIntegrationSettings() {
       </AlertDialog>
 
       {isMobile ? (
-        <Drawer open={showDisablePaymentDialog} onOpenChange={onDisablePaymentDialogOpenChange}>
-          <DrawerContent
-            data-testid="disable-payment-drawer"
-            className="rounded-t-[32px] border-white/40 bg-background/80 backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
-          >
-            <div className="px-5 pb-4 pt-1">
-              <DrawerHeader className="px-0 pt-3 text-center">
-                <DrawerTitle>Disable {pendingDisableProviderLabel}?</DrawerTitle>
-                <DrawerDescription className="mt-1 text-sm text-muted-foreground">
-                  Are you sure you want to disconnect {pendingDisableProviderLabel}? This will stop
-                  processing payments through this provider.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="mt-4 space-y-3">
-                <Button
-                  type="button"
-                  onClick={confirmDisablePaymentConnection}
-                  disabled={isDisablePaymentPending}
-                  className="h-12 w-full rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Disable
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelDisablePaymentConnection}
-                  className="h-12 w-full rounded-2xl border-white/45 bg-background/65 hover:bg-background/80"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DrawerContent>
-        </Drawer>
+        <MobileDestructiveConfirmSheet
+          open={showDisablePaymentDialog}
+          onOpenChange={onDisablePaymentDialogOpenChange}
+          title={`Disable ${pendingDisableProviderLabel}?`}
+          description={
+            <>
+              Are you sure you want to disconnect {pendingDisableProviderLabel}? This will stop
+              processing payments through this provider.
+            </>
+          }
+          confirmLabel="Disable"
+          onConfirm={confirmDisablePaymentConnection}
+          onCancel={cancelDisablePaymentConnection}
+          confirmDisabled={isDisablePaymentPending}
+          testId="disable-payment-drawer"
+        />
       ) : (
         <AlertDialog open={showDisablePaymentDialog} onOpenChange={onDisablePaymentDialogOpenChange}>
           <AlertDialogContent className="rounded-2xl">

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MCPIntegrationSettings } from "@/components/dashboard/MCPIntegrationSettings";
 
@@ -255,6 +255,39 @@ describe("MCPIntegrationSettings Host Details", () => {
 
     expect(screen.getByText("Disable JP Morgan?")).toBeInTheDocument();
     expect(updatePaymentConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("renders disable confirmation as mobile bottom sheet and allows cancel", async () => {
+    isMobileRef.current = true;
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByTestId("payment-toggle-jpmorgan");
+    fireEvent.click(screen.getByTestId("payment-toggle-jpmorgan"));
+
+    const drawer = await screen.findByTestId("disable-payment-drawer");
+    expect(within(drawer).getByText("Disable JP Morgan?")).toBeInTheDocument();
+    expect(
+      within(drawer).getByText(
+        "Are you sure you want to disconnect JP Morgan? This will stop processing payments through this provider."
+      )
+    ).toBeInTheDocument();
+
+    const disableButton = within(drawer).getByRole("button", { name: "Disable" });
+    const cancelButton = within(drawer).getByRole("button", { name: "Cancel" });
+    expect((disableButton.compareDocumentPosition(cancelButton) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true);
+
+    fireEvent.click(cancelButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("disable-payment-drawer")).toHaveAttribute("data-state", "closed");
+      expect(screen.queryByText("Disable JP Morgan?")).not.toBeInTheDocument();
+      expect(updatePaymentConnectionMock).not.toHaveBeenCalled();
+      expect(triggerSelectionHapticMock).not.toHaveBeenCalled();
+    });
   });
 
   it("does not disable payment provider when confirmation is canceled", async () => {
