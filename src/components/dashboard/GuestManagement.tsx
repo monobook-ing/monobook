@@ -10,6 +10,8 @@ import {
   Bot,
   User,
   ChevronRight,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -195,7 +197,47 @@ function GuestDetailContent({
   guest: GuestDetail;
   isMobile: boolean;
 }) {
-  const latestBooking = guest.bookings[0];
+  const [copiedField, setCopiedField] = useState<"email" | "phone" | null>(null);
+  const [isLatestBookingImageLoaded, setIsLatestBookingImageLoaded] = useState(false);
+  const [isLatestBookingImageErrored, setIsLatestBookingImageErrored] = useState(false);
+  const copyResetTimerRef = useRef<number | null>(null);
+  const latestBooking = guest.latestBooking ?? guest.bookings[0] ?? null;
+  const latestBookingImage =
+    latestBooking && "roomImage" in latestBooking ? latestBooking.roomImage : null;
+  const bookingHistory = latestBooking
+    ? guest.bookings.filter((booking) => booking.id !== latestBooking.id)
+    : guest.bookings;
+
+  useEffect(() => {
+    setIsLatestBookingImageLoaded(false);
+    setIsLatestBookingImageErrored(false);
+  }, [latestBookingImage]);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current) {
+        window.clearTimeout(copyResetTimerRef.current);
+      }
+    };
+  }, []);
+
+  const copyValue = async (field: "email" | "phone", value: string | null) => {
+    if (!value) return;
+    if (!navigator?.clipboard?.writeText) return;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      if (copyResetTimerRef.current) {
+        window.clearTimeout(copyResetTimerRef.current);
+      }
+      copyResetTimerRef.current = window.setTimeout(() => {
+        setCopiedField((current) => (current === field ? null : current));
+      }, 1500);
+    } catch {
+      // Keep UI stable when clipboard access fails (permissions/insecure context).
+    }
+  };
 
   const content = (
     <div className="p-5 space-y-5">
@@ -210,10 +252,30 @@ function GuestDetailContent({
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
               <Mail className="w-3.5 h-3.5" />
               <span className="truncate">{guest.email || "-"}</span>
+              {guest.email && (
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Copy email"
+                  onClick={() => copyValue("email", guest.email)}
+                >
+                  {copiedField === "email" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
               <Phone className="w-3.5 h-3.5" />
               <span>{guest.phone || "-"}</span>
+              {guest.phone && (
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Copy phone"
+                  onClick={() => copyValue("phone", guest.phone)}
+                >
+                  {copiedField === "phone" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -251,6 +313,26 @@ function GuestDetailContent({
             </h4>
             <Card className="rounded-xl">
               <CardContent className="p-4">
+                {latestBookingImage && !isLatestBookingImageErrored && (
+                  <div
+                    className="relative mb-3 h-32 w-full overflow-hidden rounded-lg bg-muted/30"
+                    data-testid="latest-booking-room-image-container"
+                  >
+                    {!isLatestBookingImageLoaded && (
+                      <Skeleton className="absolute inset-0 h-full w-full rounded-none" data-testid="latest-booking-room-image-skeleton" />
+                    )}
+                    <img
+                      src={latestBookingImage}
+                      alt={`${latestBooking.roomName} preview`}
+                      className={`h-full w-full object-cover transition-opacity duration-200 ${
+                        isLatestBookingImageLoaded ? "opacity-100" : "opacity-0"
+                      }`}
+                      onLoad={() => setIsLatestBookingImageLoaded(true)}
+                      onError={() => setIsLatestBookingImageErrored(true)}
+                      data-testid="latest-booking-room-image"
+                    />
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <p className="font-medium text-foreground">{latestBooking.roomName}</p>
                   <Badge variant="outline" className={statusColor[latestBooking.status] || ""}>
@@ -273,14 +355,14 @@ function GuestDetailContent({
           </div>
         )}
 
-        {guest.bookings.length > 1 && (
+        {bookingHistory.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Booking History
             </h4>
             <Card className="rounded-xl">
               <CardContent className="p-3 divide-y divide-border">
-                {guest.bookings.slice(1).map((booking) => (
+                {bookingHistory.map((booking) => (
                   <BookingRow key={booking.id} booking={booking} />
                 ))}
               </CardContent>

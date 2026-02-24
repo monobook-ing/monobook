@@ -1286,6 +1286,7 @@ describe("guests api", () => {
     latest_booking: {
       id: "booking-1",
       room_id: "room-1",
+      room_image: "https://example.com/ocean-suite.jpg",
       room_name: "Ocean View Deluxe Suite",
       check_in: "2026-02-18",
       check_out: "2026-02-20",
@@ -1413,6 +1414,7 @@ describe("guests api", () => {
       totalStays: 4,
       latestBooking: expect.objectContaining({
         roomName: "Ocean View Deluxe Suite",
+        roomImage: "https://example.com/ocean-suite.jpg",
       }),
       bookings: [
         expect.objectContaining({

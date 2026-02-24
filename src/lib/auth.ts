@@ -152,6 +152,7 @@ export type ApiGuestBookingStatus =
 export type ApiGuestLatestBooking = {
   id: string;
   room_id: string;
+  room_image?: string | null;
   room_name: string;
   check_in: string;
   check_out: string;
@@ -275,6 +276,7 @@ export type Booking = {
 export type GuestLatestBooking = {
   id: string;
   roomId: string;
+  roomImage: string | null;
   roomName: string;
   checkIn: string;
   checkOut: string;
@@ -771,6 +773,9 @@ const isApiGuestLatestBooking = (value: unknown): value is ApiGuestLatestBooking
   return (
     typeof candidate.id === "string" &&
     typeof candidate.room_id === "string" &&
+    (candidate.room_image === undefined ||
+      candidate.room_image === null ||
+      typeof candidate.room_image === "string") &&
     typeof candidate.room_name === "string" &&
     typeof candidate.check_in === "string" &&
     typeof candidate.check_out === "string" &&
@@ -1070,6 +1075,7 @@ const mapApiGuestLatestBooking = (
   return {
     id: item.id,
     roomId: item.room_id,
+    roomImage: item.room_image ?? null,
     roomName: item.room_name,
     checkIn: item.check_in,
     checkOut: item.check_out,

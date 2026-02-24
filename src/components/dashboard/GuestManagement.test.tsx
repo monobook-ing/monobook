@@ -7,6 +7,7 @@ const fetchGuestsMock = vi.hoisted(() => vi.fn());
 const fetchGuestByIdMock = vi.hoisted(() => vi.fn());
 const fetchRoomsMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const clipboardWriteTextMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "prop-1",
@@ -43,6 +44,7 @@ const guestSummaries = [
     latestBooking: {
       id: "booking-1",
       roomId: "room-1",
+      roomImage: "https://example.com/ocean-suite.jpg",
       roomName: "Ocean View Deluxe Suite",
       checkIn: "2026-02-18",
       checkOut: "2026-02-20",
@@ -147,11 +149,18 @@ describe("GuestManagement URL sync", () => {
     if (!HTMLElement.prototype.scrollIntoView) {
       HTMLElement.prototype.scrollIntoView = () => {};
     }
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: clipboardWriteTextMock,
+      },
+      configurable: true,
+    });
 
     fetchGuestsMock.mockReset();
     fetchGuestByIdMock.mockReset();
     fetchRoomsMock.mockReset();
     readAccessTokenMock.mockReset();
+    clipboardWriteTextMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     isMobileRef.current = false;
 
@@ -337,5 +346,90 @@ describe("GuestManagement URL sync", () => {
       expect(fetchGuestByIdMock).not.toHaveBeenCalled();
       expect(screen.queryByText("Prefers high floor, allergic to feathers")).not.toBeInTheDocument();
     });
+  });
+
+  it("shows copy icons only for available email and phone fields", async () => {
+    const firstRender = renderGuestManagement("/guests?guestId=guest-1");
+
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByRole("button", { name: "Copy email" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy phone" })).toBeInTheDocument();
+
+    firstRender.unmount();
+    const guestTwoWithoutPhone = {
+      ...guestDetailsById["guest-2"],
+      phone: null,
+    };
+    fetchGuestByIdMock.mockImplementation(
+      (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
+        Promise.resolve(guestId === "guest-2" ? guestTwoWithoutPhone : guestDetailsById[guestId])
+    );
+    renderGuestManagement("/guests?guestId=guest-2");
+
+    await waitFor(() => {
+      expect(fetchGuestByIdMock).toHaveBeenCalledWith("jwt", "prop-1", "guest-2");
+    });
+    expect(screen.queryByRole("button", { name: "Copy phone" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy email" })).toBeInTheDocument();
+  });
+
+  it("copies email and phone and resets copied state icon", async () => {
+    clipboardWriteTextMock.mockResolvedValue(undefined);
+    renderGuestManagement("/guests?guestId=guest-1");
+
+    await screen.findByText("Prefers high floor, allergic to feathers");
+
+    const emailCopyButton = screen.getByRole("button", { name: "Copy email" });
+    fireEvent.click(emailCopyButton);
+
+    await waitFor(() => {
+      expect(clipboardWriteTextMock).toHaveBeenCalledWith("sarah.chen@example.com");
+    });
+    expect(emailCopyButton.querySelector("svg.lucide-check")).not.toBeNull();
+
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    await waitFor(() => {
+      expect(emailCopyButton.querySelector("svg.lucide-copy")).not.toBeNull();
+    });
+
+    const phoneCopyButton = screen.getByRole("button", { name: "Copy phone" });
+    fireEvent.click(phoneCopyButton);
+    await waitFor(() => {
+      expect(clipboardWriteTextMock).toHaveBeenCalledWith("+1 415-555-0142");
+    });
+  });
+
+  it("renders latest booking top image preloader when room image exists", async () => {
+    renderGuestManagement("/guests?guestId=guest-1");
+
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.getByTestId("latest-booking-room-image-container")).toBeInTheDocument();
+    expect(screen.getByTestId("latest-booking-room-image-skeleton")).toBeInTheDocument();
+    const roomImage = screen.getByTestId("latest-booking-room-image");
+    expect(roomImage).toHaveAttribute("src", "https://example.com/ocean-suite.jpg");
+
+    fireEvent.load(roomImage);
+    await waitFor(() => {
+      expect(screen.queryByTestId("latest-booking-room-image-skeleton")).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not render latest booking room image section when room image is missing", async () => {
+    const guestWithoutImage = {
+      ...guestDetailsById["guest-1"],
+      latestBooking: {
+        ...guestDetailsById["guest-1"].latestBooking,
+        roomImage: null,
+      },
+    };
+    fetchGuestByIdMock.mockImplementation(
+      (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
+        Promise.resolve(guestId === "guest-1" ? guestWithoutImage : guestDetailsById[guestId])
+    );
+    renderGuestManagement("/guests?guestId=guest-1");
+
+    await screen.findByText("Prefers high floor, allergic to feathers");
+    expect(screen.queryByTestId("latest-booking-room-image-container")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("latest-booking-room-image")).not.toBeInTheDocument();
   });
 });
