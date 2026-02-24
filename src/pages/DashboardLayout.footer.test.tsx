@@ -1,11 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import DashboardLayout from "@/pages/DashboardLayout";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const hydrateSessionFromStorageMock = vi.hoisted(() => vi.fn());
 const fetchPropertiesMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
 
 vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
@@ -40,27 +42,29 @@ const setViewport = (width: number) => {
 
 const renderLayout = (entry = "/dashboard") =>
   render(
-    <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/" element={<div>root</div>} />
-        <Route path="/auth" element={<div>auth</div>} />
-        <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<div>dashboard-home</div>} />
-        </Route>
-        <Route path="/inventory" element={<DashboardLayout />}>
-          <Route index element={<div>inventory-page</div>} />
-        </Route>
-        <Route path="/rooms" element={<DashboardLayout />}>
-          <Route index element={<div>rooms-page</div>} />
-        </Route>
-        <Route path="/settings" element={<DashboardLayout />}>
-          <Route index element={<div>settings-page</div>} />
-        </Route>
-        <Route path="/audit" element={<DashboardLayout />}>
-          <Route index element={<div>audit-page</div>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>
+    <TooltipProvider>
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/" element={<div>root</div>} />
+          <Route path="/auth" element={<div>auth</div>} />
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<div>dashboard-home</div>} />
+          </Route>
+          <Route path="/inventory" element={<DashboardLayout />}>
+            <Route index element={<div>inventory-page</div>} />
+          </Route>
+          <Route path="/rooms" element={<DashboardLayout />}>
+            <Route index element={<div>rooms-page</div>} />
+          </Route>
+          <Route path="/settings" element={<DashboardLayout />}>
+            <Route index element={<div>settings-page</div>} />
+          </Route>
+          <Route path="/audit" element={<DashboardLayout />}>
+            <Route index element={<div>audit-page</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </TooltipProvider>
   );
 
 describe("DashboardLayout footer host card", () => {
@@ -156,6 +160,66 @@ describe("DashboardLayout footer host card", () => {
     expect(await screen.findByText("auth")).toBeInTheDocument();
     expect(localStorage.getItem("access_token")).toBeNull();
     expect(localStorage.getItem("user")).toBeNull();
+  });
+
+  it("starts expanded by default and collapses with persisted state", async () => {
+    renderLayout("/rooms");
+
+    await waitFor(() => {
+      expect(screen.getByText("rooms-page")).toBeInTheDocument();
+    });
+
+    const sidebar = screen.getByTestId("desktop-sidebar");
+    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    expect(screen.getByText("monobook.ing")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("sidebar-collapse-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "true");
+    });
+    expect(localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)).toBe("true");
+    expect(screen.queryByText("monobook.ing")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("desktop-sidebar")).queryByText("Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("restores collapsed sidebar from storage and expands when requested", async () => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, "true");
+
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "true");
+    });
+    expect(screen.getByTestId("sidebar-expand-button")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("sidebar-expand-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "false");
+    });
+    expect(localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)).toBe("false");
+    expect(screen.getByText("monobook.ing")).toBeInTheDocument();
+  });
+
+  it("shows tooltip with page name when hovering icon in collapsed sidebar", async () => {
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "false");
+    });
+
+    fireEvent.click(screen.getByTestId("sidebar-collapse-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "true");
+    });
+
+    const inventoryButton = within(screen.getByTestId("desktop-sidebar")).getByRole("button", { name: "Inventory" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.pointerEnter(inventoryButton);
+    fireEvent.pointerMove(inventoryButton);
+    fireEvent.mouseOver(inventoryButton);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Inventory");
   });
 
   it.each(["/dashboard", "/inventory", "/rooms", "/settings", "/audit"])(
