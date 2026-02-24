@@ -19,6 +19,10 @@ import {
   Eye,
   Building2,
   X,
+  Link,
+  Plug,
+  PenLine,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,20 +41,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
 import { MobileDestructiveConfirmSheet } from "@/components/dashboard/MobileDestructiveConfirmSheet";
 import { useProperty } from "@/contexts/PropertyContext";
-import { deleteRoom, fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
+import { deleteRoom, fetchRoomById, fetchRooms, importRoomFromUrl, readAccessToken } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -202,6 +202,9 @@ export function RoomManagement() {
   const [showDeleteRoomDialog, setShowDeleteRoomDialog] = useState(false);
   const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = false;
   const isRoomDetailOpen = !!selectedRoomId;
@@ -361,6 +364,35 @@ export function RoomManagement() {
     setIsRoomDetailLoading(false);
     setRoomDetailError(null);
     setShowDeleteRoomDialog(false);
+  };
+
+  const handleImportFromUrl = async () => {
+    if (!importUrl.trim() || !selectedPropertyId || selectedPropertyId === "all") return;
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      toast.error("You are not authenticated. Please sign in again.");
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const room = await importRoomFromUrl(accessToken, selectedPropertyId, importUrl.trim());
+      toast.success(`"${room.name}" imported successfully`);
+      setRooms((current) => [...current, room]);
+      setShowAddRoomDialog(false);
+      setImportUrl("");
+      setImportError(null);
+      openRoomDetails(room);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to import listing";
+      setImportError(message);
+      toast.error(message);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleConfirmDeleteRoom = useCallback(async () => {
@@ -796,26 +828,101 @@ export function RoomManagement() {
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <Dialog open={showAddRoomDialog} onOpenChange={setShowAddRoomDialog}>
-        <DialogContent className="rounded-2xl">
+      <Dialog
+        open={showAddRoomDialog}
+        onOpenChange={(open) => {
+          setShowAddRoomDialog(open);
+          if (!open) {
+            setImportUrl("");
+            setImportError(null);
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add room</DialogTitle>
+            <DialogTitle>Add Room</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Start a manual room listing to manage it in this dashboard.
+              Import from a platform or add manually
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              We'll guide you through property selection, rates, and amenities as soon as
-              manual room creation is supported.
-            </p>
-          </div>
-          <DialogFooter className="pt-4">
-            <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => setShowAddRoomDialog(false)}>Close</Button>
-          </DialogFooter>
+          <Tabs defaultValue="paste-link" className="mt-2">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="paste-link" className="gap-1.5 text-xs">
+                <Link className="h-3.5 w-3.5" />
+                Paste Link
+              </TabsTrigger>
+              <TabsTrigger value="connect" className="gap-1.5 text-xs">
+                <Plug className="h-3.5 w-3.5" />
+                Connect
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="gap-1.5 text-xs">
+                <PenLine className="h-3.5 w-3.5" />
+                Manual
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="paste-link" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="airbnb-url">Airbnb listing URL</Label>
+                <Input
+                  id="airbnb-url"
+                  placeholder="https://www.airbnb.com/rooms/12345678"
+                  value={importUrl}
+                  onChange={(e) => {
+                    setImportUrl(e.target.value);
+                    setImportError(null);
+                  }}
+                  disabled={isImporting}
+                />
+                {importError && (
+                  <p className="text-xs text-destructive">{importError}</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                We'll fetch the listing details including photos, price, amenities, and description.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowAddRoomDialog(false)}
+                  disabled={isImporting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleImportFromUrl}
+                  disabled={isImporting || !importUrl.trim()}
+                >
+                  {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isImporting ? "Importing…" : "Import"}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="connect" className="space-y-4 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your Airbnb or Booking.com account to automatically sync listings.
+                This feature is coming soon.
+              </p>
+              <div className="flex justify-end pt-2">
+                <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="manual" className="space-y-4 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Manually create a room listing with custom details.
+                This feature is coming soon.
+              </p>
+              <div className="flex justify-end pt-2">
+                <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </motion.div>
