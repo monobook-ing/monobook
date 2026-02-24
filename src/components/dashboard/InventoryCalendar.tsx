@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, CalendarDays, User, CreditCard, BedDouble, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, User, CreditCard, BedDouble, Clock, X } from "lucide-react";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { useProperty } from "@/contexts/PropertyContext";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
@@ -205,6 +206,87 @@ export function InventoryCalendar() {
     });
   };
 
+  const closeBookingDetails = () => {
+    setSelectedBooking(null);
+  };
+
+  const bookingDetailsBody = selectedBooking ? (
+    <div className="space-y-4 pt-2">
+      <div className="flex items-center justify-between">
+        <Badge
+          variant="outline"
+          className={`${statusBadgeVariant[selectedBooking.status]} text-xs px-2.5 py-0.5`}
+        >
+          {statusLabels[selectedBooking.status]}
+        </Badge>
+        <span className="text-xs text-muted-foreground">ID: {selectedBooking.id}</span>
+      </div>
+
+      <Separator />
+
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <User className="w-4 h-4 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">{selectedBooking.guestName}</p>
+          <p className="text-xs text-muted-foreground">Guest</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <BedDouble className="w-4 h-4 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">{selectedBooking.roomName}</p>
+          <p className="text-xs text-muted-foreground">{selectedBooking.roomType}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <CalendarDays className="w-4 h-4 text-primary" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Check-in</p>
+              <p className="text-sm font-medium text-foreground">{formatDate(selectedBooking.checkIn)}</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Check-out</p>
+              <p className="text-sm font-medium text-foreground">{formatDate(selectedBooking.checkOut)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <Clock className="w-4 h-4 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            {getNights(selectedBooking.checkIn, selectedBooking.checkOut)} nights
+          </p>
+          <p className="text-xs text-muted-foreground">Duration</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <CreditCard className="w-4 h-4 text-primary" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-foreground">${selectedBooking.totalPrice.toFixed(2)}</p>
+          <p className="text-xs text-muted-foreground">Total price</p>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -396,100 +478,58 @@ export function InventoryCalendar() {
           </>
         )}
 
-      <Dialog
-        open={!!selectedBooking}
-        onOpenChange={(open) => {
-          if (!open) setSelectedBooking(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          {selectedBooking && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-lg">Booking Details</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Booking details for the selected reservation.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between">
-                  <Badge
-                    variant="outline"
-                    className={`${statusBadgeVariant[selectedBooking.status]} text-xs px-2.5 py-0.5`}
+      {isMobile ? (
+        <Drawer
+          open={!!selectedBooking}
+          onOpenChange={(open) => {
+            if (!open) closeBookingDetails();
+          }}
+        >
+          <DrawerContent
+            data-testid="inventory-booking-drawer"
+            className="rounded-t-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
+          >
+            {selectedBooking && (
+              <div className="px-4 pb-1">
+                <DrawerHeader className="relative px-0 pt-2 text-center">
+                  <DrawerTitle className="text-lg">Booking Details</DrawerTitle>
+                  <DrawerDescription className="sr-only">
+                    Booking details for the selected reservation.
+                  </DrawerDescription>
+                  <DrawerClose
+                    aria-label="Close booking details"
+                    className="absolute right-0 top-1 rounded-full bg-muted/70 p-1.5 text-muted-foreground ring-1 ring-border transition hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
-                    {statusLabels[selectedBooking.status]}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">ID: {selectedBooking.id}</span>
-                </div>
-
-                <Separator />
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{selectedBooking.guestName}</p>
-                    <p className="text-xs text-muted-foreground">Guest</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <BedDouble className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{selectedBooking.roomName}</p>
-                    <p className="text-xs text-muted-foreground">{selectedBooking.roomType}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <CalendarDays className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Check-in</p>
-                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBooking.checkIn)}</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Check-out</p>
-                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBooking.checkOut)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Clock className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {getNights(selectedBooking.checkIn, selectedBooking.checkOut)} nights
-                    </p>
-                    <p className="text-xs text-muted-foreground">Duration</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <CreditCard className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">${selectedBooking.totalPrice.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">Total price</p>
-                  </div>
-                </div>
+                    <X className="w-4 h-4" />
+                  </DrawerClose>
+                </DrawerHeader>
+                {bookingDetailsBody}
               </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog
+          open={!!selectedBooking}
+          onOpenChange={(open) => {
+            if (!open) closeBookingDetails();
+          }}
+        >
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            {selectedBooking && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-lg">Booking Details</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Booking details for the selected reservation.
+                  </DialogDescription>
+                </DialogHeader>
+                {bookingDetailsBody}
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </motion.div>
   );
 }
