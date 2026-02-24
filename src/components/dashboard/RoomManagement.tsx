@@ -194,7 +194,7 @@ export function RoomManagement() {
   const [showDeleteRoomDialog, setShowDeleteRoomDialog] = useState(false);
   const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const roomDetailRequestIdRef = useRef(0);
-  const isReadOnly = true;
+  const isReadOnly = false;
   const isRoomDetailOpen = !!selectedRoomId;
 
   useEffect(() => {
@@ -587,10 +587,6 @@ export function RoomManagement() {
       <p className="text-sm text-muted-foreground mb-6">
         Manage your property listings and sync with platforms
       </p>
-      {isReadOnly && (
-        <p className="text-xs text-muted-foreground mb-6">Rooms are currently read-only.</p>
-      )}
-
       {selectedPropertyId === "all" && (
         <Card className="rounded-xl border-dashed" data-testid="rooms-select-property-state">
           <CardContent className="p-8 text-center">
