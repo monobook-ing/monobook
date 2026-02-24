@@ -437,12 +437,12 @@ export function RoomManagement() {
             src={selectedRoom.images[selectedImageIndex]}
             alt={selectedRoom.name}
             data-testid="room-detail-main-image"
-            className="w-full h-full max-h-62 object-cover"
+            className="w-full h-full max-h-min object-cover"
           />
         ) : (
           <div
             data-testid="room-detail-main-image-fallback"
-            className="w-full h-full max-h-62 bg-muted flex items-center justify-center"
+            className="w-full h-full max-h-min bg-muted flex items-center justify-center"
           >
             <BedDouble className="w-12 h-12 text-muted-foreground" />
           </div>
