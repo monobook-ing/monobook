@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,12 +29,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   fetchGuestById,
   fetchGuests,
+  fetchRooms,
   readAccessToken,
   type GuestDetail,
   type GuestSummary,
   type GuestBooking,
   type GuestConversation,
 } from "@/lib/auth";
+import type { ManagedRoom } from "@/data/mockRoomData";
 import { format } from "date-fns";
 
 const statusColor: Record<string, string> = {
@@ -316,7 +319,11 @@ export function GuestManagement() {
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [roomFilter, setRoomFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "confirmed" | "ai_pending">("all");
+  const [rooms, setRooms] = useState<ManagedRoom[]>([]);
   const [guests, setGuests] = useState<GuestSummary[]>([]);
   const [isGuestsLoading, setIsGuestsLoading] = useState(false);
   const [isGuestsResolved, setIsGuestsResolved] = useState(false);
@@ -331,6 +338,41 @@ export function GuestManagement() {
   const guestIdFromQuery = searchParams.get("guestId");
   const guestNameFromQuery = searchParams.get("guestName");
   const hasGuestQuery = Boolean(guestIdFromQuery || guestNameFromQuery);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadRooms = async () => {
+      setRoomFilter("all");
+      if (selectedPropertyId === "all") {
+        if (!active) return;
+        setRooms([]);
+        return;
+      }
+
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        if (!active) return;
+        setRooms([]);
+        return;
+      }
+
+      try {
+        const fetchedRooms = await fetchRooms(accessToken, selectedPropertyId);
+        if (!active) return;
+        setRooms(fetchedRooms);
+      } catch {
+        if (!active) return;
+        setRooms([]);
+      }
+    };
+
+    loadRooms();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     let active = true;
@@ -367,7 +409,11 @@ export function GuestManagement() {
       setGuestsError(null);
 
       try {
-        const fetchedGuests = await fetchGuests(accessToken, selectedPropertyId);
+        const fetchedGuests = await fetchGuests(accessToken, selectedPropertyId, {
+          search: appliedSearch,
+          roomId: roomFilter === "all" ? undefined : roomFilter,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        });
         if (!active || listRequestIdRef.current !== requestId) return;
         setGuests(fetchedGuests);
       } catch (error) {
@@ -388,7 +434,7 @@ export function GuestManagement() {
     return () => {
       active = false;
     };
-  }, [selectedPropertyId]);
+  }, [appliedSearch, roomFilter, selectedPropertyId, statusFilter]);
 
   useEffect(() => {
     let active = true;
@@ -439,20 +485,6 @@ export function GuestManagement() {
       active = false;
     };
   }, [selectedGuestId, selectedPropertyId, detailReloadKey]);
-
-  const filteredGuests = useMemo(() => {
-    if (!search.trim()) {
-      return guests;
-    }
-
-    const query = search.toLowerCase();
-    return guests.filter(
-      (guest) =>
-        guest.name.toLowerCase().includes(query) ||
-        (guest.email || "").toLowerCase().includes(query) ||
-        (guest.phone || "").toLowerCase().includes(query)
-    );
-  }, [guests, search]);
 
   const selectedGuestFromList = selectedGuestId
     ? guests.find((guest) => guest.id === selectedGuestId) || null
@@ -570,26 +602,65 @@ export function GuestManagement() {
   ) : null;
 
   const isDetailOpen = !!selectedGuestId;
+  const hasActiveGuestFilters =
+    Boolean(appliedSearch.trim()) || roomFilter !== "all" || statusFilter !== "all";
+
+  const commitSearch = () => {
+    const nextSearch = searchInput.trim();
+    if (nextSearch === appliedSearch) return;
+    setAppliedSearch(nextSearch);
+  };
 
   return (
-    <div>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Guests</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {filteredGuests.length} guest{filteredGuests.length !== 1 ? "s" : ""}
+            {guests.length} guest{guests.length !== 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search guests..."
-          className="pl-9 rounded-xl"
-        />
+      <div className="flex flex-col lg:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onBlur={commitSearch}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              commitSearch();
+            }}
+            placeholder="Search guests..."
+            className="pl-9 rounded-xl"
+          />
+        </div>
+        <Select value={roomFilter} onValueChange={setRoomFilter}>
+          <SelectTrigger className="w-full lg:w-[220px] rounded-xl" data-testid="guests-room-filter">
+            <SelectValue placeholder="All rooms" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            <SelectItem value="all">All rooms</SelectItem>
+            {rooms.map((room) => (
+              <SelectItem key={room.id} value={room.id}>
+                {room.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | "confirmed" | "ai_pending")}>
+          <SelectTrigger className="w-full lg:w-[180px] rounded-xl" data-testid="guests-status-filter">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl">
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="ai_pending">AI Pending</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {selectedPropertyId === "all" ? (
@@ -610,17 +681,17 @@ export function GuestManagement() {
             <p className="text-sm text-muted-foreground mt-1">{formatGuestsError(guestsError)}</p>
           </CardContent>
         </Card>
-      ) : filteredGuests.length === 0 ? (
+      ) : guests.length === 0 ? (
         <div className="text-center py-16">
           <User className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-muted-foreground text-sm">
-            {search ? "No guests match your search" : "No guests found"}
+            {hasActiveGuestFilters ? "No guests match your search or filters" : "No guests found"}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           <AnimatePresence>
-            {filteredGuests.map((guest, index) => {
+            {guests.map((guest, index) => {
               const latest = guest.latestBooking;
               return (
                 <motion.div
@@ -686,6 +757,6 @@ export function GuestManagement() {
           </SheetContent>
         </Sheet>
       )}
-    </div>
+    </motion.div>
   );
 }

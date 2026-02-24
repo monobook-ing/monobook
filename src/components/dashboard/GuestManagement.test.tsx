@@ -5,6 +5,7 @@ import { GuestManagement } from "@/components/dashboard/GuestManagement";
 
 const fetchGuestsMock = vi.hoisted(() => vi.fn());
 const fetchGuestByIdMock = vi.hoisted(() => vi.fn());
+const fetchRoomsMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
@@ -16,6 +17,7 @@ const isMobileRef = vi.hoisted(() => ({ current: false }));
 vi.mock("@/lib/auth", () => ({
   fetchGuests: fetchGuestsMock,
   fetchGuestById: fetchGuestByIdMock,
+  fetchRooms: fetchRoomsMock,
   readAccessToken: readAccessTokenMock,
 }));
 
@@ -142,18 +144,130 @@ describe("GuestManagement URL sync", () => {
     if (!HTMLElement.prototype.releasePointerCapture) {
       HTMLElement.prototype.releasePointerCapture = () => {};
     }
+    if (!HTMLElement.prototype.scrollIntoView) {
+      HTMLElement.prototype.scrollIntoView = () => {};
+    }
 
     fetchGuestsMock.mockReset();
     fetchGuestByIdMock.mockReset();
+    fetchRoomsMock.mockReset();
     readAccessTokenMock.mockReset();
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     isMobileRef.current = false;
 
     readAccessTokenMock.mockReturnValue("jwt");
     fetchGuestsMock.mockResolvedValue(guestSummaries);
+    fetchRoomsMock.mockResolvedValue([
+      {
+        id: "room-1",
+        propertyId: "prop-1",
+        name: "Ocean View Deluxe Suite",
+        type: "suite",
+        description: "Ocean view",
+        images: [],
+        pricePerNight: 289,
+        maxGuests: 3,
+        bedConfig: "King",
+        amenities: [],
+        source: "manual",
+        syncEnabled: false,
+        status: "active",
+        pricing: {
+          guestTiers: [],
+          dateOverrides: {},
+        },
+      },
+    ]);
     fetchGuestByIdMock.mockImplementation(
       (_token: string, _propertyId: string, guestId: keyof typeof guestDetailsById) =>
         Promise.resolve(guestDetailsById[guestId])
+    );
+  });
+
+  it("loads guests without filters by default", async () => {
+    renderGuestManagement("/guests");
+
+    await screen.findByText("Sarah Chen");
+
+    expect(fetchGuestsMock).toHaveBeenCalledWith("jwt", "prop-1", {
+      search: "",
+      roomId: undefined,
+      status: undefined,
+    });
+  });
+
+  it("does not submit search on each keypress and submits on Enter", async () => {
+    renderGuestManagement("/guests");
+
+    await screen.findByText("Sarah Chen");
+    const initialCalls = fetchGuestsMock.mock.calls.length;
+
+    const searchInput = screen.getByPlaceholderText("Search guests...");
+    fireEvent.change(searchInput, { target: { value: "sarah" } });
+    expect(fetchGuestsMock).toHaveBeenCalledTimes(initialCalls);
+
+    fireEvent.keyDown(searchInput, { key: "Enter", code: "Enter" });
+    await waitFor(() =>
+      expect(fetchGuestsMock).toHaveBeenLastCalledWith("jwt", "prop-1", {
+        search: "sarah",
+        roomId: undefined,
+        status: undefined,
+      })
+    );
+  });
+
+  it("submits search on blur", async () => {
+    renderGuestManagement("/guests");
+
+    await screen.findByText("Sarah Chen");
+
+    const searchInput = screen.getByPlaceholderText("Search guests...");
+    fireEvent.change(searchInput, { target: { value: "marcus" } });
+    fireEvent.blur(searchInput);
+
+    await waitFor(() =>
+      expect(fetchGuestsMock).toHaveBeenLastCalledWith("jwt", "prop-1", {
+        search: "marcus",
+        roomId: undefined,
+        status: undefined,
+      })
+    );
+  });
+
+  it("applies room and status filters immediately and combines with search", async () => {
+    renderGuestManagement("/guests");
+
+    await screen.findByText("Sarah Chen");
+
+    fireEvent.click(screen.getByTestId("guests-room-filter"));
+    fireEvent.click(await screen.findByRole("option", { name: "Ocean View Deluxe Suite" }));
+    await waitFor(() =>
+      expect(fetchGuestsMock).toHaveBeenLastCalledWith("jwt", "prop-1", {
+        search: "",
+        roomId: "room-1",
+        status: undefined,
+      })
+    );
+
+    fireEvent.click(screen.getByTestId("guests-status-filter"));
+    fireEvent.click(await screen.findByRole("option", { name: "AI Pending" }));
+    await waitFor(() =>
+      expect(fetchGuestsMock).toHaveBeenLastCalledWith("jwt", "prop-1", {
+        search: "",
+        roomId: "room-1",
+        status: "ai_pending",
+      })
+    );
+
+    const searchInput = screen.getByPlaceholderText("Search guests...");
+    fireEvent.change(searchInput, { target: { value: "vip" } });
+    fireEvent.keyDown(searchInput, { key: "Enter", code: "Enter" });
+    await waitFor(() =>
+      expect(fetchGuestsMock).toHaveBeenLastCalledWith("jwt", "prop-1", {
+        search: "vip",
+        roomId: "room-1",
+        status: "ai_pending",
+      })
     );
   });
 
