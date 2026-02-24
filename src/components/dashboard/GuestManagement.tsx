@@ -832,7 +832,7 @@ export function GuestManagement() {
         </Drawer>
       ) : (
         <Sheet open={isDetailOpen} onOpenChange={(open) => !open && closeDetail()}>
-          <SheetContent className="w-[420px] sm:max-w-[420px] p-0 overflow-hidden">
+          <SheetContent className="w-full max-w-full sm:max-w-xl p-0 overflow-hidden">
             <SheetTitle className="sr-only">{selectedGuestDetail?.name || selectedGuestFromList?.name || "Guest Details"}</SheetTitle>
             <SheetDescription className="sr-only">Guest booking and conversation history</SheetDescription>
             {detailContent}
