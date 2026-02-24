@@ -129,6 +129,14 @@
                 0 8px 32px hsl(0 0% 0% / 0.1);
   }
 
+  .skeleton-muted-surface {
+    @apply rounded-2xl border border-border/40 bg-muted/35;
+  }
+
+  .skeleton-muted-line {
+    @apply bg-muted/60;
+  }
+
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;

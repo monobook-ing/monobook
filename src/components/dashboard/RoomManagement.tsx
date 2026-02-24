@@ -105,43 +105,63 @@ function RoomCardSkeleton() {
 function RoomDetailSkeleton() {
   return (
     <>
-      <Skeleton className="h-56 w-full rounded-none" />
+      <Skeleton
+        data-testid="room-detail-loading-hero"
+        className="h-56 w-full rounded-none skeleton-muted-line"
+      />
+      <div
+        data-testid="room-detail-loading-thumbnails"
+        className="flex gap-1.5 px-4 -mt-6 relative z-10 overflow-x-auto hide-scrollbar pb-1 pt-1"
+      >
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <Skeleton
+            key={`room-detail-thumbnail-${idx}`}
+            className="h-12 w-16 shrink-0 rounded-lg border border-border/40 skeleton-muted-line"
+          />
+        ))}
+      </div>
       <div className="p-5 space-y-5" data-testid="room-detail-loading-state">
         <div className="space-y-2">
-          <Skeleton className="h-6 w-2/3" />
-          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-6 w-2/3 skeleton-muted-line" />
+          <Skeleton className="h-4 w-1/3 skeleton-muted-line" />
         </div>
-        <div className="border rounded-xl p-4 space-y-2">
-          <Skeleton className="h-3.5 w-20" />
-          <Skeleton className="h-9 w-full" />
+        <div data-testid="room-detail-loading-property-card" className="skeleton-muted-surface p-4 space-y-3">
+          <Skeleton className="h-3.5 w-20 skeleton-muted-line" />
+          <Skeleton className="h-9 w-full rounded-lg skeleton-muted-line" />
         </div>
-        <Skeleton className="h-4 w-full" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full skeleton-muted-line" />
+          <Skeleton className="h-4 w-5/6 skeleton-muted-line" />
+        </div>
         <div className="flex items-center gap-4">
-          <Skeleton className="h-8 w-36" />
-          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-8 w-36 skeleton-muted-line" />
+          <Skeleton className="h-5 w-20 skeleton-muted-line" />
         </div>
-        <div className="border rounded-xl p-4 space-y-3">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-40 w-full" />
+        <div data-testid="room-detail-loading-pricing-card" className="skeleton-muted-surface p-4 space-y-3">
+          <Skeleton className="h-4 w-16 skeleton-muted-line" />
+          <Skeleton className="h-40 w-full rounded-xl skeleton-muted-line" />
           <div className="space-y-2">
-            <Skeleton className="h-7 w-full" />
-            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full rounded-lg skeleton-muted-line" />
+            <Skeleton className="h-7 w-full rounded-lg skeleton-muted-line" />
           </div>
         </div>
-        <div>
-          <Skeleton className="h-3.5 w-20 mb-2" />
+        <div data-testid="room-detail-loading-amenities">
+          <Skeleton className="h-3.5 w-20 mb-2 skeleton-muted-line" />
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: 6 }).map((_, idx) => (
-              <Skeleton key={`room-detail-amenity-${idx}`} className="h-6 w-20" />
+              <Skeleton
+                key={`room-detail-amenity-${idx}`}
+                className="h-6 w-20 rounded-full border border-border/40 skeleton-muted-line"
+              />
             ))}
           </div>
         </div>
-        <div className="border rounded-xl p-4 space-y-3">
-          <Skeleton className="h-5 w-20" />
-          <Skeleton className="h-3.5 w-40" />
+        <div className="skeleton-muted-surface p-4 space-y-3">
+          <Skeleton className="h-5 w-20 skeleton-muted-line" />
+          <Skeleton className="h-3.5 w-40 skeleton-muted-line" />
           <div className="flex gap-2">
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24 rounded-lg skeleton-muted-line" />
+            <Skeleton className="h-8 w-24 rounded-lg skeleton-muted-line" />
           </div>
         </div>
       </div>

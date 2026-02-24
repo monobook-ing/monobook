@@ -188,6 +188,11 @@ describe("RoomManagement", () => {
 
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByTestId("room-detail-loading-state")).toBeInTheDocument();
+    expect(screen.getByTestId("room-detail-loading-hero")).toBeInTheDocument();
+    expect(screen.getByTestId("room-detail-loading-thumbnails")).toBeInTheDocument();
+    expect(screen.getByTestId("room-detail-loading-property-card")).toBeInTheDocument();
+    expect(screen.getByTestId("room-detail-loading-pricing-card")).toBeInTheDocument();
+    expect(screen.getByTestId("room-detail-loading-amenities")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetchRoomByIdMock).toHaveBeenCalledWith("jwt", "prop-1", "room-1");
