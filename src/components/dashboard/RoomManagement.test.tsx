@@ -245,6 +245,23 @@ describe("RoomManagement", () => {
     });
   });
 
+  it("opens room details in mobile bottom sheet", async () => {
+    isMobileRef.current = true;
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([apiRoom]);
+    fetchRoomByIdMock.mockResolvedValue(apiRoom);
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+
+    const roomDetailDrawer = await screen.findByTestId("room-detail-drawer");
+    expect(within(roomDetailDrawer).getByRole("button", { name: /close room details/i })).toBeInTheDocument();
+    expect(within(roomDetailDrawer).getByRole("button", { name: /sync now/i })).toBeInTheDocument();
+  });
+
   it("shows inline error and retries room detail fetch", async () => {
     propertyStateRef.current.selectedPropertyId = "prop-1";
     readAccessTokenMock.mockReturnValue("jwt");
