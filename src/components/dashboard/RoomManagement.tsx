@@ -19,8 +19,13 @@ import {
   Eye,
   Building2,
   X,
+  Link,
+  Plug,
+  PenLine,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -202,6 +207,11 @@ export function RoomManagement() {
   const [showDeleteRoomDialog, setShowDeleteRoomDialog] = useState(false);
   const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
+  const [addRoomTab, setAddRoomTab] = useState<"paste" | "connect" | "manual">("paste");
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [manualForm, setManualForm] = useState({
+    name: "", type: "", pricePerNight: "", maxGuests: "", bedConfig: "", description: "", amenities: "",
+  });
   const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = false;
   const isRoomDetailOpen = !!selectedRoomId;
@@ -796,26 +806,111 @@ export function RoomManagement() {
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <Dialog open={showAddRoomDialog} onOpenChange={setShowAddRoomDialog}>
-        <DialogContent className="rounded-2xl">
+      <Dialog open={showAddRoomDialog} onOpenChange={(open) => {
+        setShowAddRoomDialog(open);
+        if (!open) { setAddRoomTab("paste"); setPasteUrl(""); setManualForm({ name: "", type: "", pricePerNight: "", maxGuests: "", bedConfig: "", description: "", amenities: "" }); }
+      }}>
+        <DialogContent className="rounded-2xl sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add room</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Start a manual room listing to manage it in this dashboard.
-            </DialogDescription>
+            <DialogTitle>Add Room</DialogTitle>
+            <DialogDescription>Import from a platform or add manually</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              We'll guide you through property selection, rates, and amenities as soon as
-              manual room creation is supported.
-            </p>
+
+          {/* Tab switcher */}
+          <div className="flex items-center justify-center gap-1 rounded-full border border-border/50 p-1 bg-muted/30 mx-auto">
+            {([
+              { id: "paste" as const, label: "Paste Link", icon: Link },
+              { id: "connect" as const, label: "Connect", icon: Plug },
+              { id: "manual" as const, label: "Manual", icon: PenLine },
+            ]).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setAddRoomTab(tab.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  addRoomTab === tab.id
+                    ? "bg-background shadow-sm border border-border/50 text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <DialogFooter className="pt-4">
-            <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => setShowAddRoomDialog(false)}>Close</Button>
-          </DialogFooter>
+
+          {/* Paste Link tab */}
+          {addRoomTab === "paste" && (
+            <div className="flex gap-2 pt-2">
+              <Input
+                placeholder="https://airbnb.com/rooms/..."
+                value={pasteUrl}
+                onChange={(e) => setPasteUrl(e.target.value)}
+                className="rounded-xl"
+              />
+              <Button className="rounded-full px-6" disabled={!pasteUrl.trim()}>
+                Import
+              </Button>
+            </div>
+          )}
+
+          {/* Connect tab */}
+          {addRoomTab === "connect" && (
+            <div className="space-y-3 pt-2">
+              {[
+                { name: "Airbnb", desc: "Connect to import and sync rooms" },
+                { name: "Booking.com", desc: "Connect to import and sync rooms" },
+              ].map((platform) => (
+                <div key={platform.name} className="flex items-center justify-between rounded-2xl border border-border/50 p-4">
+                  <div>
+                    <p className="font-medium text-sm">{platform.name}</p>
+                    <p className="text-xs text-muted-foreground">{platform.desc}</p>
+                  </div>
+                  <Button className="rounded-full px-5">Connect</Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Manual tab */}
+          {addRoomTab === "manual" && (
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="text-sm font-medium">Name</label>
+                <Input placeholder="Room name" className="mt-1 rounded-xl" value={manualForm.name} onChange={(e) => setManualForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Type</label>
+                  <Input placeholder="e.g. Suite" className="mt-1 rounded-xl" value={manualForm.type} onChange={(e) => setManualForm(f => ({ ...f, type: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Price/night ($)</label>
+                  <Input type="number" placeholder="150" className="mt-1 rounded-xl" value={manualForm.pricePerNight} onChange={(e) => setManualForm(f => ({ ...f, pricePerNight: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Max guests</label>
+                  <Input type="number" placeholder="2" className="mt-1 rounded-xl" value={manualForm.maxGuests} onChange={(e) => setManualForm(f => ({ ...f, maxGuests: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Bed config</label>
+                  <Input placeholder="1 King Bed" className="mt-1 rounded-xl" value={manualForm.bedConfig} onChange={(e) => setManualForm(f => ({ ...f, bedConfig: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <Textarea placeholder="Room description..." className="mt-1 rounded-xl" rows={3} value={manualForm.description} onChange={(e) => setManualForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Amenities (comma-separated)</label>
+                <Input placeholder="WiFi, AC, Pool" className="mt-1 rounded-xl" value={manualForm.amenities} onChange={(e) => setManualForm(f => ({ ...f, amenities: e.target.value }))} />
+              </div>
+              <Button className="w-full rounded-full" disabled={!manualForm.name.trim()}>
+                Add Room
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>
