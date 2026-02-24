@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, CalendarDays, User, CreditCard, BedDouble, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { useProperty } from "@/contexts/PropertyContext";
 import {
@@ -28,6 +29,11 @@ interface InventoryBookingDetail extends Booking {
   roomName: string;
   roomType: string;
 }
+
+type PendingGuestNavigation = {
+  guestId: string | null;
+  guestName: string;
+};
 
 const statusColors: Record<ApiBookingStatus, string> = {
   confirmed: "bg-primary/80 text-primary-foreground",
@@ -58,6 +64,7 @@ const formatInventoryError = (error: string) => {
 };
 
 export function InventoryCalendar() {
+  const navigate = useNavigate();
   const { selectedPropertyId } = useProperty();
   const [weekOffset, setWeekOffset] = useState(0);
   const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>("all");
@@ -66,6 +73,7 @@ export function InventoryCalendar() {
   const [isInventoryLoading, setIsInventoryLoading] = useState(false);
   const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<InventoryBookingDetail | null>(null);
+  const [pendingGuestNavigation, setPendingGuestNavigation] = useState<PendingGuestNavigation | null>(null);
   const requestIdRef = useRef(0);
   const isMobile = useIsMobile();
   const dayCount = isMobile ? 7 : 14;
@@ -210,6 +218,41 @@ export function InventoryCalendar() {
     setSelectedBooking(null);
   };
 
+  const navigateToGuestDetails = (target: PendingGuestNavigation) => {
+    const params = new URLSearchParams();
+    if (target.guestId) {
+      params.set("guestId", target.guestId);
+    }
+    params.set("guestName", target.guestName);
+    navigate(`/guests?${params.toString()}`);
+  };
+
+  const openGuestDetails = (booking: InventoryBookingDetail) => {
+    const target = {
+      guestId: booking.guestId,
+      guestName: booking.guestName,
+    };
+
+    if (!isMobile) {
+      navigateToGuestDetails(target);
+      return;
+    }
+
+    setPendingGuestNavigation(target);
+    closeBookingDetails();
+  };
+
+  useEffect(() => {
+    if (!isMobile || selectedBooking || !pendingGuestNavigation) return;
+
+    const timer = window.setTimeout(() => {
+      navigateToGuestDetails(pendingGuestNavigation);
+      setPendingGuestNavigation(null);
+    }, 200);
+
+    return () => window.clearTimeout(timer);
+  }, [isMobile, navigate, pendingGuestNavigation, selectedBooking]);
+
   const selectedRoomImage = useMemo(() => {
     if (!selectedBooking) return undefined;
     return rooms.find((room) => room.id === selectedBooking.roomId)?.images[0];
@@ -229,7 +272,12 @@ export function InventoryCalendar() {
 
       <Separator />
 
-      <div className="flex items-center gap-3">
+      <button
+        type="button"
+        className="w-full flex items-center gap-3 rounded-lg p-1 -m-1 text-left transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => openGuestDetails(selectedBooking)}
+        aria-label={`Open guest profile for ${selectedBooking.guestName}`}
+      >
         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <User className="w-4 h-4 text-primary" />
         </div>
@@ -237,7 +285,7 @@ export function InventoryCalendar() {
           <p className="text-sm font-semibold text-foreground">{selectedBooking.guestName}</p>
           <p className="text-xs text-muted-foreground">Guest</p>
         </div>
-      </div>
+      </button>
 
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">

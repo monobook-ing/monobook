@@ -5,12 +5,21 @@ import { InventoryCalendar } from "@/components/dashboard/InventoryCalendar";
 const fetchRoomsMock = vi.hoisted(() => vi.fn());
 const fetchBookingsMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const navigateMock = vi.hoisted(() => vi.fn());
 const isMobileRef = vi.hoisted(() => ({ current: false }));
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "all",
   },
 }));
+
+vi.mock("react-router-dom", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-router-dom")>();
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
 
 vi.mock("@/lib/auth", () => ({
   fetchRooms: fetchRoomsMock,
@@ -133,6 +142,7 @@ describe("InventoryCalendar", () => {
     fetchRoomsMock.mockReset();
     fetchBookingsMock.mockReset();
     readAccessTokenMock.mockReset();
+    navigateMock.mockReset();
     isMobileRef.current = false;
     propertyStateRef.current = { selectedPropertyId: "all" };
   });
@@ -293,6 +303,50 @@ describe("InventoryCalendar", () => {
       const closedDrawer = screen.getByTestId("inventory-booking-drawer");
       expect(closedDrawer).toHaveAttribute("data-state", "closed");
       expect(screen.queryByText("ID: booking-1")).not.toBeInTheDocument();
+    });
+  });
+
+  it("navigates to guest details when guest row is clicked in desktop booking dialog", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await screen.findByText("Sarah Chen");
+    fireEvent.click(screen.getByText("Sarah Chen"));
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /open guest profile for sarah chen/i }));
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith("/guests?guestId=guest-1&guestName=Sarah+Chen");
+    });
+  });
+
+  it("closes mobile booking drawer before navigating to guest details", async () => {
+    isMobileRef.current = true;
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await screen.findByText("Sarah Chen");
+    fireEvent.click(screen.getByText("Sarah Chen"));
+
+    const drawer = await screen.findByTestId("inventory-booking-drawer");
+    fireEvent.click(within(drawer).getByRole("button", { name: /open guest profile for sarah chen/i }));
+
+    await waitFor(() => {
+      const closedDrawer = screen.getByTestId("inventory-booking-drawer");
+      expect(closedDrawer).toHaveAttribute("data-state", "closed");
+    });
+
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith("/guests?guestId=guest-1&guestName=Sarah+Chen");
     });
   });
 

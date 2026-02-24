@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Mail,
@@ -314,9 +315,11 @@ function GuestDetailContent({
 export function GuestManagement() {
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [guests, setGuests] = useState<GuestSummary[]>([]);
   const [isGuestsLoading, setIsGuestsLoading] = useState(false);
+  const [isGuestsResolved, setIsGuestsResolved] = useState(false);
   const [guestsError, setGuestsError] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [selectedGuestDetail, setSelectedGuestDetail] = useState<GuestDetail | null>(null);
@@ -325,6 +328,9 @@ export function GuestManagement() {
   const [detailReloadKey, setDetailReloadKey] = useState(0);
   const listRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
+  const guestIdFromQuery = searchParams.get("guestId");
+  const guestNameFromQuery = searchParams.get("guestName");
+  const hasGuestQuery = Boolean(guestIdFromQuery || guestNameFromQuery);
 
   useEffect(() => {
     let active = true;
@@ -332,6 +338,7 @@ export function GuestManagement() {
     listRequestIdRef.current = requestId;
 
     const loadGuests = async () => {
+      setIsGuestsResolved(false);
       setSelectedGuestId(null);
       setSelectedGuestDetail(null);
       setGuestDetailError(null);
@@ -342,6 +349,7 @@ export function GuestManagement() {
         setGuests([]);
         setGuestsError(null);
         setIsGuestsLoading(false);
+        setIsGuestsResolved(true);
         return;
       }
 
@@ -351,6 +359,7 @@ export function GuestManagement() {
         setGuests([]);
         setGuestsError("missing_token");
         setIsGuestsLoading(false);
+        setIsGuestsResolved(true);
         return;
       }
 
@@ -369,6 +378,7 @@ export function GuestManagement() {
       } finally {
         if (active && listRequestIdRef.current === requestId) {
           setIsGuestsLoading(false);
+          setIsGuestsResolved(true);
         }
       }
     };
@@ -448,18 +458,102 @@ export function GuestManagement() {
     ? guests.find((guest) => guest.id === selectedGuestId) || null
     : null;
 
-  const closeDetail = () => {
+  const closeDetail = (clearQuery = true) => {
     detailRequestIdRef.current += 1;
     setSelectedGuestId(null);
     setSelectedGuestDetail(null);
     setIsGuestDetailLoading(false);
     setGuestDetailError(null);
+
+    if (!clearQuery) return;
+    if (!guestIdFromQuery && !guestNameFromQuery) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("guestId");
+    next.delete("guestName");
+    setSearchParams(next);
   };
 
   const retryDetail = () => {
     if (!selectedGuestId) return;
     setDetailReloadKey((current) => current + 1);
   };
+
+  const openDetail = (guestId: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("guestId", guestId);
+    next.delete("guestName");
+    setSearchParams(next);
+  };
+
+  const matchedGuestIdFromQuery = useMemo(() => {
+    if (guestIdFromQuery && guests.some((guest) => guest.id === guestIdFromQuery)) {
+      return guestIdFromQuery;
+    }
+
+    if (!guestNameFromQuery) return null;
+    const normalizedName = guestNameFromQuery.trim().toLowerCase();
+    if (!normalizedName) return null;
+
+    return guests.find((guest) => guest.name.trim().toLowerCase() === normalizedName)?.id ?? null;
+  }, [guestIdFromQuery, guestNameFromQuery, guests]);
+
+  useEffect(() => {
+    if (!hasGuestQuery) {
+      if (!selectedGuestId) return;
+      detailRequestIdRef.current += 1;
+      setSelectedGuestId(null);
+      setSelectedGuestDetail(null);
+      setIsGuestDetailLoading(false);
+      setGuestDetailError(null);
+      return;
+    }
+
+    if (selectedPropertyId === "all") {
+      const next = new URLSearchParams(searchParams);
+      next.delete("guestId");
+      next.delete("guestName");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+
+    if (!isGuestsResolved || isGuestsLoading || guestsError) return;
+
+    if (!matchedGuestIdFromQuery) {
+      detailRequestIdRef.current += 1;
+      setSelectedGuestId(null);
+      setSelectedGuestDetail(null);
+      setIsGuestDetailLoading(false);
+      setGuestDetailError(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete("guestId");
+      next.delete("guestName");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+
+    if (selectedGuestId !== matchedGuestIdFromQuery) {
+      setSelectedGuestId(matchedGuestIdFromQuery);
+    }
+
+    if (guestIdFromQuery !== matchedGuestIdFromQuery || guestNameFromQuery) {
+      const next = new URLSearchParams(searchParams);
+      next.set("guestId", matchedGuestIdFromQuery);
+      next.delete("guestName");
+      setSearchParams(next, { replace: true });
+    }
+  }, [
+    guestIdFromQuery,
+    guestNameFromQuery,
+    guestsError,
+    isGuestsResolved,
+    hasGuestQuery,
+    isGuestsLoading,
+    matchedGuestIdFromQuery,
+    searchParams,
+    selectedGuestId,
+    selectedPropertyId,
+    setSearchParams,
+  ]);
 
   const detailContent = isGuestDetailLoading ? (
     <GuestDetailSkeleton />
@@ -538,7 +632,7 @@ export function GuestManagement() {
                 >
                   <Card
                     className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedGuestId(guest.id)}
+                    onClick={() => openDetail(guest.id)}
                   >
                     <CardContent className="p-4 flex items-center gap-3">
                       <Avatar className="h-10 w-10 shrink-0">
