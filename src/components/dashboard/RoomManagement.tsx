@@ -387,6 +387,166 @@ export function RoomManagement() {
     loadRoomDetail(selectedRoomPropertyId, selectedRoomId);
   };
 
+  const roomDetailHero =
+    selectedRoom && !isRoomDetailLoading && !roomDetailError ? (
+      <div className="relative">
+        {selectedRoom.images[selectedImageIndex] ? (
+          <img
+            src={selectedRoom.images[selectedImageIndex]}
+            alt={selectedRoom.name}
+            data-testid="room-detail-main-image"
+            className="w-full h-56 object-cover"
+          />
+        ) : (
+          <div
+            data-testid="room-detail-main-image-fallback"
+            className="w-full h-56 bg-muted flex items-center justify-center"
+          >
+            <BedDouble className="w-12 h-12 text-muted-foreground" />
+          </div>
+        )}
+        {selectedRoom.images.length > 0 && (
+          <div
+            data-testid="room-image-thumbnail-strip"
+            className="flex gap-1.5 px-4 -mt-6 relative z-10 overflow-x-auto hide-scrollbar pb-1 pt-1"
+          >
+            {selectedRoom.images.map((img, i) => (
+              <RoomImagePreview
+                key={`${img}-${i}`}
+                imageUrl={img}
+                alt={`${selectedRoom.name} preview ${i + 1}`}
+                onClick={() => setSelectedImageIndex(i)}
+                isActive={selectedImageIndex === i}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    ) : null;
+
+  const roomDetailDetails =
+    selectedRoom && !isRoomDetailLoading && !roomDetailError ? (
+      <div className="p-5 space-y-5">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">{selectedRoom.name}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {selectedRoom.type} · {selectedRoom.bedConfig}
+            </p>
+          </div>
+          {sourceBadge(selectedRoom.source)}
+        </div>
+
+        <div className="border rounded-xl p-4">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Property
+          </h4>
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+            <select
+              value={selectedRoom.propertyId || ""}
+              disabled={isReadOnly}
+              className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Unassigned</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground leading-relaxed">{selectedRoom.description}</p>
+
+        <div className="flex items-center gap-4 text-sm">
+          <span className="text-xl font-bold text-foreground">
+            {hasOverrides(selectedRoom.pricing) && (
+              <span className="text-sm font-normal text-muted-foreground">from </span>
+            )}
+            ${selectedRoom.pricePerNight}
+            <span className="text-sm font-normal text-muted-foreground">/night</span>
+          </span>
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Users className="w-4 h-4" />
+            {selectedRoom.maxGuests} guests
+          </span>
+        </div>
+
+        <RoomPricingSection
+          pricing={selectedRoom.pricing || { dateOverrides: {}, guestTiers: [] }}
+          basePrice={selectedRoom.pricePerNight}
+          maxGuests={selectedRoom.maxGuests}
+          readOnly={isReadOnly}
+          onPricingChange={() => {}}
+          onBasePriceChange={() => {}}
+        />
+
+        <div>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Amenities
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {selectedRoom.amenities.map((amenity) => {
+              const Icon = amenityIcons[amenity];
+              return (
+                <Badge key={amenity} variant="secondary" className="gap-1.5 px-2.5 py-1 text-xs">
+                  {Icon && <Icon className="w-3 h-3" />}
+                  {amenity}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+
+        {selectedRoom.source !== "manual" && (
+          <div className="border rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Sync</h4>
+                <p className="text-xs text-muted-foreground">
+                  {selectedRoom.lastSynced
+                    ? `Last synced ${format(new Date(selectedRoom.lastSynced), "MMM d, yyyy HH:mm")}`
+                    : "Never synced"}
+                </p>
+              </div>
+              <Switch checked={selectedRoom.syncEnabled} disabled={isReadOnly} />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-xl gap-1.5"
+                disabled={isReadOnly}
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Sync now
+              </Button>
+              {selectedRoom.sourceUrl && (
+                <Button variant="ghost" size="sm" className="rounded-xl gap-1.5" asChild>
+                  <a href={selectedRoom.sourceUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-3.5 h-3.5" /> View listing
+                  </a>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <Button
+            variant="destructive"
+            size="sm"
+            className="rounded-xl gap-1.5"
+            disabled={isDeletingRoom || !selectedRoomId || !selectedRoomPropertyId}
+            onClick={() => setShowDeleteRoomDialog(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </Button>
+        </div>
+      </div>
+    ) : null;
+
   const roomDetailBody = (
     <>
       {isRoomDetailLoading && <RoomDetailSkeleton />}
@@ -403,158 +563,8 @@ export function RoomManagement() {
 
       {!isRoomDetailLoading && !roomDetailError && selectedRoom && (
         <>
-          <div className="relative">
-            {selectedRoom.images[selectedImageIndex] ? (
-              <img
-                src={selectedRoom.images[selectedImageIndex]}
-                alt={selectedRoom.name}
-                data-testid="room-detail-main-image"
-                className="w-full h-56 object-cover"
-              />
-            ) : (
-              <div
-                data-testid="room-detail-main-image-fallback"
-                className="w-full h-56 bg-muted flex items-center justify-center"
-              >
-                <BedDouble className="w-12 h-12 text-muted-foreground" />
-              </div>
-            )}
-            {selectedRoom.images.length > 0 && (
-              <div
-                data-testid="room-image-thumbnail-strip"
-                className="flex gap-1.5 px-4 -mt-6 relative z-10 overflow-x-auto hide-scrollbar pb-1 pt-1"
-              >
-                {selectedRoom.images.map((img, i) => (
-                  <RoomImagePreview
-                    key={`${img}-${i}`}
-                    imageUrl={img}
-                    alt={`${selectedRoom.name} preview ${i + 1}`}
-                    onClick={() => setSelectedImageIndex(i)}
-                    isActive={selectedImageIndex === i}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="p-5 space-y-5">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">{selectedRoom.name}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedRoom.type} · {selectedRoom.bedConfig}
-                </p>
-              </div>
-              {sourceBadge(selectedRoom.source)}
-            </div>
-
-            <div className="border rounded-xl p-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Property
-              </h4>
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
-                <select
-                  value={selectedRoom.propertyId || ""}
-                  disabled={isReadOnly}
-                  className="flex-1 h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <option value="">Unassigned</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground leading-relaxed">{selectedRoom.description}</p>
-
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-xl font-bold text-foreground">
-                {hasOverrides(selectedRoom.pricing) && (
-                  <span className="text-sm font-normal text-muted-foreground">from </span>
-                )}
-                ${selectedRoom.pricePerNight}
-                <span className="text-sm font-normal text-muted-foreground">/night</span>
-              </span>
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <Users className="w-4 h-4" />
-                {selectedRoom.maxGuests} guests
-              </span>
-            </div>
-
-            <RoomPricingSection
-              pricing={selectedRoom.pricing || { dateOverrides: {}, guestTiers: [] }}
-              basePrice={selectedRoom.pricePerNight}
-              maxGuests={selectedRoom.maxGuests}
-              readOnly={isReadOnly}
-              onPricingChange={() => {}}
-              onBasePriceChange={() => {}}
-            />
-
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Amenities
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {selectedRoom.amenities.map((amenity) => {
-                  const Icon = amenityIcons[amenity];
-                  return (
-                    <Badge key={amenity} variant="secondary" className="gap-1.5 px-2.5 py-1 text-xs">
-                      {Icon && <Icon className="w-3 h-3" />}
-                      {amenity}
-                    </Badge>
-                  );
-                })}
-              </div>
-            </div>
-
-            {selectedRoom.source !== "manual" && (
-              <div className="border rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground">Sync</h4>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedRoom.lastSynced
-                        ? `Last synced ${format(new Date(selectedRoom.lastSynced), "MMM d, yyyy HH:mm")}`
-                        : "Never synced"}
-                    </p>
-                  </div>
-                  <Switch checked={selectedRoom.syncEnabled} disabled={isReadOnly} />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl gap-1.5"
-                    disabled={isReadOnly}
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Sync now
-                  </Button>
-                  {selectedRoom.sourceUrl && (
-                    <Button variant="ghost" size="sm" className="rounded-xl gap-1.5" asChild>
-                      <a href={selectedRoom.sourceUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-3.5 h-3.5" /> View listing
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="destructive"
-                size="sm"
-                className="rounded-xl gap-1.5"
-                disabled={isDeletingRoom || !selectedRoomId || !selectedRoomPropertyId}
-                onClick={() => setShowDeleteRoomDialog(true)}
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </Button>
-            </div>
-          </div>
+          {roomDetailHero}
+          {roomDetailDetails}
         </>
       )}
     </>
@@ -699,7 +709,7 @@ export function RoomManagement() {
         >
           <DrawerContent
             data-testid="room-detail-drawer"
-            className="rounded-t-[32px] max-h-[90vh] overflow-y-auto p-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            className="rounded-t-[32px] h-[90vh] overflow-hidden p-0 [&>div:first-child]:hidden"
           >
             <DrawerHeader className="sr-only">
               <DrawerTitle>Room details</DrawerTitle>
@@ -715,7 +725,32 @@ export function RoomManagement() {
             >
               <X className="h-4 w-4" />
             </button>
-            {roomDetailBody}
+            {isRoomDetailLoading && <RoomDetailSkeleton />}
+            {!isRoomDetailLoading && roomDetailError && (
+              <div
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
+                data-testid="room-detail-scroll-body"
+              >
+                <div className="p-5 space-y-4" data-testid="room-detail-error-state">
+                  <h3 className="text-sm font-semibold text-foreground">Could not load room details</h3>
+                  <p className="text-sm text-muted-foreground">{roomDetailError}</p>
+                  <Button variant="outline" size="sm" className="rounded-xl" onClick={retryRoomDetails}>
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!isRoomDetailLoading && !roomDetailError && selectedRoom && (
+              <>
+                <div className="shrink-0">{roomDetailHero}</div>
+                <div
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
+                  data-testid="room-detail-scroll-body"
+                >
+                  {roomDetailDetails}
+                </div>
+              </>
+            )}
           </DrawerContent>
         </Drawer>
       ) : (

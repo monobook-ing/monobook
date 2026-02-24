@@ -258,6 +258,10 @@ describe("RoomManagement", () => {
     fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
 
     const roomDetailDrawer = await screen.findByTestId("room-detail-drawer");
+    const scrollBody = within(roomDetailDrawer).getByTestId("room-detail-scroll-body");
+    expect(scrollBody).toBeInTheDocument();
+    expect(scrollBody.className).toContain("overflow-y-auto");
+    expect(roomDetailDrawer.className).toContain("[&>div:first-child]:hidden");
     expect(within(roomDetailDrawer).getByRole("button", { name: /close room details/i })).toBeInTheDocument();
     expect(within(roomDetailDrawer).getByRole("button", { name: /sync now/i })).toBeInTheDocument();
   });
