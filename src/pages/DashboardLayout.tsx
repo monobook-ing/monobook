@@ -305,7 +305,7 @@ function DashboardInner() {
             <MessageSquare className="w-4 h-4 text-primary-foreground" />
           </div>
           {/*<h2 className="font-bold text-foreground text-md tracking-tight">monobook.ing</h2>*/}
-          {!isSidebarCollapsed && <img src="/logo.png" className="w-42" />}
+          {!isSidebarCollapsed && <img src="/logo.png" className="w-36" />}
           <button
             type="button"
             data-testid={isSidebarCollapsed ? "sidebar-expand-button" : "sidebar-collapse-button"}
