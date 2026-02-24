@@ -313,6 +313,9 @@ describe("GuestManagement URL sync", () => {
     expect(drawer).toHaveClass("rounded-t-[32px]");
     expect(drawer).toHaveClass("bg-background/80");
     expect(drawer).toHaveClass("backdrop-blur-2xl");
+    expect(drawer).toHaveClass("max-h-[calc(100dvh-1rem)]");
+    expect(drawer).not.toHaveClass("pb-[max(1rem,env(safe-area-inset-bottom))]");
+    expect(drawer.querySelector("svg.lucide-x")).toBeNull();
   });
 
   it("falls back to guestName query and canonicalizes to guestId", async () => {

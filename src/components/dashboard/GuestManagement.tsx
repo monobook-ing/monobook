@@ -10,7 +10,6 @@ import {
   Bot,
   User,
   ChevronRight,
-  X,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -191,16 +190,15 @@ function ConversationThread({ conversation }: { conversation: GuestConversation 
 
 function GuestDetailContent({
   guest,
-  onClose,
+  isMobile,
 }: {
   guest: GuestDetail;
-  onClose: () => void;
+  isMobile: boolean;
 }) {
   const latestBooking = guest.bookings[0];
 
-  return (
-    <ScrollArea className="h-full">
-      <div className="p-5 space-y-5">
+  const content = (
+    <div className="p-5 space-y-5">
         <div className="flex items-start gap-3">
           <Avatar className="h-12 w-12">
             <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
@@ -218,12 +216,6 @@ function GuestDetailContent({
               <span>{guest.phone || "-"}</span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="md:hidden p-1.5 rounded-lg hover:bg-secondary transition-colors"
-          >
-            <X className="w-4 h-4 text-muted-foreground" />
-          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -311,8 +303,13 @@ function GuestDetailContent({
           </div>
         )}
       </div>
-    </ScrollArea>
   );
+
+  if (isMobile) {
+    return <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto">{content}</div>;
+  }
+
+  return <ScrollArea className="h-full">{content}</ScrollArea>;
 }
 
 export function GuestManagement() {
@@ -598,7 +595,7 @@ export function GuestManagement() {
       </Button>
     </div>
   ) : selectedGuestDetail ? (
-    <GuestDetailContent guest={selectedGuestDetail} onClose={closeDetail} />
+    <GuestDetailContent guest={selectedGuestDetail} isMobile={isMobile} />
   ) : null;
 
   const isDetailOpen = !!selectedGuestId;
@@ -742,7 +739,7 @@ export function GuestManagement() {
         <Drawer open={isDetailOpen} onOpenChange={(open) => !open && closeDetail()}>
           <DrawerContent
             data-testid="guest-detail-drawer"
-            className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
+            className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[calc(100dvh-1rem)] overflow-hidden apple-shadow-lg"
           >
             <DrawerHeader className="sr-only">
               <DrawerTitle>{selectedGuestDetail?.name || selectedGuestFromList?.name || "Guest Details"}</DrawerTitle>
