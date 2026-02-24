@@ -1261,6 +1261,35 @@ export const fetchRoomById = async (
   return mapApiRoomToManagedRoom(data);
 };
 
+export const importRoomFromUrl = async (
+  accessToken: string,
+  propertyId: string,
+  url: string
+): Promise<ManagedRoom> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/rooms/import`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url }),
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiRoom(data)) {
+    throw new AuthApiError("Invalid room import response", res.status);
+  }
+
+  return mapApiRoomToManagedRoom(data);
+};
+
 export const deleteRoom = async (
   accessToken: string,
   propertyId: string,

@@ -22,6 +22,7 @@ import {
   Link,
   Plug,
   PenLine,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,20 +43,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
 import { MobileDestructiveConfirmSheet } from "@/components/dashboard/MobileDestructiveConfirmSheet";
 import { useProperty } from "@/contexts/PropertyContext";
-import { deleteRoom, fetchRoomById, fetchRooms, readAccessToken } from "@/lib/auth";
+import { deleteRoom, fetchRoomById, fetchRooms, importRoomFromUrl, readAccessToken } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -207,11 +204,9 @@ export function RoomManagement() {
   const [showDeleteRoomDialog, setShowDeleteRoomDialog] = useState(false);
   const [isDeletingRoom, setIsDeletingRoom] = useState(false);
   const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
-  const [addRoomTab, setAddRoomTab] = useState<"paste" | "connect" | "manual">("paste");
-  const [pasteUrl, setPasteUrl] = useState("");
-  const [manualForm, setManualForm] = useState({
-    name: "", type: "", pricePerNight: "", maxGuests: "", bedConfig: "", description: "", amenities: "",
-  });
+  const [importUrl, setImportUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = false;
   const isRoomDetailOpen = !!selectedRoomId;
@@ -371,6 +366,35 @@ export function RoomManagement() {
     setIsRoomDetailLoading(false);
     setRoomDetailError(null);
     setShowDeleteRoomDialog(false);
+  };
+
+  const handleImportFromUrl = async () => {
+    if (!importUrl.trim() || !selectedPropertyId || selectedPropertyId === "all") return;
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      toast.error("You are not authenticated. Please sign in again.");
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const room = await importRoomFromUrl(accessToken, selectedPropertyId, importUrl.trim());
+      toast.success(`"${room.name}" imported successfully`);
+      setRooms((current) => [...current, room]);
+      setShowAddRoomDialog(false);
+      setImportUrl("");
+      setImportError(null);
+      openRoomDetails(room);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to import listing";
+      setImportError(message);
+      toast.error(message);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleConfirmDeleteRoom = useCallback(async () => {
@@ -806,111 +830,101 @@ export function RoomManagement() {
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <Dialog open={showAddRoomDialog} onOpenChange={(open) => {
-        setShowAddRoomDialog(open);
-        if (!open) { setAddRoomTab("paste"); setPasteUrl(""); setManualForm({ name: "", type: "", pricePerNight: "", maxGuests: "", bedConfig: "", description: "", amenities: "" }); }
-      }}>
+      <Dialog
+        open={showAddRoomDialog}
+        onOpenChange={(open) => {
+          setShowAddRoomDialog(open);
+          if (!open) {
+            setImportUrl("");
+            setImportError(null);
+          }
+        }}
+      >
         <DialogContent className="rounded-2xl sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add Room</DialogTitle>
-            <DialogDescription>Import from a platform or add manually</DialogDescription>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Import from a platform or add manually
+            </DialogDescription>
           </DialogHeader>
+          <Tabs defaultValue="paste-link" className="mt-2">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="paste-link" className="gap-1.5 text-xs">
+                <Link className="h-3.5 w-3.5" />
+                Paste Link
+              </TabsTrigger>
+              <TabsTrigger value="connect" className="gap-1.5 text-xs">
+                <Plug className="h-3.5 w-3.5" />
+                Connect
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="gap-1.5 text-xs">
+                <PenLine className="h-3.5 w-3.5" />
+                Manual
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Tab switcher */}
-          <div className="flex items-center justify-center gap-1 rounded-full border border-border/50 p-1 bg-muted/30 mx-auto">
-            {([
-              { id: "paste" as const, label: "Paste Link", icon: Link },
-              { id: "connect" as const, label: "Connect", icon: Plug },
-              { id: "manual" as const, label: "Manual", icon: PenLine },
-            ]).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setAddRoomTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  addRoomTab === tab.id
-                    ? "bg-background shadow-sm border border-border/50 text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            <TabsContent value="paste-link" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="airbnb-url">Airbnb listing URL</Label>
+                <Input
+                  id="airbnb-url"
+                  placeholder="https://www.airbnb.com/rooms/12345678"
+                  value={importUrl}
+                  onChange={(e) => {
+                    setImportUrl(e.target.value);
+                    setImportError(null);
+                  }}
+                  disabled={isImporting}
+                />
+                {importError && (
+                  <p className="text-xs text-destructive">{importError}</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                We'll fetch the listing details including photos, price, amenities, and description.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowAddRoomDialog(false)}
+                  disabled={isImporting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleImportFromUrl}
+                  disabled={isImporting || !importUrl.trim()}
+                >
+                  {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isImporting ? "Importing…" : "Import"}
+                </Button>
+              </div>
+            </TabsContent>
 
-          {/* Paste Link tab */}
-          {addRoomTab === "paste" && (
-            <div className="flex gap-2 pt-2">
-              <Input
-                placeholder="https://airbnb.com/rooms/..."
-                value={pasteUrl}
-                onChange={(e) => setPasteUrl(e.target.value)}
-                className="rounded-xl"
-              />
-              <Button className="rounded-full px-6" disabled={!pasteUrl.trim()}>
-                Import
-              </Button>
-            </div>
-          )}
+            <TabsContent value="connect" className="space-y-4 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your Airbnb or Booking.com account to automatically sync listings.
+                This feature is coming soon.
+              </p>
+              <div className="flex justify-end pt-2">
+                <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </TabsContent>
 
-          {/* Connect tab */}
-          {addRoomTab === "connect" && (
-            <div className="space-y-3 pt-2">
-              {[
-                { name: "Airbnb", desc: "Connect to import and sync rooms" },
-                { name: "Booking.com", desc: "Connect to import and sync rooms" },
-              ].map((platform) => (
-                <div key={platform.name} className="flex items-center justify-between rounded-2xl border border-border/50 p-4">
-                  <div>
-                    <p className="font-medium text-sm">{platform.name}</p>
-                    <p className="text-xs text-muted-foreground">{platform.desc}</p>
-                  </div>
-                  <Button className="rounded-full px-5">Connect</Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Manual tab */}
-          {addRoomTab === "manual" && (
-            <div className="space-y-4 pt-2">
-              <div>
-                <label className="text-sm font-medium">Name</label>
-                <Input placeholder="Room name" className="mt-1 rounded-xl" value={manualForm.name} onChange={(e) => setManualForm(f => ({ ...f, name: e.target.value }))} />
+            <TabsContent value="manual" className="space-y-4 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Manually create a room listing with custom details.
+                This feature is coming soon.
+              </p>
+              <div className="flex justify-end pt-2">
+                <Button variant="ghost" onClick={() => setShowAddRoomDialog(false)}>
+                  Close
+                </Button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Type</label>
-                  <Input placeholder="e.g. Suite" className="mt-1 rounded-xl" value={manualForm.type} onChange={(e) => setManualForm(f => ({ ...f, type: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Price/night ($)</label>
-                  <Input type="number" placeholder="150" className="mt-1 rounded-xl" value={manualForm.pricePerNight} onChange={(e) => setManualForm(f => ({ ...f, pricePerNight: e.target.value }))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Max guests</label>
-                  <Input type="number" placeholder="2" className="mt-1 rounded-xl" value={manualForm.maxGuests} onChange={(e) => setManualForm(f => ({ ...f, maxGuests: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Bed config</label>
-                  <Input placeholder="1 King Bed" className="mt-1 rounded-xl" value={manualForm.bedConfig} onChange={(e) => setManualForm(f => ({ ...f, bedConfig: e.target.value }))} />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Textarea placeholder="Room description..." className="mt-1 rounded-xl" rows={3} value={manualForm.description} onChange={(e) => setManualForm(f => ({ ...f, description: e.target.value }))} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Amenities (comma-separated)</label>
-                <Input placeholder="WiFi, AC, Pool" className="mt-1 rounded-xl" value={manualForm.amenities} onChange={(e) => setManualForm(f => ({ ...f, amenities: e.target.value }))} />
-              </div>
-              <Button className="w-full rounded-full" disabled={!manualForm.name.trim()}>
-                Add Room
-              </Button>
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </motion.div>
