@@ -292,7 +292,7 @@ export function InventoryCalendar() {
       <div className="flex items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Inventory</h1>
-          <p className="text-sm text-muted-foreground">Room availability calendar</p>
+          <p className="text-sm text-muted-foreground">Availability calendar</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as InventoryStatusFilter)}>
@@ -375,7 +375,7 @@ export function InventoryCalendar() {
           <>
             <div className="rounded-2xl bg-card apple-shadow overflow-hidden">
               <div className="overflow-x-auto hide-scrollbar">
-                <div style={{ minWidth: `${minTableWidth}px` }}>
+                <div style={!isMobile ? { minWidth: `${minTableWidth}px` } : undefined}>
                   <div
                     className="grid"
                     style={{ gridTemplateColumns: `${roomColWidth}px repeat(${dates.length}, 1fr)` }}
@@ -487,18 +487,18 @@ export function InventoryCalendar() {
         >
           <DrawerContent
             data-testid="inventory-booking-drawer"
-            className="rounded-t-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
+            className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
           >
             {selectedBooking && (
-              <div className="px-4 pb-1">
-                <DrawerHeader className="relative px-0 pt-2 text-center">
+              <div className="px-5 pb-4">
+                <DrawerHeader className="relative px-0 pt-3 text-center">
                   <DrawerTitle className="text-lg">Booking Details</DrawerTitle>
                   <DrawerDescription className="sr-only">
                     Booking details for the selected reservation.
                   </DrawerDescription>
                   <DrawerClose
                     aria-label="Close booking details"
-                    className="absolute right-0 top-1 rounded-full bg-muted/70 p-1.5 text-muted-foreground ring-1 ring-border transition hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="absolute right-0 top-1 rounded-full bg-background/65 p-1.5 text-muted-foreground ring-1 ring-white/45 transition hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     <X className="w-4 h-4" />
                   </DrawerClose>

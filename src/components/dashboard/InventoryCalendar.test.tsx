@@ -5,6 +5,7 @@ import { InventoryCalendar } from "@/components/dashboard/InventoryCalendar";
 const fetchRoomsMock = vi.hoisted(() => vi.fn());
 const fetchBookingsMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const isMobileRef = vi.hoisted(() => ({ current: false }));
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "all",
@@ -19,6 +20,10 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/contexts/PropertyContext", () => ({
   useProperty: () => propertyStateRef.current,
+}));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => isMobileRef.current,
 }));
 
 vi.mock("@/components/ui/select", async () => {
@@ -128,6 +133,7 @@ describe("InventoryCalendar", () => {
     fetchRoomsMock.mockReset();
     fetchBookingsMock.mockReset();
     readAccessTokenMock.mockReset();
+    isMobileRef.current = false;
     propertyStateRef.current = { selectedPropertyId: "all" };
   });
 
@@ -258,6 +264,32 @@ describe("InventoryCalendar", () => {
     expect(within(dialog).getByText("Booking Details")).toBeInTheDocument();
     expect(within(dialog).getByText("ID: booking-1")).toBeInTheDocument();
     expect(within(dialog).getByText("$2100.00")).toBeInTheDocument();
+  });
+
+  it("renders booking details in a mobile bottom sheet and closes it", async () => {
+    isMobileRef.current = true;
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([baseRoom]);
+    fetchBookingsMock.mockResolvedValue([baseBooking]);
+
+    render(<InventoryCalendar />);
+
+    await screen.findByText("Sarah Chen");
+    fireEvent.click(screen.getByText("Sarah Chen"));
+
+    const drawer = await screen.findByTestId("inventory-booking-drawer");
+    expect(within(drawer).getByText("Booking Details")).toBeInTheDocument();
+    expect(within(drawer).getByText("ID: booking-1")).toBeInTheDocument();
+    expect(within(drawer).getByText("$2100.00")).toBeInTheDocument();
+
+    fireEvent.click(within(drawer).getByRole("button", { name: "Close booking details" }));
+
+    await waitFor(() => {
+      const closedDrawer = screen.getByTestId("inventory-booking-drawer");
+      expect(closedDrawer).toHaveAttribute("data-state", "closed");
+      expect(screen.queryByText("ID: booking-1")).not.toBeInTheDocument();
+    });
   });
 
   it("shows room image preview on room hover", async () => {
