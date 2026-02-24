@@ -39,6 +39,9 @@ import {
 } from "@/lib/auth";
 import type { ManagedRoom } from "@/data/mockRoomData";
 import { format } from "date-fns";
+import geminiLogo from "@/assets/gemini-logo.svg";
+import chatgptLogo from "@/assets/chatgpt-logo.svg";
+import claudeLogo from "@/assets/claude-logo.svg";
 
 const statusColor: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
@@ -73,6 +76,12 @@ const channelIcon: Record<string, React.ElementType> = {
   gemini: Bot,
   mcp: Bot,
 };
+
+const bookingSourceBadge = {
+  gemini: { label: "Gemini", icon: geminiLogo, alt: "Gemini logo" },
+  chatgpt: { label: "ChatGPT", icon: chatgptLogo, alt: "ChatGPT logo" },
+  claude: { label: "Claude", icon: claudeLogo, alt: "Claude logo" },
+} as const;
 
 const formatGuestsError = (error: string) => {
   if (error === "missing_token") {
@@ -207,6 +216,9 @@ function GuestDetailContent({
   const bookingHistory = latestBooking
     ? guest.bookings.filter((booking) => booking.id !== latestBooking.id)
     : guest.bookings;
+  const latestBookingSource = latestBooking?.source?.trim().toLowerCase() ?? "";
+  const latestBookingSourceBadge =
+    bookingSourceBadge[latestBookingSource as keyof typeof bookingSourceBadge];
 
   useEffect(() => {
     setIsLatestBookingImageLoaded(false);
@@ -347,8 +359,21 @@ function GuestDetailContent({
                   <p className="text-lg font-bold text-foreground">${latestBooking.totalPrice.toLocaleString()}</p>
                   {latestBooking.aiHandled && (
                     <div className="flex items-center gap-1 mt-2 text-xs text-primary">
-                      <Bot className="w-3 h-3" />
-                      Booked via AI
+                      {latestBookingSourceBadge ? (
+                        <>
+                          <img
+                            src={latestBookingSourceBadge.icon}
+                            alt={latestBookingSourceBadge.alt}
+                            className="w-3 h-3 shrink-0"
+                          />
+                          {latestBookingSourceBadge.label}
+                        </>
+                      ) : (
+                        <>
+                          <Bot className="w-3 h-3" />
+                          Booked via AI
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

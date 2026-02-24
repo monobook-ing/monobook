@@ -1293,6 +1293,7 @@ describe("guests api", () => {
       status: "confirmed",
       total_price: 578,
       ai_handled: true,
+      source: "chatgpt",
     },
     created_at: "2026-02-01T10:00:00Z",
     updated_at: "2026-02-21T10:00:00Z",
@@ -1308,6 +1309,7 @@ describe("guests api", () => {
         status: "checked_out",
         total_price: 578,
         ai_handled: true,
+        source: "chatgpt",
         conversation_id: "session-1",
       },
     ],
@@ -1415,10 +1417,12 @@ describe("guests api", () => {
       latestBooking: expect.objectContaining({
         roomName: "Ocean View Deluxe Suite",
         roomImage: "https://example.com/ocean-suite.jpg",
+        source: "chatgpt",
       }),
       bookings: [
         expect.objectContaining({
           status: "checked_out",
+          source: "chatgpt",
         }),
       ],
       conversations: [
