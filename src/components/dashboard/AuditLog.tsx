@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProperty } from "@/contexts/PropertyContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { fetchAuditEntries, readAccessToken, type AuditEntry } from "@/lib/auth";
-import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Terminal, CalendarIcon, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const typeFilters = ["all", "mcp", "chatgpt", "claude", "gemini", "widget"] as const;
@@ -76,8 +78,10 @@ const toRangeParams = (dateRange: DateRange | undefined): { from?: string; to?: 
 
 export function AuditLog() {
   const { selectedPropertyId } = useProperty();
+  const isMobile = useIsMobile();
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [isDateDrawerOpen, setIsDateDrawerOpen] = useState(false);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +176,18 @@ export function AuditLog() {
   };
 
   const filteredEntries = entries;
+  const dateRangeLabel = dateRange?.from
+    ? dateRange.to
+      ? `${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d")}`
+      : format(dateRange.from, "MMM d")
+    : "Date range";
+
+  const handleDateRangeSelect = (nextRange: DateRange | undefined) => {
+    setDateRange(nextRange);
+    if (isMobile && nextRange?.from && nextRange?.to) {
+      setIsDateDrawerOpen(false);
+    }
+  };
 
   return (
     <motion.div
@@ -203,28 +219,68 @@ export function AuditLog() {
         ))}
 
         <div className="ml-auto flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateRange && "text-muted-foreground")}>
+          {isMobile ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn("h-8 text-xs gap-1.5 rounded-full", !dateRange && "text-muted-foreground")}
+                onClick={() => setIsDateDrawerOpen(true)}
+              >
                 <CalendarIcon className="w-3.5 h-3.5" />
-                {dateRange?.from
-                  ? dateRange.to
-                    ? `${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d")}`
-                    : format(dateRange.from, "MMM d")
-                  : "Date range"}
+                {dateRangeLabel}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
+              <Drawer open={isDateDrawerOpen} onOpenChange={setIsDateDrawerOpen}>
+                <DrawerContent
+                  data-testid="audit-date-drawer"
+                  className="rounded-t-[32px] border-white/40 bg-background/80 shadow-xl backdrop-blur-2xl max-h-[85vh] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] apple-shadow-lg"
+                >
+                  <div className="px-5 pb-4">
+                    <DrawerHeader className="relative px-0 pt-3 text-center">
+                      <DrawerTitle className="text-lg">Date range</DrawerTitle>
+                      <DrawerDescription className="sr-only">
+                        Select a date range to filter audit log entries.
+                      </DrawerDescription>
+                      <button
+                        type="button"
+                        aria-label="Close date range picker"
+                        onClick={() => setIsDateDrawerOpen(false)}
+                        className="absolute right-0 top-1 rounded-full bg-background/65 p-1.5 text-muted-foreground ring-1 ring-white/45 transition hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </DrawerHeader>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={handleDateRangeSelect}
+                      numberOfMonths={1}
+                      className="p-0 pointer-events-auto"
+                    />
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            </>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("h-8 text-xs gap-1.5 rounded-full", !dateRange && "text-muted-foreground")}>
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {dateRangeLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={handleDateRangeSelect}
+                  numberOfMonths={2}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          )}
           {dateRange && (
             <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full px-2" onClick={() => setDateRange(undefined)}>
               Clear

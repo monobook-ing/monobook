@@ -4,6 +4,7 @@ import { AuditLog } from "@/components/dashboard/AuditLog";
 
 const fetchAuditEntriesMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const useIsMobileMock = vi.hoisted(() => vi.fn());
 const propertyStateRef = vi.hoisted(() => ({
   current: {
     selectedPropertyId: "prop-1",
@@ -17,6 +18,10 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/contexts/PropertyContext", () => ({
   useProperty: () => propertyStateRef.current,
+}));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: useIsMobileMock,
 }));
 
 vi.mock("@/components/ui/calendar", () => ({
@@ -79,6 +84,8 @@ describe("AuditLog", () => {
     vi.restoreAllMocks();
     fetchAuditEntriesMock.mockReset();
     readAccessTokenMock.mockReset();
+    useIsMobileMock.mockReset();
+    useIsMobileMock.mockReturnValue(false);
     propertyStateRef.current = {
       selectedPropertyId: "prop-1",
     };
@@ -306,5 +313,64 @@ describe("AuditLog", () => {
       expect(screen.getByTestId("audit-error-state")).toBeInTheDocument();
       expect(screen.getByText("boom")).toBeInTheDocument();
     });
+  });
+
+  it("uses drawer date picker on mobile and auto-closes after selecting a full range", async () => {
+    useIsMobileMock.mockReturnValue(true);
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchAuditEntriesMock
+      .mockResolvedValueOnce({
+        items: firstPageItems,
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        items: [firstPageItems[0]],
+        nextCursor: null,
+      });
+
+    render(<AuditLog />);
+
+    await screen.findByText("Searched available rooms for March 15-20");
+    expect(screen.queryByTestId("audit-date-drawer")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /date range/i }));
+
+    expect(await screen.findByTestId("audit-date-drawer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pick Feb 22" }));
+
+    const expectedRange = getExpectedRange();
+    await waitFor(() => {
+      expect(fetchAuditEntriesMock).toHaveBeenNthCalledWith(
+        2,
+        "jwt",
+        "prop-1",
+        expect.objectContaining({
+          source: undefined,
+          from: expectedRange.from,
+          to: expectedRange.to,
+          limit: 20,
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("audit-date-drawer")).toHaveAttribute("data-state", "closed");
+    });
+  });
+
+  it("keeps desktop date picker in popover mode", async () => {
+    useIsMobileMock.mockReturnValue(false);
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchAuditEntriesMock.mockResolvedValue({
+      items: firstPageItems,
+      nextCursor: null,
+    });
+
+    render(<AuditLog />);
+
+    await screen.findByText("Searched available rooms for March 15-20");
+    fireEvent.click(screen.getByRole("button", { name: /date range/i }));
+
+    expect(screen.queryByTestId("audit-date-drawer")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pick Feb 22" })).toBeInTheDocument();
   });
 });
