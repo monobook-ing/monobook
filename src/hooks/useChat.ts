@@ -4,6 +4,7 @@ import {
   sendChatMessage,
   type ChatMessage,
   type SSEEvent,
+  type RoomSearchResult,
 } from "@/lib/chatApi";
 
 export interface DisplayMessage {
@@ -11,6 +12,8 @@ export interface DisplayMessage {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  isSearching?: boolean;
+  toolResults?: RoomSearchResult[];
   timestamp: string;
 }
 
@@ -87,16 +90,38 @@ export function useChat(propertyId: string) {
               }
               break;
             case "tool_use":
-              // Could show a "searching..." indicator
+              if (event.tool === "tool_search_rooms") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, isSearching: true }
+                      : m,
+                  ),
+                );
+              }
+              break;
+            case "tool_result":
+              if (event.data && event.tool === "search_rooms") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          isSearching: false,
+                          toolResults: [...(m.toolResults || []), event.data!],
+                        }
+                      : m,
+                  ),
+                );
+              }
               break;
             case "agent_handoff":
-              // Could show which agent is handling
               break;
             case "message_end":
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
-                    ? { ...m, isStreaming: false, content: m.content || event.content || "" }
+                    ? { ...m, isStreaming: false, isSearching: false, content: m.content || event.content || "" }
                     : m,
                 ),
               );

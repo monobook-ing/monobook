@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
 import { Bot, User } from "lucide-react";
 import type { DisplayMessage } from "@/hooks/useChat";
+import { RoomResultsCarousel } from "./RoomResultsCarousel";
 
 interface ChatMessageProps {
   message: DisplayMessage;
+  onBookRoom?: (roomId: string) => void;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onBookRoom }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const hasToolResults = message.toolResults && message.toolResults.length > 0;
 
   return (
     <motion.div
@@ -19,32 +22,60 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {/* Avatar */}
       <div
         className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
-          isUser ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "bg-secondary text-muted-foreground"
         }`}
       >
-        {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+        {isUser ? (
+          <User className="w-3.5 h-3.5" />
+        ) : (
+          <Bot className="w-3.5 h-3.5" />
+        )}
       </div>
 
-      {/* Bubble */}
+      {/* Content column */}
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-          isUser
-            ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-secondary text-foreground rounded-tl-sm"
-        }`}
+        className={`${
+          hasToolResults ? "max-w-[90%]" : "max-w-[80%]"
+        } flex flex-col gap-2`}
       >
-        {message.content ? (
-          <MessageContent content={message.content} />
-        ) : message.isStreaming ? (
-          <TypingIndicator />
-        ) : null}
+        {/* Text bubble */}
+        {(message.content || message.isStreaming) && (
+          <div
+            className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+              isUser
+                ? "bg-primary text-primary-foreground rounded-tr-sm"
+                : "bg-secondary text-foreground rounded-tl-sm"
+            }`}
+          >
+            {message.content ? (
+              <MessageContent content={message.content} />
+            ) : message.isStreaming ? (
+              <TypingIndicator />
+            ) : null}
+          </div>
+        )}
+
+        {/* Searching indicator */}
+        {message.isSearching && !hasToolResults && (
+          <SearchingIndicator />
+        )}
+
+        {/* Room results carousel */}
+        {message.toolResults?.map((result, i) => (
+          <RoomResultsCarousel
+            key={`rooms-${i}`}
+            result={result}
+            onBookNow={onBookRoom}
+          />
+        ))}
       </div>
     </motion.div>
   );
 }
 
 function MessageContent({ content }: { content: string }) {
-  // Simple markdown-like rendering: bold, line breaks
   const parts = content.split("\n");
   return (
     <div className="space-y-1">
@@ -78,5 +109,22 @@ function TypingIndicator() {
         />
       ))}
     </div>
+  );
+}
+
+function SearchingIndicator() {
+  return (
+    <motion.div
+      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/60 text-xs text-muted-foreground"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <motion.div
+        className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      />
+      Searching rooms...
+    </motion.div>
   );
 }

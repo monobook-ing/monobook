@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bot, RotateCcw } from "lucide-react";
 import { useChat } from "@/hooks/useChat";
@@ -12,6 +12,18 @@ interface ChatInterfaceProps {
 export function ChatInterface({ propertyId }: ChatInterfaceProps) {
   const { messages, isLoading, error, sendMessage, clearChat } = useChat(propertyId);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleBookRoom = useCallback(
+    (roomId: string) => {
+      const allResults = messages.flatMap((m) => m.toolResults || []);
+      const room = allResults
+        .flatMap((r) => r.rooms)
+        .find((r) => r.id === roomId);
+      const roomName = room?.name || "this room";
+      sendMessage(`I'd like to book ${roomName}`);
+    },
+    [messages, sendMessage],
+  );
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -63,7 +75,7 @@ export function ChatInterface({ propertyId }: ChatInterfaceProps) {
 
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg} />
+            <ChatMessage key={msg.id} message={msg} onBookRoom={handleBookRoom} />
           ))}
         </AnimatePresence>
       </div>
