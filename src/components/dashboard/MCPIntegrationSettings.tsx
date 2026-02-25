@@ -1107,7 +1107,7 @@ export function MCPIntegrationSettings() {
 
       {/* Host Details */}
       <HostDetailsSection />
-      <div className="rounded-2xl bg-card apple-shadow mb-6">
+      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-x-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <Link2 className="w-4 h-4 text-muted-foreground" />
@@ -1187,7 +1187,7 @@ export function MCPIntegrationSettings() {
       </div>
 
       {/* Payment Providers */}
-      <div className="rounded-2xl bg-card apple-shadow mb-6">
+      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-x-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-muted-foreground" />
@@ -1353,7 +1353,7 @@ export function MCPIntegrationSettings() {
 
             {!isKnowledgeLoading && !knowledgeError && (
               <>
-                <div className="px-5 pb-3 divide-y divide-border">
+                <div className="px-5 pb-3 divide-y divide-border overflow-x-hidden">
                   <AnimatePresence>
                     {uploadingFiles.map((item) => (
                       <motion.div
@@ -1376,9 +1376,9 @@ export function MCPIntegrationSettings() {
                     ))}
                   </AnimatePresence>
                   {knowledgeFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between py-3 gap-2">
+                    <div key={file.id} className="flex items-center justify-between py-3 gap-2 min-w-0 overflow-x-hidden">
                       <div
-                        className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
+                        className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 overflow-x-hidden"
                         onClick={() => setPreviewFile(file)}
                       >
                         <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
