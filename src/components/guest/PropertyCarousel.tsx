@@ -8,12 +8,14 @@ interface PropertyCarouselProps {
   onSelect: (property: Property) => void;
   properties?: Property[];
   title?: string;
+  noResultsLabel?: string;
 }
 
 export function PropertyCarousel({
   onSelect,
   properties = mockProperties,
   title = "Recommended for you",
+  noResultsLabel = "No rooms available for this query.",
 }: PropertyCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +30,7 @@ export function PropertyCarousel({
       </h2>
       {properties.length === 0 && (
         <p className="text-sm text-muted-foreground px-1 mb-2">
-          No rooms available for this query.
+          {noResultsLabel}
         </p>
       )}
       <div

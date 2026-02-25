@@ -8,7 +8,7 @@ import { PropertyCarousel } from "@/components/guest/PropertyCarousel";
 import type { Property } from "@/data/mockData";
 import { useMCPBridge } from "@/hooks/useMCPBridge";
 
-type WidgetMode = "search_rooms" | "check_availability" | "create_booking";
+type WidgetMode = "search_hotels" | "search_rooms" | "check_availability" | "create_booking";
 type WidgetStep = "browse" | "configure" | "checkout" | "complete";
 
 type MCPRoom = {
@@ -24,10 +24,29 @@ type MCPRoom = {
   location?: string;
   rating?: number;
   ai_match_score?: number;
+  estimated_total_price?: number;
+};
+
+type MCPHotel = {
+  property_id: string;
+  property_name: string;
+  city?: string;
+  country?: string;
+  lat?: number;
+  lng?: number;
+  distance_km?: number | null;
+  min_price_per_night?: number;
+  available_rooms_count?: number;
+  pet_friendly_option?: boolean;
+  matching_rooms?: MCPRoom[];
+  rating?: number;
+  ai_match_score?: number;
+  image?: string;
 };
 
 type MCPStructuredPayload = {
   property_id?: string;
+  hotels?: MCPHotel[];
   rooms?: MCPRoom[];
   room?: MCPRoom;
   available?: boolean;
@@ -60,6 +79,7 @@ type OpenAIWithState = {
 };
 
 const WIDGET_MODES: WidgetMode[] = [
+  "search_hotels",
   "search_rooms",
   "check_availability",
   "create_booking",
@@ -110,7 +130,8 @@ const extractStructuredContent = (payload: unknown): MCPStructuredPayload | null
         try {
           const parsed = JSON.parse((item as Record<string, unknown>).text as string);
           if (parsed && typeof parsed === "object" &&
-            (Object.prototype.hasOwnProperty.call(parsed, "rooms") ||
+            (Object.prototype.hasOwnProperty.call(parsed, "hotels") ||
+              Object.prototype.hasOwnProperty.call(parsed, "rooms") ||
               Object.prototype.hasOwnProperty.call(parsed, "room") ||
               Object.prototype.hasOwnProperty.call(parsed, "booking_id"))) {
             return parsed as MCPStructuredPayload;
@@ -123,6 +144,7 @@ const extractStructuredContent = (payload: unknown): MCPStructuredPayload | null
   }
   // Payload itself is the structured data
   if (
+    Object.prototype.hasOwnProperty.call(data, "hotels") ||
     Object.prototype.hasOwnProperty.call(data, "rooms") ||
     Object.prototype.hasOwnProperty.call(data, "room") ||
     Object.prototype.hasOwnProperty.call(data, "booking_id")
@@ -163,6 +185,78 @@ const mapRoomToProperty = (room: MCPRoom, index: number): Property => {
     image: room.images?.[0] || fallbackImage,
     amenities: room.amenities ?? [],
     roomType: room.type ?? "Room",
+  };
+};
+
+const formatHotelLocation = (city?: string, country?: string): string => {
+  const values = [city, country].map((item) => (item ?? "").trim()).filter(Boolean);
+  if (values.length === 0) return "Selected property";
+  return values.join(", ");
+};
+
+const pickPrimaryRoom = (hotel: MCPHotel): MCPRoom | null => {
+  const rooms = (hotel.matching_rooms ?? []).slice();
+  if (rooms.length === 0) return null;
+
+  rooms.sort((left, right) => {
+    const leftPrice = Number(left.price_per_night ?? Number.POSITIVE_INFINITY);
+    const rightPrice = Number(right.price_per_night ?? Number.POSITIVE_INFINITY);
+    if (Number.isFinite(leftPrice) && Number.isFinite(rightPrice)) {
+      return leftPrice - rightPrice;
+    }
+    if (Number.isFinite(leftPrice)) return -1;
+    if (Number.isFinite(rightPrice)) return 1;
+    return 0;
+  });
+
+  return rooms[0];
+};
+
+const resolveHotelRating = (hotel: MCPHotel, room: MCPRoom | null, index: number): number => {
+  const score = Number(hotel.rating ?? room?.rating);
+  if (Number.isFinite(score) && score > 0) {
+    return Number(score.toFixed(1));
+  }
+  return Number((4.9 - Math.min(index, 4) * 0.1).toFixed(1));
+};
+
+const resolveHotelMatchScore = (
+  hotel: MCPHotel,
+  room: MCPRoom | null,
+  index: number
+): number => {
+  const explicit = Number(hotel.ai_match_score ?? room?.ai_match_score);
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return Math.max(1, Math.min(99, Math.round(explicit)));
+  }
+
+  if (typeof hotel.distance_km === "number" && Number.isFinite(hotel.distance_km)) {
+    const derived = 98 - Math.round(hotel.distance_km);
+    return Math.max(82, Math.min(98, derived));
+  }
+
+  return Math.max(82, 98 - index * 3);
+};
+
+const mapHotelToProperty = (
+  hotel: MCPHotel,
+  primaryRoom: MCPRoom,
+  index: number
+): Property => {
+  const fallbackImage = `hotel-${(index % 4) + 1}`;
+  const price = Number(hotel.min_price_per_night ?? primaryRoom.price_per_night ?? 0);
+  const pricePerNight = Number.isFinite(price) ? price : 0;
+
+  return {
+    id: hotel.property_id,
+    name: hotel.property_name || primaryRoom.name,
+    location: formatHotelLocation(hotel.city, hotel.country),
+    pricePerNight,
+    rating: resolveHotelRating(hotel, primaryRoom, index),
+    aiMatchScore: resolveHotelMatchScore(hotel, primaryRoom, index),
+    image: hotel.image || primaryRoom.images?.[0] || fallbackImage,
+    amenities: primaryRoom.amenities ?? [],
+    roomType: primaryRoom.type ?? "Room",
   };
 };
 
@@ -260,10 +354,33 @@ export function ChatGPTBookingWidget() {
   useEffect(() => {
     if (!payload) return;
 
-    const rooms = payload.rooms ?? (payload.room ? [payload.room] : []);
-    const roomMap = Object.fromEntries(rooms.map((room) => [room.id, room]));
-    setRoomById(roomMap);
-    setProperties(rooms.map(mapRoomToProperty));
+    const hotels = payload.hotels ?? [];
+    if (hotels.length > 0) {
+      const propertiesFromHotels: Property[] = [];
+      const roomMapByProperty: Record<string, MCPRoom> = {};
+
+      hotels.forEach((hotel, index) => {
+        const primaryRoom = pickPrimaryRoom(hotel);
+        if (!primaryRoom || !hotel.property_id) return;
+
+        propertiesFromHotels.push(mapHotelToProperty(hotel, primaryRoom, index));
+        roomMapByProperty[hotel.property_id] = {
+          ...primaryRoom,
+          property_id: primaryRoom.property_id ?? hotel.property_id,
+          location: formatHotelLocation(hotel.city, hotel.country),
+          rating: resolveHotelRating(hotel, primaryRoom, index),
+          ai_match_score: resolveHotelMatchScore(hotel, primaryRoom, index),
+        };
+      });
+
+      setRoomById(roomMapByProperty);
+      setProperties(propertiesFromHotels);
+    } else {
+      const rooms = payload.rooms ?? (payload.room ? [payload.room] : []);
+      const roomMap = Object.fromEntries(rooms.map((room) => [room.id, room]));
+      setRoomById(roomMap);
+      setProperties(rooms.map(mapRoomToProperty));
+    }
 
     if (payload.error) {
       setError(payload.error);
@@ -437,7 +554,16 @@ export function ChatGPTBookingWidget() {
                   <PropertyCarousel
                     properties={properties}
                     onSelect={handleSelectProperty}
-                    title={widget === "search_rooms" ? "Recommended for you" : "Room options"}
+                    title={
+                      widget === "search_hotels" || widget === "search_rooms"
+                        ? "Recommended for you"
+                        : "Room options"
+                    }
+                    noResultsLabel={
+                      widget === "search_hotels"
+                        ? "No hotels matched your search filters."
+                        : "No rooms available for this query."
+                    }
                   />
                 )}
 
@@ -518,4 +644,3 @@ function BookingCompleteCard({
     </motion.div>
   );
 }
-
