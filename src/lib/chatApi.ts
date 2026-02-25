@@ -16,12 +16,32 @@ export interface ChatSession {
   created_at: string;
 }
 
+export interface RoomResult {
+  id: string;
+  property_id: string;
+  name: string;
+  type: string;
+  description: string;
+  price_per_night: string;
+  max_guests: number;
+  amenities: string[];
+  images: string[];
+}
+
+export interface RoomSearchResult {
+  property_id: string;
+  property_name: string;
+  rooms: RoomResult[];
+  count: number;
+}
+
 export interface SSEEvent {
-  type: "message_start" | "text_delta" | "tool_use" | "agent_handoff" | "message_end";
+  type: "message_start" | "text_delta" | "tool_use" | "agent_handoff" | "message_end" | "tool_result";
   delta?: string;
   content?: string;
   tool?: string;
   agent?: string;
+  data?: RoomSearchResult;
 }
 
 export async function createChatSession(
