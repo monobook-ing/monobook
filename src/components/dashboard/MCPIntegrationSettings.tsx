@@ -1250,7 +1250,7 @@ export function MCPIntegrationSettings() {
       <AIProviderSettings />
 
       {/* Knowledge Base */}
-      <div className="rounded-2xl bg-card apple-shadow mb-6">
+      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-muted-foreground" />
@@ -1375,7 +1375,7 @@ export function MCPIntegrationSettings() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p
-                            className="block w-full overflow-hidden whitespace-nowrap text-sm font-medium text-card-foreground"
+                            className="block w-full overflow-hidden whitespace-nowrap text-ellipsis text-sm font-medium text-card-foreground"
                             title={file.name}
                           >
                             {truncateFileName(file.name)}
