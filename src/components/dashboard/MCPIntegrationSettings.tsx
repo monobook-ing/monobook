@@ -619,6 +619,7 @@ export function MCPIntegrationSettings() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{ id: string; name: string }>>([]);
   const [previewFile, setPreviewFile] = useState<KnowledgeFile | null>(null);
+  const [pendingDeleteFile, setPendingDeleteFile] = useState<KnowledgeFile | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -726,6 +727,7 @@ export function MCPIntegrationSettings() {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setShowDeleteDialog(false);
+    setPendingDeleteFile(null);
     setDeletingFileId(null);
 
     if (selectedPropertyId === "all") {
@@ -783,8 +785,20 @@ export function MCPIntegrationSettings() {
     [syncPreviewFile]
   );
 
-  const handleDeleteFromPreview = useCallback(async () => {
-    if (!previewFile || selectedPropertyId === "all" || deletingFileId) return;
+  const requestDeleteKnowledgeFile = useCallback((file: KnowledgeFile) => {
+    setPendingDeleteFile(file);
+    setShowDeleteDialog(true);
+  }, []);
+
+  const onDeleteDialogOpenChange = useCallback((nextOpen: boolean) => {
+    setShowDeleteDialog(nextOpen);
+    if (!nextOpen && !deletingFileId) {
+      setPendingDeleteFile(null);
+    }
+  }, [deletingFileId]);
+
+  const confirmDeleteKnowledgeFile = useCallback(async () => {
+    if (!pendingDeleteFile || selectedPropertyId === "all" || deletingFileId) return;
 
     const accessToken = readAccessToken();
     if (!accessToken) {
@@ -792,13 +806,14 @@ export function MCPIntegrationSettings() {
       return;
     }
 
-    setDeletingFileId(previewFile.id);
+    setDeletingFileId(pendingDeleteFile.id);
     setKnowledgeError(null);
 
     try {
-      await deleteKnowledgeFile(accessToken, selectedPropertyId, previewFile.id);
-      await refreshKnowledgeFiles(accessToken, selectedPropertyId, previewFile.id);
+      await deleteKnowledgeFile(accessToken, selectedPropertyId, pendingDeleteFile.id);
+      await refreshKnowledgeFiles(accessToken, selectedPropertyId, pendingDeleteFile.id);
       setShowDeleteDialog(false);
+      setPendingDeleteFile(null);
     } catch (deleteError) {
       const message =
         deleteError instanceof Error ? deleteError.message : "Failed to delete knowledge file";
@@ -806,33 +821,7 @@ export function MCPIntegrationSettings() {
     } finally {
       setDeletingFileId(null);
     }
-  }, [deletingFileId, previewFile, refreshKnowledgeFiles, selectedPropertyId]);
-
-  const removeKnowledgeFile = useCallback(
-    async (id: string) => {
-      if (selectedPropertyId === "all" || deletingFileId) return;
-      const accessToken = readAccessToken();
-      if (!accessToken) {
-        setKnowledgeError("missing_token");
-        return;
-      }
-
-      setDeletingFileId(id);
-      setKnowledgeError(null);
-
-      try {
-        await deleteKnowledgeFile(accessToken, selectedPropertyId, id);
-        await refreshKnowledgeFiles(accessToken, selectedPropertyId, id);
-      } catch (deleteError) {
-        const message =
-          deleteError instanceof Error ? deleteError.message : "Failed to delete knowledge file";
-        setKnowledgeError(message);
-      } finally {
-        setDeletingFileId(null);
-      }
-    },
-    [deletingFileId, refreshKnowledgeFiles, selectedPropertyId]
-  );
+  }, [deletingFileId, pendingDeleteFile, refreshKnowledgeFiles, selectedPropertyId]);
 
   const uploadKnowledgeFiles = useCallback(
     async (fileList: FileList) => {
@@ -1402,7 +1391,7 @@ export function MCPIntegrationSettings() {
                         className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 min-w-[44px] min-h-[44px] text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-60"
                         whileTap={{ scale: 0.9 }}
                         onClick={() => {
-                          void removeKnowledgeFile(file.id);
+                          requestDeleteKnowledgeFile(file);
                         }}
                       >
                         {deletingFileId === file.id ? (
@@ -1467,6 +1456,7 @@ export function MCPIntegrationSettings() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <motion.button
+                      data-testid="knowledge-preview-menu-trigger"
                       className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-secondary transition-colors"
                       whileTap={{ scale: 0.9 }}
                     >
@@ -1475,9 +1465,14 @@ export function MCPIntegrationSettings() {
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-48 rounded-xl p-1.5">
                     <button
+                      data-testid="knowledge-preview-delete-action"
                       disabled={Boolean(deletingFileId)}
                       className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors min-h-[44px]"
-                      onClick={() => setShowDeleteDialog(true)}
+                      onClick={() => {
+                        if (previewFile) {
+                          requestDeleteKnowledgeFile(previewFile);
+                        }
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete
@@ -1511,19 +1506,19 @@ export function MCPIntegrationSettings() {
       </AnimatePresence>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={onDeleteDialogOpenChange}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete file?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {previewFile?.name}? This action cannot be undone.
+              Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={Boolean(deletingFileId)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                void handleDeleteFromPreview();
+                void confirmDeleteKnowledgeFile();
               }}
               disabled={Boolean(deletingFileId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

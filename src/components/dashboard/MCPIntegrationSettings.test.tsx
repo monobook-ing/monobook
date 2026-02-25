@@ -772,7 +772,7 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     });
   });
 
-  it("deletes a file and refetches list", async () => {
+  it("opens confirmation before deleting from row and deletes after confirm", async () => {
     fetchKnowledgeFilesMock
       .mockResolvedValueOnce(knowledgeFiles)
       .mockResolvedValueOnce([]);
@@ -782,6 +782,54 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
 
     await screen.findByText("Hotel_Policy_2026.pdf");
     fireEvent.click(screen.getByTestId("knowledge-delete-file-uuid-1"));
+
+    expect(screen.getByText("Delete file?")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete Hotel_Policy_2026\.pdf\?/i)).toBeInTheDocument();
+    expect(deleteKnowledgeFileMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(deleteKnowledgeFileMock).toHaveBeenCalledWith("jwt", "prop-1", "file-uuid-1");
+      expect(fetchKnowledgeFilesMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("cancels row delete without calling API", async () => {
+    fetchKnowledgeFilesMock.mockResolvedValueOnce(knowledgeFiles);
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByText("Hotel_Policy_2026.pdf");
+    fireEvent.click(screen.getByTestId("knowledge-delete-file-uuid-1"));
+
+    expect(screen.getByText("Delete file?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Delete file?")).not.toBeInTheDocument();
+      expect(deleteKnowledgeFileMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("deletes from preview menu via shared confirmation flow", async () => {
+    fetchKnowledgeFilesMock
+      .mockResolvedValueOnce(knowledgeFiles)
+      .mockResolvedValueOnce([]);
+    deleteKnowledgeFileMock.mockResolvedValue({ message: "File deleted", id: "file-uuid-1" });
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByText("Hotel_Policy_2026.pdf");
+    fireEvent.click(screen.getByText("Hotel_Policy_2026.pdf"));
+
+    fireEvent.click(await screen.findByTestId("knowledge-preview-menu-trigger"));
+    fireEvent.click(await screen.findByTestId("knowledge-preview-delete-action"));
+
+    expect(screen.getByText("Delete file?")).toBeInTheDocument();
+    expect(deleteKnowledgeFileMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => {
       expect(deleteKnowledgeFileMock).toHaveBeenCalledWith("jwt", "prop-1", "file-uuid-1");
