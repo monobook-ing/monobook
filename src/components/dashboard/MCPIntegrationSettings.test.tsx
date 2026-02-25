@@ -837,6 +837,20 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     });
   });
 
+  it("shows mobile bottom sheet for delete confirmation on mobile", async () => {
+    isMobileRef.current = true;
+    fetchKnowledgeFilesMock.mockResolvedValueOnce(knowledgeFiles);
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByText("Hotel_Policy_2026.pdf");
+    fireEvent.click(screen.getByTestId("knowledge-delete-file-uuid-1"));
+
+    expect(screen.getByTestId("delete-knowledge-drawer")).toBeInTheDocument();
+    expect(screen.getByText("Delete file?")).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete Hotel_Policy_2026\.pdf\?/i)).toBeInTheDocument();
+  });
+
   it("shows API error state when knowledge files fetch fails", async () => {
     fetchKnowledgeFilesMock.mockRejectedValue(new Error("knowledge fetch failed"));
 

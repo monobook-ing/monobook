@@ -797,6 +797,12 @@ export function MCPIntegrationSettings() {
     }
   }, [deletingFileId]);
 
+  const cancelDeleteKnowledgeFile = useCallback(() => {
+    if (deletingFileId) return;
+    setShowDeleteDialog(false);
+    setPendingDeleteFile(null);
+  }, [deletingFileId]);
+
   const confirmDeleteKnowledgeFile = useCallback(async () => {
     if (!pendingDeleteFile || selectedPropertyId === "all" || deletingFileId) return;
 
@@ -1505,29 +1511,47 @@ export function MCPIntegrationSettings() {
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={onDeleteDialogOpenChange}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete file?</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Delete Confirmation */}
+      {isMobile ? (
+        <MobileDestructiveConfirmSheet
+          open={showDeleteDialog}
+          onOpenChange={onDeleteDialogOpenChange}
+          title="Delete file?"
+          description={
+            <>
               Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={Boolean(deletingFileId)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                void confirmDeleteKnowledgeFile();
-              }}
-              disabled={Boolean(deletingFileId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={confirmDeleteKnowledgeFile}
+          onCancel={cancelDeleteKnowledgeFile}
+          confirmDisabled={Boolean(deletingFileId)}
+          testId="delete-knowledge-drawer"
+        />
+      ) : (
+        <AlertDialog open={showDeleteDialog} onOpenChange={onDeleteDialogOpenChange}>
+          <AlertDialogContent className="rounded-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete file?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={Boolean(deletingFileId)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  void confirmDeleteKnowledgeFile();
+                }}
+                disabled={Boolean(deletingFileId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       {isMobile ? (
         <MobileDestructiveConfirmSheet
