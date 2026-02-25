@@ -29,6 +29,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/widget" element={<GuestWidget />} />
+          <Route path="/widget/search-rooms.html" element={<GuestWidget />} />
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardHome />} />
             <Route path="/inventory" element={<InventoryCalendar />} />
