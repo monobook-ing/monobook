@@ -597,6 +597,9 @@ function HostDetailsSection() {
 }
 
 export function MCPIntegrationSettings() {
+  const truncateFileName = (name: string, maxChars = 36) =>
+    name.length > maxChars ? `${name.slice(0, maxChars)}..` : name;
+
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -1382,7 +1385,12 @@ export function MCPIntegrationSettings() {
                           <FileText className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="block w-full text-sm font-medium text-card-foreground truncate">{file.name}</p>
+                          <p
+                            className="block w-full overflow-hidden whitespace-nowrap text-sm font-medium text-card-foreground"
+                            title={file.name}
+                          >
+                            {truncateFileName(file.name)}
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {file.size} · {formatCreatedAt(file.createdAt)}
                           </p>
