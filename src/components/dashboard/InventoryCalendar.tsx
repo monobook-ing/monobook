@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { RoomImagePreview } from "@/components/dashboard/RoomImagePreview";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 type InventoryVisibleStatus = Exclude<ApiBookingStatus, "cancelled">;
 type InventoryStatusFilter = "all" | InventoryVisibleStatus;
@@ -341,7 +342,14 @@ export function InventoryCalendar() {
           <CreditCard className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">${selectedBooking.totalPrice.toFixed(2)}</p>
+          <p className="text-sm font-semibold text-foreground">
+            {formatCurrencyAmount(
+              selectedBooking.totalPrice,
+              selectedBooking.currencyDisplay,
+              selectedBooking.currencyCode,
+              2
+            )}
+          </p>
           <p className="text-xs text-muted-foreground">Total price</p>
         </div>
       </div>

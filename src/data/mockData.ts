@@ -3,6 +3,8 @@ export interface Property {
   name: string;
   location: string;
   pricePerNight: number;
+  currencyCode?: string;
+  currencyDisplay?: string;
   rating: number;
   aiMatchScore: number;
   image: string;
@@ -52,6 +54,8 @@ export const mockProperties: Property[] = [
     name: "Villa Serenità",
     location: "Amalfi Coast, Italy",
     pricePerNight: 420,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     rating: 4.9,
     aiMatchScore: 98,
     image: "hotel-1",
@@ -63,6 +67,8 @@ export const mockProperties: Property[] = [
     name: "The Skyline Loft",
     location: "Manhattan, New York",
     pricePerNight: 380,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     rating: 4.8,
     aiMatchScore: 94,
     image: "hotel-2",
@@ -74,6 +80,8 @@ export const mockProperties: Property[] = [
     name: "Coral Bay Resort",
     location: "Maldives",
     pricePerNight: 650,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     rating: 4.95,
     aiMatchScore: 91,
     image: "hotel-3",
@@ -85,6 +93,8 @@ export const mockProperties: Property[] = [
     name: "Alpine Lodge Zermatt",
     location: "Zermatt, Switzerland",
     pricePerNight: 340,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     rating: 4.7,
     aiMatchScore: 87,
     image: "hotel-4",

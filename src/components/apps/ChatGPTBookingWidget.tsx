@@ -7,6 +7,7 @@ import { BookingConfigurator } from "@/components/guest/BookingConfigurator";
 import { PropertyCarousel } from "@/components/guest/PropertyCarousel";
 import type { Property } from "@/data/mockData";
 import { useMCPBridge } from "@/hooks/useMCPBridge";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 type WidgetMode = "search_hotels" | "search_rooms" | "check_availability" | "create_booking";
 type WidgetStep = "browse" | "configure" | "checkout" | "complete";
@@ -18,6 +19,8 @@ type MCPRoom = {
   type?: string;
   description?: string;
   price_per_night?: string | number;
+  currency_code?: string;
+  currency_display?: string;
   max_guests?: number;
   amenities?: string[];
   images?: string[];
@@ -36,6 +39,8 @@ type MCPHotel = {
   lng?: number;
   distance_km?: number | null;
   min_price_per_night?: number;
+  min_price_currency_code?: string;
+  min_price_currency_display?: string;
   available_rooms_count?: number;
   pet_friendly_option?: boolean;
   matching_rooms?: MCPRoom[];
@@ -55,6 +60,8 @@ type MCPStructuredPayload = {
   booking_id?: string;
   guest_name?: string;
   total?: number;
+  currency_code?: string;
+  currency_display?: string;
   message?: string;
   error?: string;
 };
@@ -65,6 +72,8 @@ type ConfirmationState = {
   checkIn?: string;
   checkOut?: string;
   total?: number;
+  currencyCode?: string;
+  currencyDisplay?: string;
 };
 
 type OpenAIWithState = {
@@ -180,6 +189,8 @@ const mapRoomToProperty = (room: MCPRoom, index: number): Property => {
     name: room.name,
     location: room.location ?? "Selected property",
     pricePerNight: Number.isFinite(price) ? price : 0,
+    currencyCode: room.currency_code,
+    currencyDisplay: room.currency_display,
     rating: Number(room.rating ?? 4.8),
     aiMatchScore: Number(room.ai_match_score ?? Math.max(80, 98 - index * 3)),
     image: room.images?.[0] || fallbackImage,
@@ -252,6 +263,8 @@ const mapHotelToProperty = (
     name: hotel.property_name || primaryRoom.name,
     location: formatHotelLocation(hotel.city, hotel.country),
     pricePerNight,
+    currencyCode: hotel.min_price_currency_code ?? primaryRoom.currency_code,
+    currencyDisplay: hotel.min_price_currency_display ?? primaryRoom.currency_display,
     rating: resolveHotelRating(hotel, primaryRoom, index),
     aiMatchScore: resolveHotelMatchScore(hotel, primaryRoom, index),
     image: hotel.image || primaryRoom.images?.[0] || fallbackImage,
@@ -393,6 +406,8 @@ export function ChatGPTBookingWidget() {
         checkIn: payload.check_in,
         checkOut: payload.check_out,
         total: payload.total,
+        currencyCode: payload.currency_code,
+        currencyDisplay: payload.currency_display,
       });
       setStep("complete");
       return;
@@ -503,6 +518,10 @@ export function ChatGPTBookingWidget() {
         checkIn: String(bookingResult.check_in ?? checkoutConfig.checkIn),
         checkOut: String(bookingResult.check_out ?? checkoutConfig.checkOut),
         total: Number(bookingResult.total ?? total),
+        currencyCode: String(bookingResult.currency_code ?? selectedRoom.currency_code ?? ""),
+        currencyDisplay: String(
+          bookingResult.currency_display ?? selectedRoom.currency_display ?? ""
+        ),
       });
 
       return {
@@ -530,6 +549,8 @@ export function ChatGPTBookingWidget() {
         {step === "complete" && confirmation ? (
           <BookingCompleteCard
             confirmation={confirmation}
+            fallbackCurrencyCode={selectedProperty?.currencyCode}
+            fallbackCurrencyDisplay={selectedProperty?.currencyDisplay}
             onBookAnother={resetToBrowse}
           />
         ) : (
@@ -601,9 +622,13 @@ export function ChatGPTBookingWidget() {
 
 function BookingCompleteCard({
   confirmation,
+  fallbackCurrencyCode,
+  fallbackCurrencyDisplay,
   onBookAnother,
 }: {
   confirmation: ConfirmationState;
+  fallbackCurrencyCode?: string;
+  fallbackCurrencyDisplay?: string;
   onBookAnother: () => void;
 }) {
   const previewId = `AH-${confirmation.bookingId.slice(0, 8).toUpperCase()}`;
@@ -631,7 +656,11 @@ function BookingCompleteCard({
         )}
         {typeof confirmation.total === "number" && (
           <p className="text-base font-semibold text-foreground">
-            ${confirmation.total.toLocaleString()}
+            {formatCurrencyAmount(
+              confirmation.total,
+              confirmation.currencyDisplay ?? fallbackCurrencyDisplay,
+              confirmation.currencyCode ?? fallbackCurrencyCode
+            )}
           </p>
         )}
       </div>

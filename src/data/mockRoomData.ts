@@ -21,6 +21,8 @@ export interface ManagedRoom {
   description: string;
   images: string[];
   pricePerNight: number;
+  currencyCode?: string;
+  currencyDisplay?: string;
   maxGuests: number;
   bedConfig: string;
   amenities: string[];
@@ -42,6 +44,8 @@ export const mockRooms: ManagedRoom[] = [
       "Spacious suite with panoramic ocean views, private balcony, and luxurious furnishings. Features a king-size bed, marble bathroom with rain shower, and a separate living area perfect for relaxation.",
     images: [hotel1, hotel2, hotel3, hotel4],
     pricePerNight: 289,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     maxGuests: 3,
     bedConfig: "1 King Bed",
     amenities: ["WiFi", "Ocean View", "Balcony", "AC", "Mini Bar", "Room Service", "Safe", "Flat-screen TV"],
@@ -72,6 +76,8 @@ export const mockRooms: ManagedRoom[] = [
       "A warm, family-friendly room overlooking the tropical garden. Comes with two queen beds, a children's play corner, and direct pool access.",
     images: [hotel3, hotel1, hotel4],
     pricePerNight: 195,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     maxGuests: 4,
     bedConfig: "2 Queen Beds",
     amenities: ["WiFi", "Garden View", "Pool Access", "AC", "Kitchen", "Parking", "Crib Available"],
@@ -90,6 +96,8 @@ export const mockRooms: ManagedRoom[] = [
       "Comfortable twin room ideal for friends or colleagues traveling together. Clean, modern design with all essential amenities.",
     images: [hotel2, hotel4],
     pricePerNight: 120,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     maxGuests: 2,
     bedConfig: "2 Twin Beds",
     amenities: ["WiFi", "AC", "Flat-screen TV", "Desk", "Parking"],
@@ -106,6 +114,8 @@ export const mockRooms: ManagedRoom[] = [
       "The crown jewel of our property. A stunning two-floor penthouse with 360-degree city views, private jacuzzi, chef's kitchen, and dedicated butler service.",
     images: [hotel4, hotel1, hotel2, hotel3],
     pricePerNight: 750,
+    currencyCode: "USD",
+    currencyDisplay: "$",
     maxGuests: 6,
     bedConfig: "1 King Bed + 2 Single Beds",
     amenities: ["WiFi", "City View", "Jacuzzi", "Kitchen", "Butler Service", "AC", "Mini Bar", "Gym Access", "Spa Access"],
@@ -137,6 +147,8 @@ export const mockScrapedRoom: Omit<ManagedRoom, "id"> = {
     "Stunning beachfront villa featuring a private infinity pool, open-air living space, and direct beach access. Wake up to the sound of waves in this 3-bedroom tropical paradise.",
   images: [hotel1, hotel3, hotel2, hotel4],
   pricePerNight: 420,
+  currencyCode: "USD",
+  currencyDisplay: "$",
   maxGuests: 6,
   bedConfig: "1 King Bed + 2 Queen Beds",
   amenities: ["WiFi", "Pool", "Beach Access", "Kitchen", "AC", "BBQ", "Parking", "Garden"],

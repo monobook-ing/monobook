@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Users, BedDouble } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { RoomResult } from "@/lib/chatApi";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 interface RoomCardProps {
   room: RoomResult;
@@ -11,6 +12,11 @@ interface RoomCardProps {
 export function RoomCard({ room, onBookNow }: RoomCardProps) {
   const price = parseFloat(room.price_per_night);
   const displayAmenities = room.amenities.slice(0, 3);
+  const priceLabel = formatCurrencyAmount(
+    isNaN(price) ? 0 : price,
+    room.currency_display,
+    room.currency_code
+  );
 
   return (
     <motion.div
@@ -35,7 +41,7 @@ export function RoomCard({ room, onBookNow }: RoomCardProps) {
 
         {/* Price badge */}
         <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full glass text-xs font-semibold text-white">
-          ${isNaN(price) ? room.price_per_night : price.toFixed(0)}/night
+          {priceLabel}/night
         </div>
 
         {/* Capacity badge */}

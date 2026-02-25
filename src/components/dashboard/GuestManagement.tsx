@@ -42,6 +42,7 @@ import { format } from "date-fns";
 import geminiLogo from "@/assets/gemini-logo.svg";
 import chatgptLogo from "@/assets/chatgpt-logo.svg";
 import claudeLogo from "@/assets/claude-logo.svg";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 const statusColor: Record<string, string> = {
   confirmed: "bg-primary/10 text-primary border-primary/20",
@@ -145,7 +146,13 @@ function BookingRow({ booking }: { booking: GuestBooking }) {
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-sm font-semibold text-foreground">${booking.totalPrice.toLocaleString()}</span>
+        <span className="text-sm font-semibold text-foreground">
+          {formatCurrencyAmount(
+            booking.totalPrice,
+            booking.currencyDisplay,
+            booking.currencyCode
+          )}
+        </span>
         <Badge variant="outline" className={`text-[10px] ${statusColor[booking.status] || ""}`}>
           {statusLabel[booking.status] || booking.status}
         </Badge>
@@ -301,7 +308,13 @@ function GuestDetailContent({
           </Card>
           <Card className="rounded-xl">
             <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-foreground">${guest.totalSpent.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {formatCurrencyAmount(
+                  guest.totalSpent,
+                  guest.totalSpentCurrencyDisplay,
+                  guest.totalSpentCurrencyCode
+                )}
+              </p>
               <p className="text-xs text-muted-foreground">Total Spent</p>
             </CardContent>
           </Card>
@@ -356,7 +369,13 @@ function GuestDetailContent({
                     <Calendar className="w-3.5 h-3.5" />
                     {format(new Date(latestBooking.checkIn), "MMM d")} - {format(new Date(latestBooking.checkOut), "MMM d, yyyy")}
                   </div>
-                  <p className="text-lg font-bold text-foreground">${latestBooking.totalPrice.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatCurrencyAmount(
+                      latestBooking.totalPrice,
+                      latestBooking.currencyDisplay,
+                      latestBooking.currencyCode
+                    )}
+                  </p>
                   {latestBooking.aiHandled && (
                     <div className="flex items-center gap-1 mt-2 text-xs text-primary">
                       {latestBookingSourceBadge ? (

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Minus, Plus, Calendar } from "lucide-react";
 import type { Property } from "@/data/mockData";
 import { useMCPBridge } from "@/hooks/useMCPBridge";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 interface BookingConfiguratorProps {
   property: Property;
@@ -164,9 +165,20 @@ export function BookingConfigurator({ property, onClose, onConfirm }: BookingCon
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="flex justify-between text-sm mb-4">
                 <span className="text-muted-foreground">
-                  ${property.pricePerNight} × {nights} nights
+                  {formatCurrencyAmount(
+                    property.pricePerNight,
+                    property.currencyDisplay,
+                    property.currencyCode
+                  )}{" "}
+                  × {nights} nights
                 </span>
-                <span className="font-semibold text-foreground">${total.toLocaleString()}</span>
+                <span className="font-semibold text-foreground">
+                  {formatCurrencyAmount(
+                    total,
+                    property.currencyDisplay,
+                    property.currencyCode
+                  )}
+                </span>
               </div>
               <motion.button
                 className="w-full py-3.5 rounded-full bg-primary text-primary-foreground font-semibold text-base min-h-[44px]"
@@ -180,7 +192,12 @@ export function BookingConfigurator({ property, onClose, onConfirm }: BookingCon
                   })
                 }
               >
-                Continue — ${total.toLocaleString()}
+                Continue —{" "}
+                {formatCurrencyAmount(
+                  total,
+                  property.currencyDisplay,
+                  property.currencyCode
+                )}
               </motion.button>
             </motion.div>
           )}

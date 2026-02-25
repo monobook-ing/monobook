@@ -45,7 +45,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type ManagedRoom } from "@/data/mockRoomData";
 import { RoomPricingSection, hasOverrides } from "@/components/dashboard/RoomPricingSection";
@@ -54,6 +53,7 @@ import { MobileDestructiveConfirmSheet } from "@/components/dashboard/MobileDest
 import { useProperty } from "@/contexts/PropertyContext";
 import { deleteRoom, fetchRoomById, fetchRooms, importRoomFromUrl, readAccessToken } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { formatCurrencyAmount, resolveCurrencyDisplay } from "@/lib/currency";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -208,7 +208,7 @@ export function RoomManagement() {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const roomDetailRequestIdRef = useRef(0);
-  const isReadOnly = false;
+  const isReadOnly = true;
   const isRoomDetailOpen = !!selectedRoomId;
 
   useEffect(() => {
@@ -514,7 +514,11 @@ export function RoomManagement() {
             {hasOverrides(selectedRoom.pricing) && (
               <span className="text-sm font-normal text-muted-foreground">from </span>
             )}
-            ${selectedRoom.pricePerNight}
+            {formatCurrencyAmount(
+              selectedRoom.pricePerNight,
+              selectedRoom.currencyDisplay,
+              selectedRoom.currencyCode
+            )}
             <span className="text-sm font-normal text-muted-foreground">/night</span>
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
@@ -526,6 +530,10 @@ export function RoomManagement() {
         <RoomPricingSection
           pricing={selectedRoom.pricing || { dateOverrides: {}, guestTiers: [] }}
           basePrice={selectedRoom.pricePerNight}
+          currencyDisplay={resolveCurrencyDisplay(
+            selectedRoom.currencyDisplay,
+            selectedRoom.currencyCode
+          )}
           maxGuests={selectedRoom.maxGuests}
           readOnly={isReadOnly}
           onPricingChange={() => {}}
@@ -717,7 +725,11 @@ export function RoomManagement() {
                       {hasOverrides(room.pricing) && (
                         <span className="text-xs font-normal text-muted-foreground">from </span>
                       )}
-                      ${room.pricePerNight}
+                      {formatCurrencyAmount(
+                        room.pricePerNight,
+                        room.currencyDisplay,
+                        room.currencyCode
+                      )}
                       <span className="text-muted-foreground font-normal">/night</span>
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
