@@ -1373,7 +1373,7 @@ export function MCPIntegrationSettings() {
                     ))}
                   </AnimatePresence>
                   {knowledgeFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between py-3">
+                    <div key={file.id} className="flex items-center justify-between py-3 gap-2">
                       <div
                         className="flex items-center gap-3 cursor-pointer flex-1 min-w-0"
                         onClick={() => setPreviewFile(file)}
@@ -1381,8 +1381,8 @@ export function MCPIntegrationSettings() {
                         <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
                           <FileText className="w-4 h-4 text-muted-foreground" />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-card-foreground truncate">{file.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="block w-full text-sm font-medium text-card-foreground truncate">{file.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {file.size} · {formatCreatedAt(file.createdAt)}
                           </p>
@@ -1391,7 +1391,7 @@ export function MCPIntegrationSettings() {
                       <motion.button
                         data-testid={`knowledge-delete-${file.id}`}
                         disabled={Boolean(deletingFileId)}
-                        className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-60"
+                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 min-w-[44px] min-h-[44px] text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-60"
                         whileTap={{ scale: 0.9 }}
                         onClick={() => {
                           void removeKnowledgeFile(file.id);
