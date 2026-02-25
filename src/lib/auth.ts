@@ -1,5 +1,11 @@
 import { type Property } from "@/data/mockPropertyData";
 import { type ManagedRoom } from "@/data/mockRoomData";
+import {
+  DEFAULT_CURRENCY_CODE,
+  DEFAULT_CURRENCY_DISPLAY,
+  normalizeCurrencyCode,
+  resolveCurrencyDisplay,
+} from "@/lib/currency";
 export const API_BASE = "https://api-fexi.onrender.com";
 
 export type UserMe = {
@@ -49,6 +55,8 @@ export type ApiRoom = {
   description: string;
   images: string[];
   price_per_night: number;
+  currency_code?: string;
+  currency_display?: string;
   max_guests: number;
   bed_config: string;
   amenities: string[];
@@ -135,6 +143,8 @@ export type ApiBooking = {
   check_in: string;
   check_out: string;
   total_price: number;
+  currency_code?: string;
+  currency_display?: string;
   status: ApiBookingStatus;
   ai_handled: boolean;
   source: string | null;
@@ -158,6 +168,8 @@ export type ApiGuestLatestBooking = {
   check_out: string;
   status: ApiGuestBookingStatus;
   total_price: number;
+  currency_code?: string;
+  currency_display?: string;
   ai_handled: boolean;
   source: string | null;
 };
@@ -172,6 +184,8 @@ export type ApiGuestSummary = {
   total_stays: number;
   last_stay_date: string | null;
   total_spent: number;
+  total_spent_currency_code?: string;
+  total_spent_currency_display?: string;
   latest_booking: ApiGuestLatestBooking | null;
   created_at: string;
   updated_at: string;
@@ -187,6 +201,8 @@ export type ApiGuestBooking = {
   check_out: string;
   status: ApiGuestBookingStatus;
   total_price: number;
+  currency_code?: string;
+  currency_display?: string;
   ai_handled: boolean;
   source: string | null;
   conversation_id: string | null;
@@ -266,6 +282,8 @@ export type Booking = {
   checkIn: string;
   checkOut: string;
   totalPrice: number;
+  currencyCode: string;
+  currencyDisplay: string;
   status: ApiBookingStatus;
   aiHandled: boolean;
   source: string | null;
@@ -284,6 +302,8 @@ export type GuestLatestBooking = {
   checkOut: string;
   status: ApiGuestBookingStatus;
   totalPrice: number;
+  currencyCode: string;
+  currencyDisplay: string;
   aiHandled: boolean;
   source: string | null;
 };
@@ -298,6 +318,8 @@ export type GuestSummary = {
   totalStays: number;
   lastStayDate: string | null;
   totalSpent: number;
+  totalSpentCurrencyCode: string;
+  totalSpentCurrencyDisplay: string;
   latestBooking: GuestLatestBooking | null;
   createdAt: string;
   updatedAt: string;
@@ -313,6 +335,8 @@ export type GuestBooking = {
   checkOut: string;
   status: ApiGuestBookingStatus;
   totalPrice: number;
+  currencyCode: string;
+  currencyDisplay: string;
   aiHandled: boolean;
   source: string | null;
   conversationId: string | null;
@@ -616,6 +640,8 @@ const isApiRoom = (value: unknown): value is ApiRoom => {
     candidate.images.every((item) => typeof item === "string") &&
     typeof candidate.price_per_night === "number" &&
     Number.isFinite(candidate.price_per_night) &&
+    (candidate.currency_code === undefined || typeof candidate.currency_code === "string") &&
+    (candidate.currency_display === undefined || typeof candidate.currency_display === "string") &&
     typeof candidate.max_guests === "number" &&
     Number.isFinite(candidate.max_guests) &&
     typeof candidate.bed_config === "string" &&
@@ -753,6 +779,8 @@ const isApiBooking = (value: unknown): value is ApiBooking => {
     typeof candidate.check_out === "string" &&
     typeof candidate.total_price === "number" &&
     Number.isFinite(candidate.total_price) &&
+    (candidate.currency_code === undefined || typeof candidate.currency_code === "string") &&
+    (candidate.currency_display === undefined || typeof candidate.currency_display === "string") &&
     isApiBookingStatus(candidate.status) &&
     typeof candidate.ai_handled === "boolean" &&
     (candidate.source === null || typeof candidate.source === "string") &&
@@ -786,6 +814,8 @@ const isApiGuestLatestBooking = (value: unknown): value is ApiGuestLatestBooking
     isApiGuestBookingStatus(candidate.status) &&
     typeof candidate.total_price === "number" &&
     Number.isFinite(candidate.total_price) &&
+    (candidate.currency_code === undefined || typeof candidate.currency_code === "string") &&
+    (candidate.currency_display === undefined || typeof candidate.currency_display === "string") &&
     typeof candidate.ai_handled === "boolean" &&
     (candidate.source === null || typeof candidate.source === "string")
   );
@@ -806,6 +836,10 @@ const isApiGuestSummary = (value: unknown): value is ApiGuestSummary => {
     (candidate.last_stay_date === null || typeof candidate.last_stay_date === "string") &&
     typeof candidate.total_spent === "number" &&
     Number.isFinite(candidate.total_spent) &&
+    (candidate.total_spent_currency_code === undefined ||
+      typeof candidate.total_spent_currency_code === "string") &&
+    (candidate.total_spent_currency_display === undefined ||
+      typeof candidate.total_spent_currency_display === "string") &&
     (candidate.latest_booking === null || isApiGuestLatestBooking(candidate.latest_booking)) &&
     typeof candidate.created_at === "string" &&
     typeof candidate.updated_at === "string"
@@ -826,6 +860,8 @@ const isApiGuestBooking = (value: unknown): value is ApiGuestBooking => {
     isApiGuestBookingStatus(candidate.status) &&
     typeof candidate.total_price === "number" &&
     Number.isFinite(candidate.total_price) &&
+    (candidate.currency_code === undefined || typeof candidate.currency_code === "string") &&
+    (candidate.currency_display === undefined || typeof candidate.currency_display === "string") &&
     typeof candidate.ai_handled === "boolean" &&
     (candidate.source === null || typeof candidate.source === "string") &&
     (candidate.conversation_id === null || typeof candidate.conversation_id === "string")
@@ -979,6 +1015,11 @@ const mapApiRoomToManagedRoom = (item: ApiRoom): ManagedRoom => {
     description: item.description,
     images: item.images,
     pricePerNight: item.price_per_night,
+    currencyCode: normalizeCurrencyCode(item.currency_code),
+    currencyDisplay: resolveCurrencyDisplay(
+      item.currency_display,
+      item.currency_code
+    ),
     maxGuests: item.max_guests,
     bedConfig: item.bed_config,
     amenities: item.amenities,
@@ -1064,6 +1105,11 @@ const mapApiBooking = (item: ApiBooking): Booking => {
     checkIn: item.check_in,
     checkOut: item.check_out,
     totalPrice: item.total_price,
+    currencyCode: normalizeCurrencyCode(item.currency_code),
+    currencyDisplay: resolveCurrencyDisplay(
+      item.currency_display,
+      item.currency_code
+    ),
     status: item.status,
     aiHandled: item.ai_handled,
     source: item.source,
@@ -1087,6 +1133,11 @@ const mapApiGuestLatestBooking = (
     checkOut: item.check_out,
     status: item.status,
     totalPrice: item.total_price,
+    currencyCode: normalizeCurrencyCode(item.currency_code),
+    currencyDisplay: resolveCurrencyDisplay(
+      item.currency_display,
+      item.currency_code
+    ),
     aiHandled: item.ai_handled,
     source: item.source,
   };
@@ -1103,6 +1154,11 @@ const mapApiGuestSummary = (item: ApiGuestSummary): GuestSummary => {
     totalStays: item.total_stays,
     lastStayDate: item.last_stay_date,
     totalSpent: item.total_spent,
+    totalSpentCurrencyCode: normalizeCurrencyCode(item.total_spent_currency_code),
+    totalSpentCurrencyDisplay: resolveCurrencyDisplay(
+      item.total_spent_currency_display,
+      item.total_spent_currency_code
+    ),
     latestBooking: mapApiGuestLatestBooking(item.latest_booking),
     createdAt: item.created_at,
     updatedAt: item.updated_at,
@@ -1120,6 +1176,11 @@ const mapApiGuestBooking = (item: ApiGuestBooking): GuestBooking => {
     checkOut: item.check_out,
     status: item.status,
     totalPrice: item.total_price,
+    currencyCode: normalizeCurrencyCode(item.currency_code),
+    currencyDisplay: resolveCurrencyDisplay(
+      item.currency_display,
+      item.currency_code
+    ),
     aiHandled: item.ai_handled,
     source: item.source,
     conversationId: item.conversation_id,

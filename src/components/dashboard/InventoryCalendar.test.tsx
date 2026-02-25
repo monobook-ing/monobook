@@ -273,7 +273,7 @@ describe("InventoryCalendar", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Booking Details")).toBeInTheDocument();
     expect(within(dialog).getByText("ID: booking-1")).toBeInTheDocument();
-    expect(within(dialog).getByText("$2100.00")).toBeInTheDocument();
+    expect(within(dialog).getByText("$2,100")).toBeInTheDocument();
     const previewImage = within(dialog).getByRole("img", { name: /ocean view deluxe suite preview/i });
     expect(previewImage).toHaveAttribute("src", "https://example.com/1.jpg");
   });
@@ -293,7 +293,7 @@ describe("InventoryCalendar", () => {
     const drawer = await screen.findByTestId("inventory-booking-drawer");
     expect(within(drawer).getByText("Booking Details")).toBeInTheDocument();
     expect(within(drawer).getByText("ID: booking-1")).toBeInTheDocument();
-    expect(within(drawer).getByText("$2100.00")).toBeInTheDocument();
+    expect(within(drawer).getByText("$2,100")).toBeInTheDocument();
     const previewImage = within(drawer).getByRole("img", { name: /ocean view deluxe suite preview/i });
     expect(previewImage).toHaveAttribute("src", "https://example.com/1.jpg");
 

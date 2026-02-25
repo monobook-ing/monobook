@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Star, MapPin } from "lucide-react";
 import type { Property } from "@/data/mockData";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 import hotel1 from "@/assets/hotel-1.jpg";
 import hotel2 from "@/assets/hotel-2.jpg";
@@ -55,7 +56,13 @@ export function PropertyCard({ property, onSelect }: PropertyCardProps) {
             </p>
           </div>
           <div className="text-right flex-shrink-0">
-            <span className="text-lg font-bold text-card-foreground">${property.pricePerNight}</span>
+            <span className="text-lg font-bold text-card-foreground">
+              {formatCurrencyAmount(
+                property.pricePerNight,
+                property.currencyDisplay,
+                property.currencyCode
+              )}
+            </span>
             <span className="block text-xs text-muted-foreground">/ night</span>
           </div>
         </div>

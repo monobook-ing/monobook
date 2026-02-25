@@ -23,6 +23,8 @@ export interface RoomResult {
   type: string;
   description: string;
   price_per_night: string;
+  currency_code?: string;
+  currency_display?: string;
   max_guests: number;
   amenities: string[];
   images: string[];

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, Loader2, Shield, CreditCard } from "lucide-react";
 import type { Property } from "@/data/mockData";
 import { useMCPBridge } from "@/hooks/useMCPBridge";
+import { formatCurrencyAmount } from "@/lib/currency";
 
 type CheckoutResult = {
   confirmationId?: string;
@@ -58,7 +59,10 @@ export function AgenticCheckout({
         });
       } else {
         await Promise.resolve(
-          callTool(paymentToolName, { amount: total, currency: "usd" })
+          callTool(paymentToolName, {
+            amount: total,
+            currency: (property.currencyCode ?? "USD").toLowerCase(),
+          })
         );
         await new Promise((resolve) => setTimeout(resolve, 2200));
       }
@@ -98,20 +102,44 @@ export function AgenticCheckout({
             <div className="space-y-3 mb-5">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span className="text-card-foreground">${subtotal.toLocaleString()}</span>
+                <span className="text-card-foreground">
+                  {formatCurrencyAmount(
+                    subtotal,
+                    property.currencyDisplay,
+                    property.currencyCode
+                  )}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Taxes (12%)</span>
-                <span className="text-card-foreground">${taxes.toLocaleString()}</span>
+                <span className="text-card-foreground">
+                  {formatCurrencyAmount(
+                    taxes,
+                    property.currencyDisplay,
+                    property.currencyCode
+                  )}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Service fee</span>
-                <span className="text-card-foreground">${fees.toLocaleString()}</span>
+                <span className="text-card-foreground">
+                  {formatCurrencyAmount(
+                    fees,
+                    property.currencyDisplay,
+                    property.currencyCode
+                  )}
+                </span>
               </div>
               <div className="h-px bg-border" />
               <div className="flex justify-between">
                 <span className="font-semibold text-card-foreground">Total</span>
-                <span className="text-xl font-bold text-card-foreground">${total.toLocaleString()}</span>
+                <span className="text-xl font-bold text-card-foreground">
+                  {formatCurrencyAmount(
+                    total,
+                    property.currencyDisplay,
+                    property.currencyCode
+                  )}
+                </span>
               </div>
             </div>
 
@@ -172,7 +200,11 @@ export function AgenticCheckout({
                 {bookingConfig.checkIn} → {bookingConfig.checkOut}
               </p>
               <p className="font-semibold text-card-foreground mt-1">
-                ${(resolvedTotal ?? total).toLocaleString()}
+                {formatCurrencyAmount(
+                  resolvedTotal ?? total,
+                  property.currencyDisplay,
+                  property.currencyCode
+                )}
               </p>
             </div>
             <motion.button
