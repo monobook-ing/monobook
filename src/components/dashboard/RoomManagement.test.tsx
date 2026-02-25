@@ -366,6 +366,38 @@ describe("RoomManagement", () => {
     expect(screen.getAllByRole("button", { name: /ocean view deluxe suite preview/i })).toHaveLength(5);
   });
 
+  it("keeps thumbnail strip outside clipped image frame to prevent preview clipping", async () => {
+    const multiImageRoom = {
+      ...apiRoom,
+      images: [
+        "https://example.com/1.jpg",
+        "https://example.com/2.jpg",
+        "https://example.com/3.jpg",
+      ],
+    };
+
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([multiImageRoom]);
+    fetchRoomByIdMock.mockResolvedValue(multiImageRoom);
+
+    render(<RoomManagement />);
+
+    await screen.findByText("Ocean View Deluxe Suite");
+    fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
+    await screen.findByRole("button", { name: /sync now/i });
+
+    const hero = screen.getByTestId("room-detail-hero");
+    const imageFrame = screen.getByTestId("room-detail-image-frame");
+    const thumbnailStrip = screen.getByTestId("room-image-thumbnail-strip");
+
+    expect(hero.className).not.toContain("max-h-[min(36rem,100vw)]");
+    expect(hero.className).not.toContain("overflow-hidden");
+    expect(imageFrame.className).toContain("max-h-[min(36rem,100vw)]");
+    expect(imageFrame.className).toContain("overflow-hidden");
+    expect(thumbnailStrip.parentElement).toBe(hero);
+  });
+
   it("clicking thumbnails updates the main preview image and active state", async () => {
     const multiImageRoom = {
       ...apiRoom,
