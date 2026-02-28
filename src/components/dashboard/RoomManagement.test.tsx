@@ -80,6 +80,7 @@ describe("RoomManagement", () => {
     render(<RoomManagement />);
 
     expect(screen.getByTestId("rooms-select-property-state")).toBeInTheDocument();
+    expect(screen.getByTestId("add-room-button")).toBeDisabled();
     expect(fetchRoomsMock).not.toHaveBeenCalled();
   });
 
@@ -124,7 +125,7 @@ describe("RoomManagement", () => {
     });
   });
 
-  it("keeps room controls read-only", async () => {
+  it("keeps room detail controls read-only and opens add-room dialog", async () => {
     propertyStateRef.current.selectedPropertyId = "prop-1";
     readAccessTokenMock.mockReturnValue("jwt");
     fetchRoomsMock.mockResolvedValue([apiRoom]);
@@ -136,7 +137,10 @@ describe("RoomManagement", () => {
       expect(screen.getByText("Ocean View Deluxe Suite")).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId("add-room-button")).toBeDisabled();
+    const addRoomButton = screen.getByTestId("add-room-button");
+    expect(addRoomButton).toBeEnabled();
+    fireEvent.click(addRoomButton);
+    expect(await screen.findByRole("heading", { name: "Add Room" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Ocean View Deluxe Suite"));
 

@@ -209,6 +209,7 @@ export function RoomManagement() {
   const [importError, setImportError] = useState<string | null>(null);
   const roomDetailRequestIdRef = useRef(0);
   const isReadOnly = true;
+  const canAddRoom = selectedPropertyId !== "all";
   const isRoomDetailOpen = !!selectedRoomId;
 
   useEffect(() => {
@@ -634,7 +635,7 @@ export function RoomManagement() {
         <Button
           size="sm"
           className="rounded-xl gap-2"
-          disabled={isReadOnly}
+          disabled={!canAddRoom}
           data-testid="add-room-button"
           onClick={() => setShowAddRoomDialog(true)}
         >
