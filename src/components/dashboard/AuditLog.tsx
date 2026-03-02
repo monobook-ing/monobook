@@ -76,7 +76,11 @@ const toRangeParams = (dateRange: DateRange | undefined): { from?: string; to?: 
   };
 };
 
-export function AuditLog() {
+interface AuditLogProps {
+  showHeader?: boolean;
+}
+
+export function AuditLog({ showHeader = true }: AuditLogProps = {}) {
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -196,10 +200,12 @@ export function AuditLog() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Audit Log</h1>
-        <p className="text-sm text-muted-foreground mt-1">API & tool call history across all integrations</p>
-      </div>
+      {showHeader && (
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Audit Log</h1>
+          <p className="text-sm text-muted-foreground mt-1">API & tool call history across all integrations</p>
+        </div>
+      )}
 
       {/* Filter chips + date range */}
       <div className="flex items-center gap-2 flex-wrap">

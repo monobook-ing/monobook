@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, ScrollText, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -25,7 +25,6 @@ const navItems = [
   { id: "/rooms", label: "Rooms", icon: BedDouble },
   { id: "/guests", label: "Guests", icon: Users },
   { id: "/settings", label: "Settings", icon: Settings },
-  { id: "/audit", label: "Audit Log", icon: ScrollText },
 ];
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
 
@@ -257,7 +256,10 @@ function DashboardInner() {
   const navigate = useNavigate();
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
-  const activeTab = navItems.find((item) => item.id === location.pathname)?.id || "/dashboard";
+  const activeTab =
+    navItems.find(
+      (item) => location.pathname === item.id || location.pathname.startsWith(`${item.id}/`)
+    )?.id || "/dashboard";
   const me = readUserMe();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readStoredSidebarCollapsed);
 

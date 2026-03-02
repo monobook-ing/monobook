@@ -661,13 +661,36 @@ function HostDetailsSection() {
   );
 }
 
-export function MCPIntegrationSettings() {
+export type SettingsSection =
+  | "all"
+  | "host-details"
+  | "pms-sync"
+  | "payment-providers"
+  | "ai-providers"
+  | "knowledge-base"
+  | "query-log";
+
+interface MCPIntegrationSettingsProps {
+  section?: SettingsSection;
+  showHeader?: boolean;
+}
+
+export function MCPIntegrationSettings({
+  section = "all",
+  showHeader = true,
+}: MCPIntegrationSettingsProps = {}) {
   const truncateFileName = (name: string, maxChars = 36) =>
     name.length > maxChars ? `${name.slice(0, maxChars)}..` : name;
 
   const { selectedPropertyId } = useProperty();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const showHostSection = section === "all" || section === "host-details";
+  const showPmsSection = section === "all" || section === "pms-sync";
+  const showPaymentSection = section === "all" || section === "payment-providers";
+  const showAiProvidersSection = section === "all" || section === "ai-providers";
+  const showKnowledgeSection = section === "all" || section === "knowledge-base";
+  const showQueryLogsSection = section === "all" || section === "query-log";
   const [pmsConnections, setPmsConnections] = useState<PmsConnection[]>([]);
   const [isPmsLoading, setIsPmsLoading] = useState(false);
   const [pmsError, setPmsError] = useState<string | null>(null);
@@ -710,6 +733,14 @@ export function MCPIntegrationSettings() {
   }, []);
 
   useEffect(() => {
+    if (!showPmsSection) {
+      setPmsConnections([]);
+      setPmsError(null);
+      setIsPmsLoading(false);
+      setUpdatingProviders(new Set());
+      return;
+    }
+
     const requestId = pmsRequestIdRef.current + 1;
     pmsRequestIdRef.current = requestId;
     setUpdatingProviders(new Set());
@@ -750,9 +781,19 @@ export function MCPIntegrationSettings() {
           setIsPmsLoading(false);
         }
       });
-  }, [selectedPropertyId]);
+  }, [selectedPropertyId, showPmsSection]);
 
   useEffect(() => {
+    if (!showPaymentSection) {
+      setPaymentConnections([]);
+      setPaymentError(null);
+      setIsPaymentLoading(false);
+      setUpdatingPaymentProviders(new Set());
+      setPendingDisablePaymentProvider(null);
+      setShowDisablePaymentDialog(false);
+      return;
+    }
+
     const requestId = paymentRequestIdRef.current + 1;
     paymentRequestIdRef.current = requestId;
     setUpdatingPaymentProviders(new Set());
@@ -795,21 +836,10 @@ export function MCPIntegrationSettings() {
           setIsPaymentLoading(false);
         }
       });
-  }, [selectedPropertyId]);
+  }, [selectedPropertyId, showPaymentSection]);
 
   useEffect(() => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setShowDeleteDialog(false);
-    setPendingDeleteFile(null);
-    setDeletingFileId(null);
-    setPendingUploadFiles([]);
-    setShowUploadDialog(false);
-    setUploadLanguage("en");
-    setUploadDocType("general");
-    setUploadEffectiveDate("");
-
-    if (selectedPropertyId === "all") {
+    if (!showKnowledgeSection && !showQueryLogsSection) {
       setKnowledgeFiles([]);
       setKnowledgeError(null);
       setIsKnowledgeLoading(false);
@@ -819,74 +849,131 @@ export function MCPIntegrationSettings() {
       setQueryLogsCursor(null);
       setQueryLogsError(null);
       setIsQueryLogsLoading(false);
+      setShowDeleteDialog(false);
+      setPendingDeleteFile(null);
+      setDeletingFileId(null);
+      setPendingUploadFiles([]);
+      setShowUploadDialog(false);
+      setUploadLanguage("en");
+      setUploadDocType("general");
+      setUploadEffectiveDate("");
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    if (showKnowledgeSection) {
+      setShowDeleteDialog(false);
+      setPendingDeleteFile(null);
+      setDeletingFileId(null);
+      setPendingUploadFiles([]);
+      setShowUploadDialog(false);
+      setUploadLanguage("en");
+      setUploadDocType("general");
+      setUploadEffectiveDate("");
+    }
+
+    if (selectedPropertyId === "all") {
+      if (showKnowledgeSection) {
+        setKnowledgeFiles([]);
+        setKnowledgeError(null);
+        setIsKnowledgeLoading(false);
+        setUploadingFiles([]);
+        setPreviewFile(null);
+      }
+      if (showQueryLogsSection) {
+        setQueryLogs([]);
+        setQueryLogsCursor(null);
+        setQueryLogsError(null);
+        setIsQueryLogsLoading(false);
+      }
       return;
     }
 
     const accessToken = readAccessToken();
     if (!accessToken) {
-      setKnowledgeFiles([]);
-      setKnowledgeError("missing_token");
-      setIsKnowledgeLoading(false);
-      setUploadingFiles([]);
-      setPreviewFile(null);
-      setQueryLogs([]);
-      setQueryLogsCursor(null);
-      setQueryLogsError("missing_token");
-      setIsQueryLogsLoading(false);
+      if (showKnowledgeSection) {
+        setKnowledgeFiles([]);
+        setKnowledgeError("missing_token");
+        setIsKnowledgeLoading(false);
+        setUploadingFiles([]);
+        setPreviewFile(null);
+      }
+      if (showQueryLogsSection) {
+        setQueryLogs([]);
+        setQueryLogsCursor(null);
+        setQueryLogsError("missing_token");
+        setIsQueryLogsLoading(false);
+      }
       return;
     }
 
-    setIsKnowledgeLoading(true);
-    setKnowledgeError(null);
-    setKnowledgeFiles([]);
-    setUploadingFiles([]);
+    if (showKnowledgeSection) {
+      setIsKnowledgeLoading(true);
+      setKnowledgeError(null);
+      setKnowledgeFiles([]);
+      setUploadingFiles([]);
 
-    fetchKnowledgeFiles(accessToken, selectedPropertyId)
-      .then((items) => {
-        if (requestIdRef.current !== requestId) return;
-        setKnowledgeFiles(items);
-        syncPreviewFile(items);
-      })
-      .catch((fetchError) => {
-        if (requestIdRef.current !== requestId) return;
-        const message =
-          fetchError instanceof Error ? fetchError.message : "Failed to fetch knowledge files";
-        setKnowledgeFiles([]);
-        setPreviewFile(null);
-        setKnowledgeError(message);
-      })
-      .finally(() => {
-        if (requestIdRef.current === requestId) {
-          setIsKnowledgeLoading(false);
-        }
-      });
+      fetchKnowledgeFiles(accessToken, selectedPropertyId)
+        .then((items) => {
+          if (requestIdRef.current !== requestId) return;
+          setKnowledgeFiles(items);
+          syncPreviewFile(items);
+        })
+        .catch((fetchError) => {
+          if (requestIdRef.current !== requestId) return;
+          const message =
+            fetchError instanceof Error ? fetchError.message : "Failed to fetch knowledge files";
+          setKnowledgeFiles([]);
+          setPreviewFile(null);
+          setKnowledgeError(message);
+        })
+        .finally(() => {
+          if (requestIdRef.current === requestId) {
+            setIsKnowledgeLoading(false);
+          }
+        });
+    } else {
+      setKnowledgeFiles([]);
+      setKnowledgeError(null);
+      setIsKnowledgeLoading(false);
+      setUploadingFiles([]);
+      setPreviewFile(null);
+    }
 
-    setIsQueryLogsLoading(true);
-    setQueryLogsError(null);
-    setQueryLogs([]);
-    setQueryLogsCursor(null);
+    if (showQueryLogsSection) {
+      setIsQueryLogsLoading(true);
+      setQueryLogsError(null);
+      setQueryLogs([]);
+      setQueryLogsCursor(null);
 
-    fetchAuditEntries(accessToken, selectedPropertyId, { source: "chatgpt", limit: 20 })
-      .then(({ items, nextCursor }) => {
-        if (requestIdRef.current !== requestId) return;
-        const filtered = items.filter((entry) => entry.toolName === "search_knowledge");
-        setQueryLogs(filtered);
-        setQueryLogsCursor(nextCursor);
-      })
-      .catch((fetchError) => {
-        if (requestIdRef.current !== requestId) return;
-        const message =
-          fetchError instanceof Error ? fetchError.message : "Failed to fetch query logs";
-        setQueryLogs([]);
-        setQueryLogsCursor(null);
-        setQueryLogsError(message);
-      })
-      .finally(() => {
-        if (requestIdRef.current === requestId) {
-          setIsQueryLogsLoading(false);
-        }
-      });
-  }, [selectedPropertyId, syncPreviewFile]);
+      fetchAuditEntries(accessToken, selectedPropertyId, { source: "chatgpt", limit: 20 })
+        .then(({ items, nextCursor }) => {
+          if (requestIdRef.current !== requestId) return;
+          const filtered = items.filter((entry) => entry.toolName === "search_knowledge");
+          setQueryLogs(filtered);
+          setQueryLogsCursor(nextCursor);
+        })
+        .catch((fetchError) => {
+          if (requestIdRef.current !== requestId) return;
+          const message =
+            fetchError instanceof Error ? fetchError.message : "Failed to fetch query logs";
+          setQueryLogs([]);
+          setQueryLogsCursor(null);
+          setQueryLogsError(message);
+        })
+        .finally(() => {
+          if (requestIdRef.current === requestId) {
+            setIsQueryLogsLoading(false);
+          }
+        });
+    } else {
+      setQueryLogs([]);
+      setQueryLogsCursor(null);
+      setQueryLogsError(null);
+      setIsQueryLogsLoading(false);
+    }
+  }, [selectedPropertyId, showKnowledgeSection, showQueryLogsSection, syncPreviewFile]);
 
   const refreshKnowledgeFiles = useCallback(
     async (accessToken: string, propertyId: string, deletedId?: string) => {
@@ -1260,12 +1347,17 @@ export function MCPIntegrationSettings() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">Settings</h1>
-      <p className="text-sm text-muted-foreground mb-6">AI agent integrations & configuration</p>
+      {showHeader && (
+        <>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">Settings</h1>
+          <p className="text-sm text-muted-foreground mb-6">AI agent integrations & configuration</p>
+        </>
+      )}
 
       {/* Host Details */}
-      <HostDetailsSection />
-      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-x-hidden">
+      {showHostSection && <HostDetailsSection />}
+      {showPmsSection && (
+        <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-x-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <Link2 className="w-4 h-4 text-muted-foreground" />
@@ -1343,9 +1435,11 @@ export function MCPIntegrationSettings() {
           </>
         )}
       </div>
+      )}
 
       {/* Payment Providers */}
-      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-x-hidden">
+      {showPaymentSection && (
+        <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-x-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-muted-foreground" />
@@ -1414,12 +1508,14 @@ export function MCPIntegrationSettings() {
           </div>
         )}
       </div>
+      )}
 
       {/* AI Providers */}
-      <AIProviderSettings />
+      {showAiProvidersSection && <AIProviderSettings />}
 
       {/* Knowledge Base */}
-      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-hidden">
+      {showKnowledgeSection && (
+        <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-muted-foreground" />
@@ -1622,8 +1718,10 @@ export function MCPIntegrationSettings() {
           </>
         )}
       </div>
+      )}
 
-      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-hidden">
+      {showQueryLogsSection && (
+        <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-hidden">
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-muted-foreground" />
@@ -1702,6 +1800,7 @@ export function MCPIntegrationSettings() {
           </div>
         )}
       </div>
+      )}
 
       {isMobile && (
         <div className="">
@@ -1720,259 +1819,267 @@ export function MCPIntegrationSettings() {
         </div>
       )}
 
-      {/* File Preview Overlay */}
-      <AnimatePresence>
-        {previewFile && (
-          <motion.div
-            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground truncate">{previewFile.name}</h2>
-              <div className="flex items-center gap-1">
-                <Popover>
-                  <PopoverTrigger asChild>
+      {showKnowledgeSection && (
+        <>
+          {/* File Preview Overlay */}
+          <AnimatePresence>
+            {previewFile && (
+              <motion.div
+                className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground truncate">{previewFile.name}</h2>
+                  <div className="flex items-center gap-1">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <motion.button
+                          data-testid="knowledge-preview-menu-trigger"
+                          className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-secondary transition-colors"
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <MoreVertical className="w-5 h-5 text-muted-foreground" />
+                        </motion.button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-48 rounded-xl p-1.5">
+                        <button
+                          data-testid="knowledge-preview-delete-action"
+                          disabled={Boolean(deletingFileId)}
+                          className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors min-h-[44px]"
+                          onClick={() => {
+                            if (previewFile) {
+                              requestDeleteKnowledgeFile(previewFile);
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
+                      </PopoverContent>
+                    </Popover>
                     <motion.button
-                      data-testid="knowledge-preview-menu-trigger"
                       className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-secondary transition-colors"
                       whileTap={{ scale: 0.9 }}
+                      onClick={() => setPreviewFile(null)}
                     >
-                      <MoreVertical className="w-5 h-5 text-muted-foreground" />
+                      <X className="w-5 h-5 text-muted-foreground" />
                     </motion.button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-48 rounded-xl p-1.5">
-                    <button
-                      data-testid="knowledge-preview-delete-action"
-                      disabled={Boolean(deletingFileId)}
-                      className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors min-h-[44px]"
-                      onClick={() => {
-                        if (previewFile) {
-                          requestDeleteKnowledgeFile(previewFile);
-                        }
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </PopoverContent>
-                </Popover>
-                <motion.button
-                  className="w-9 h-9 rounded-full flex items-center justify-center min-w-[44px] min-h-[44px] hover:bg-secondary transition-colors"
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setPreviewFile(null)}
-                >
-                  <X className="w-5 h-5 text-muted-foreground" />
-                </motion.button>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="flex flex-col items-center gap-3 text-center max-w-full">
-                <div
-                  className="flex items-center justify-center gap-3 min-w-0 max-w-full"
-                  data-testid="knowledge-preview-title-row"
-                >
-                  <div
-                    className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center shrink-0"
-                    data-testid="knowledge-preview-title-icon"
-                  >
-                    <FileText className="w-10 h-10 text-muted-foreground" />
                   </div>
-                  <p className="text-base font-semibold text-foreground break-words">
-                    {previewFile.name}
-                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground" data-testid="knowledge-preview-metadata">
-                  {previewFile.size} · Uploaded {formatCreatedAt(previewFile.createdAt)}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      <Dialog
-        open={showUploadDialog}
-        onOpenChange={(nextOpen) => {
-          setShowUploadDialog(nextOpen);
-          if (!nextOpen && uploadingFiles.length === 0) {
-            setPendingUploadFiles([]);
-          }
-        }}
-      >
-        <DialogContent className="rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Upload Knowledge Files</DialogTitle>
-            <DialogDescription>
-              Set metadata before indexing. {pendingUploadFiles.length} file(s) selected.
-            </DialogDescription>
-          </DialogHeader>
+                {/* Body */}
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="flex flex-col items-center gap-3 text-center max-w-full">
+                    <div
+                      className="flex items-center justify-center gap-3 min-w-0 max-w-full"
+                      data-testid="knowledge-preview-title-row"
+                    >
+                      <div
+                        className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center shrink-0"
+                        data-testid="knowledge-preview-title-icon"
+                      >
+                        <FileText className="w-10 h-10 text-muted-foreground" />
+                      </div>
+                      <p className="text-base font-semibold text-foreground break-words">
+                        {previewFile.name}
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted-foreground" data-testid="knowledge-preview-metadata">
+                      {previewFile.size} · Uploaded {formatCreatedAt(previewFile.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="space-y-3">
-            <div className="max-h-28 overflow-auto rounded-xl border border-border p-2">
-              {pendingUploadFiles.map((file) => (
-                <p key={`${file.name}-${file.size}`} className="text-xs text-muted-foreground truncate">
-                  {file.name}
-                </p>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Language</Label>
-                <Select value={uploadLanguage} onValueChange={setUploadLanguage}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languageOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Document Type</Label>
-                <Select value={uploadDocType} onValueChange={setUploadDocType}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {docTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="knowledge-effective-date" className="text-xs">Effective Date</Label>
-              <Input
-                id="knowledge-effective-date"
-                type="date"
-                value={uploadEffectiveDate}
-                onChange={(e) => setUploadEffectiveDate(e.target.value)}
-                className="rounded-xl"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setShowUploadDialog(false);
+          <Dialog
+            open={showUploadDialog}
+            onOpenChange={(nextOpen) => {
+              setShowUploadDialog(nextOpen);
+              if (!nextOpen && uploadingFiles.length === 0) {
                 setPendingUploadFiles([]);
-              }}
-              disabled={uploadingFiles.length > 0}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                void confirmUploadKnowledgeFiles();
-              }}
-              disabled={pendingUploadFiles.length === 0 || uploadingFiles.length > 0}
-            >
-              {uploadingFiles.length > 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              Upload & Index
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              }
+            }}
+          >
+            <DialogContent className="rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Upload Knowledge Files</DialogTitle>
+                <DialogDescription>
+                  Set metadata before indexing. {pendingUploadFiles.length} file(s) selected.
+                </DialogDescription>
+              </DialogHeader>
 
-      {/* Delete Confirmation */}
-      {isMobile ? (
-        <MobileDestructiveConfirmSheet
-          open={showDeleteDialog}
-          onOpenChange={onDeleteDialogOpenChange}
-          title="Delete file?"
-          description={
-            <>
-              Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
-            </>
-          }
-          confirmLabel="Delete"
-          onConfirm={confirmDeleteKnowledgeFile}
-          onCancel={cancelDeleteKnowledgeFile}
-          confirmDisabled={Boolean(deletingFileId)}
-          testId="delete-knowledge-drawer"
-        />
-      ) : (
-        <AlertDialog open={showDeleteDialog} onOpenChange={onDeleteDialogOpenChange}>
-          <AlertDialogContent className="rounded-2xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete file?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={Boolean(deletingFileId)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  void confirmDeleteKnowledgeFile();
-                }}
-                disabled={Boolean(deletingFileId)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              <div className="space-y-3">
+                <div className="max-h-28 overflow-auto rounded-xl border border-border p-2">
+                  {pendingUploadFiles.map((file) => (
+                    <p key={`${file.name}-${file.size}`} className="text-xs text-muted-foreground truncate">
+                      {file.name}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Language</Label>
+                    <Select value={uploadLanguage} onValueChange={setUploadLanguage}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Select language" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languageOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Document Type</Label>
+                    <Select value={uploadDocType} onValueChange={setUploadDocType}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {docTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="knowledge-effective-date" className="text-xs">Effective Date</Label>
+                  <Input
+                    id="knowledge-effective-date"
+                    type="date"
+                    value={uploadEffectiveDate}
+                    onChange={(e) => setUploadEffectiveDate(e.target.value)}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowUploadDialog(false);
+                    setPendingUploadFiles([]);
+                  }}
+                  disabled={uploadingFiles.length > 0}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    void confirmUploadKnowledgeFiles();
+                  }}
+                  disabled={pendingUploadFiles.length === 0 || uploadingFiles.length > 0}
+                >
+                  {uploadingFiles.length > 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Upload & Index
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Delete Confirmation */}
+          {isMobile ? (
+            <MobileDestructiveConfirmSheet
+              open={showDeleteDialog}
+              onOpenChange={onDeleteDialogOpenChange}
+              title="Delete file?"
+              description={
+                <>
+                  Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
+                </>
+              }
+              confirmLabel="Delete"
+              onConfirm={confirmDeleteKnowledgeFile}
+              onCancel={cancelDeleteKnowledgeFile}
+              confirmDisabled={Boolean(deletingFileId)}
+              testId="delete-knowledge-drawer"
+            />
+          ) : (
+            <AlertDialog open={showDeleteDialog} onOpenChange={onDeleteDialogOpenChange}>
+              <AlertDialogContent className="rounded-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete file?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete {pendingDeleteFile?.name}? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={Boolean(deletingFileId)}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      void confirmDeleteKnowledgeFile();
+                    }}
+                    disabled={Boolean(deletingFileId)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </>
       )}
 
-      {isMobile ? (
-        <MobileDestructiveConfirmSheet
-          open={showDisablePaymentDialog}
-          onOpenChange={onDisablePaymentDialogOpenChange}
-          title={`Disable ${pendingDisableProviderLabel}?`}
-          description={
-            <>
-              Are you sure you want to disconnect {pendingDisableProviderLabel}? This will stop
-              processing payments through this provider.
-            </>
-          }
-          confirmLabel="Disable"
-          onConfirm={confirmDisablePaymentConnection}
-          onCancel={cancelDisablePaymentConnection}
-          confirmDisabled={isDisablePaymentPending}
-          testId="disable-payment-drawer"
-        />
-      ) : (
-        <AlertDialog open={showDisablePaymentDialog} onOpenChange={onDisablePaymentDialogOpenChange}>
-          <AlertDialogContent className="rounded-2xl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Disable {pendingDisableProviderLabel}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to disconnect {pendingDisableProviderLabel}? This will stop
-                processing payments through this provider.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={cancelDisablePaymentConnection}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDisablePaymentConnection}
-                disabled={isDisablePaymentPending}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Disable
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      {showPaymentSection && (
+        <>
+          {isMobile ? (
+            <MobileDestructiveConfirmSheet
+              open={showDisablePaymentDialog}
+              onOpenChange={onDisablePaymentDialogOpenChange}
+              title={`Disable ${pendingDisableProviderLabel}?`}
+              description={
+                <>
+                  Are you sure you want to disconnect {pendingDisableProviderLabel}? This will stop
+                  processing payments through this provider.
+                </>
+              }
+              confirmLabel="Disable"
+              onConfirm={confirmDisablePaymentConnection}
+              onCancel={cancelDisablePaymentConnection}
+              confirmDisabled={isDisablePaymentPending}
+              testId="disable-payment-drawer"
+            />
+          ) : (
+            <AlertDialog open={showDisablePaymentDialog} onOpenChange={onDisablePaymentDialogOpenChange}>
+              <AlertDialogContent className="rounded-2xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Disable {pendingDisableProviderLabel}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to disconnect {pendingDisableProviderLabel}? This will stop
+                    processing payments through this provider.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={cancelDisablePaymentConnection}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={confirmDisablePaymentConnection}
+                    disabled={isDisablePaymentPending}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Disable
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </>
       )}
     </motion.div>
   );
