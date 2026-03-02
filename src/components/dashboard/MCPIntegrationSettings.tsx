@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil, LogOut } from "lucide-react";
+import { Upload, Trash2, FileText, CreditCard, Link2, Loader2, MoreVertical, X, User, Star, MapPin, Award, RefreshCw, Pencil, LogOut, AlertCircle, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AIProviderSettings } from "./AIProviderSettings";
 import { toast } from "sonner";
@@ -14,12 +14,14 @@ import { Label } from "@/components/ui/label";
 import { useProperty } from "@/contexts/PropertyContext";
 import { triggerSelectionHaptic } from "@/lib/haptics";
 import {
-  createKnowledgeFile,
   deleteKnowledgeFile,
+  fetchAuditEntries,
   fetchPaymentConnections,
   fetchKnowledgeFiles,
   fetchHostProfile,
   fetchPmsConnections,
+  uploadKnowledgeFile,
+  type AuditEntry,
   type KnowledgeFile,
   type PaymentConnection,
   type PmsConnection,
@@ -45,6 +47,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileDestructiveConfirmSheet } from "@/components/dashboard/MobileDestructiveConfirmSheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const pmsProviderDescriptions: Record<string, string> = {
   mews: "Sync rooms & rates automatically",
@@ -240,38 +245,22 @@ const formatKnowledgeFilesError = (error: string) => {
   return error;
 };
 
-const mimeTypeByExtension: Record<string, string> = {
-  pdf: "application/pdf",
-  doc: "application/msword",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  txt: "text/plain",
-};
+const languageOptions = [
+  { value: "en", label: "English" },
+  { value: "uk", label: "Ukrainian" },
+  { value: "es", label: "Spanish" },
+  { value: "de", label: "German" },
+];
 
-const getMimeType = (file: File) => {
-  if (file.type && file.type.trim().length > 0) return file.type;
-  const parts = file.name.toLowerCase().split(".");
-  const extension = parts.length > 1 ? parts[parts.length - 1] : "";
-  return mimeTypeByExtension[extension] || "application/octet-stream";
-};
-
-const formatFileSize = (bytes: number) => {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
-  const units = ["B", "KB", "MB", "GB"];
-  let value = bytes;
-  let idx = 0;
-
-  while (value >= 1024 && idx < units.length - 1) {
-    value /= 1024;
-    idx += 1;
-  }
-
-  if (idx === 0) {
-    return `${Math.round(value)} ${units[idx]}`;
-  }
-
-  const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
-  return `${rounded} ${units[idx]}`;
-};
+const docTypeOptions = [
+  { value: "general", label: "General" },
+  { value: "house_rules", label: "House rules" },
+  { value: "cancellation", label: "Cancellation" },
+  { value: "wifi", label: "WiFi" },
+  { value: "faq", label: "FAQ" },
+  { value: "amenities", label: "Amenities" },
+  { value: "pricing", label: "Pricing" },
+];
 
 const formatCreatedAt = (value: string) => {
   const date = new Date(value);
@@ -281,6 +270,81 @@ const formatCreatedAt = (value: string) => {
     month: "short",
     day: "numeric",
   });
+};
+
+const formatTimestamp = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatDocType = (value: string) => {
+  const option = docTypeOptions.find((item) => item.value === value);
+  return option?.label ?? value;
+};
+
+const getIndexingBadgeClasses = (status: string) => {
+  if (status === "indexed") {
+    return "bg-emerald-500/10 text-emerald-700 border-emerald-500/30";
+  }
+  if (status === "in_progress") {
+    return "bg-blue-500/10 text-blue-700 border-blue-500/30";
+  }
+  if (status === "error") {
+    return "bg-destructive/10 text-destructive border-destructive/30";
+  }
+  return "bg-amber-500/10 text-amber-700 border-amber-500/30";
+};
+
+const formatIndexingStatus = (status: string) => {
+  if (status === "in_progress") return "In progress";
+  if (status === "indexed") return "Indexed";
+  if (status === "error") return "Error";
+  return "Pending";
+};
+
+const asRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== "object") return null;
+  return value as Record<string, unknown>;
+};
+
+const extractQueryLogQuestion = (entry: AuditEntry) => {
+  const payload = asRecord(entry.requestPayload);
+  const value = payload?.question;
+  return typeof value === "string" ? value : entry.description;
+};
+
+const extractQueryLogChunksCount = (entry: AuditEntry) => {
+  const requestPayload = asRecord(entry.requestPayload);
+  const requestChunks = requestPayload?.chunks_used;
+  if (Array.isArray(requestChunks)) return requestChunks.length;
+  if (typeof requestPayload?.chunks_used_count === "number") {
+    return requestPayload.chunks_used_count;
+  }
+
+  const responsePayload = asRecord(entry.responsePayload);
+  const responseChunks = responsePayload?.chunks_used;
+  if (Array.isArray(responseChunks)) return responseChunks.length;
+  if (typeof responsePayload?.chunk_count === "number") {
+    return responsePayload.chunk_count;
+  }
+
+  return 0;
+};
+
+const extractQueryLogAnswerPreview = (entry: AuditEntry) => {
+  const responsePayload = asRecord(entry.responsePayload);
+  const answer = responsePayload?.answer;
+  if (typeof answer === "string" && answer.trim().length > 0) {
+    return answer.trim().slice(0, 180);
+  }
+  return entry.description;
 };
 
 function HostDetailsSection() {
@@ -618,10 +682,19 @@ export function MCPIntegrationSettings() {
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Array<{ id: string; name: string }>>([]);
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploadLanguage, setUploadLanguage] = useState("en");
+  const [uploadDocType, setUploadDocType] = useState("general");
+  const [uploadEffectiveDate, setUploadEffectiveDate] = useState("");
   const [previewFile, setPreviewFile] = useState<KnowledgeFile | null>(null);
   const [pendingDeleteFile, setPendingDeleteFile] = useState<KnowledgeFile | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [queryLogs, setQueryLogs] = useState<AuditEntry[]>([]);
+  const [queryLogsCursor, setQueryLogsCursor] = useState<string | null>(null);
+  const [isQueryLogsLoading, setIsQueryLogsLoading] = useState(false);
+  const [queryLogsError, setQueryLogsError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pmsRequestIdRef = useRef(0);
   const paymentRequestIdRef = useRef(0);
@@ -729,6 +802,11 @@ export function MCPIntegrationSettings() {
     setShowDeleteDialog(false);
     setPendingDeleteFile(null);
     setDeletingFileId(null);
+    setPendingUploadFiles([]);
+    setShowUploadDialog(false);
+    setUploadLanguage("en");
+    setUploadDocType("general");
+    setUploadEffectiveDate("");
 
     if (selectedPropertyId === "all") {
       setKnowledgeFiles([]);
@@ -736,6 +814,10 @@ export function MCPIntegrationSettings() {
       setIsKnowledgeLoading(false);
       setUploadingFiles([]);
       setPreviewFile(null);
+      setQueryLogs([]);
+      setQueryLogsCursor(null);
+      setQueryLogsError(null);
+      setIsQueryLogsLoading(false);
       return;
     }
 
@@ -746,6 +828,10 @@ export function MCPIntegrationSettings() {
       setIsKnowledgeLoading(false);
       setUploadingFiles([]);
       setPreviewFile(null);
+      setQueryLogs([]);
+      setQueryLogsCursor(null);
+      setQueryLogsError("missing_token");
+      setIsQueryLogsLoading(false);
       return;
     }
 
@@ -771,6 +857,32 @@ export function MCPIntegrationSettings() {
       .finally(() => {
         if (requestIdRef.current === requestId) {
           setIsKnowledgeLoading(false);
+        }
+      });
+
+    setIsQueryLogsLoading(true);
+    setQueryLogsError(null);
+    setQueryLogs([]);
+    setQueryLogsCursor(null);
+
+    fetchAuditEntries(accessToken, selectedPropertyId, { source: "chatgpt", limit: 20 })
+      .then(({ items, nextCursor }) => {
+        if (requestIdRef.current !== requestId) return;
+        const filtered = items.filter((entry) => entry.toolName === "search_knowledge");
+        setQueryLogs(filtered);
+        setQueryLogsCursor(nextCursor);
+      })
+      .catch((fetchError) => {
+        if (requestIdRef.current !== requestId) return;
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Failed to fetch query logs";
+        setQueryLogs([]);
+        setQueryLogsCursor(null);
+        setQueryLogsError(message);
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId) {
+          setIsQueryLogsLoading(false);
         }
       });
   }, [selectedPropertyId, syncPreviewFile]);
@@ -830,7 +942,10 @@ export function MCPIntegrationSettings() {
   }, [deletingFileId, pendingDeleteFile, refreshKnowledgeFiles, selectedPropertyId]);
 
   const uploadKnowledgeFiles = useCallback(
-    async (fileList: FileList) => {
+    async (
+      files: File[],
+      metadata: { language: string; docType: string; effectiveDate: string | null }
+    ) => {
       if (selectedPropertyId === "all") return;
 
       const accessToken = readAccessToken();
@@ -839,7 +954,6 @@ export function MCPIntegrationSettings() {
         return;
       }
 
-      const files = Array.from(fileList);
       if (files.length === 0) return;
 
       const tempFiles = files.map((file) => ({
@@ -853,10 +967,11 @@ export function MCPIntegrationSettings() {
       try {
         await Promise.all(
           files.map((file) =>
-            createKnowledgeFile(accessToken, selectedPropertyId, {
-              name: file.name,
-              size: formatFileSize(file.size),
-              mimeType: getMimeType(file),
+            uploadKnowledgeFile(accessToken, selectedPropertyId, {
+              file,
+              language: metadata.language,
+              docType: metadata.docType,
+              effectiveDate: metadata.effectiveDate,
             })
           )
         );
@@ -874,6 +989,53 @@ export function MCPIntegrationSettings() {
     [refreshKnowledgeFiles, selectedPropertyId]
   );
 
+  const queueKnowledgeFiles = useCallback((fileList: FileList) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+    setPendingUploadFiles(files);
+    setShowUploadDialog(true);
+  }, []);
+
+  const confirmUploadKnowledgeFiles = useCallback(async () => {
+    if (pendingUploadFiles.length === 0) return;
+    const metadata = {
+      language: uploadLanguage,
+      docType: uploadDocType,
+      effectiveDate: uploadEffectiveDate.trim().length > 0 ? uploadEffectiveDate : null,
+    };
+    await uploadKnowledgeFiles(pendingUploadFiles, metadata);
+    setShowUploadDialog(false);
+    setPendingUploadFiles([]);
+    setUploadEffectiveDate("");
+  }, [pendingUploadFiles, uploadDocType, uploadEffectiveDate, uploadKnowledgeFiles, uploadLanguage]);
+
+  const loadMoreQueryLogs = useCallback(async () => {
+    if (!queryLogsCursor || selectedPropertyId === "all" || isQueryLogsLoading) return;
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setQueryLogsError("missing_token");
+      return;
+    }
+
+    setIsQueryLogsLoading(true);
+    setQueryLogsError(null);
+    try {
+      const { items, nextCursor } = await fetchAuditEntries(accessToken, selectedPropertyId, {
+        source: "chatgpt",
+        limit: 20,
+        cursor: queryLogsCursor,
+      });
+      const filtered = items.filter((entry) => entry.toolName === "search_knowledge");
+      setQueryLogs((prev) => [...prev, ...filtered]);
+      setQueryLogsCursor(nextCursor);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : "Failed to load more logs";
+      setQueryLogsError(message);
+    } finally {
+      setIsQueryLogsLoading(false);
+    }
+  }, [isQueryLogsLoading, queryLogsCursor, selectedPropertyId]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -888,16 +1050,16 @@ export function MCPIntegrationSettings() {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files.length > 0) {
-      void uploadKnowledgeFiles(e.dataTransfer.files);
+      queueKnowledgeFiles(e.dataTransfer.files);
     }
-  }, [uploadKnowledgeFiles]);
+  }, [queueKnowledgeFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      void uploadKnowledgeFiles(e.target.files);
+      queueKnowledgeFiles(e.target.files);
       e.target.value = "";
     }
-  }, [uploadKnowledgeFiles]);
+  }, [queueKnowledgeFiles]);
 
   const togglePmsConnection = useCallback(
     async (connection: PmsConnection) => {
@@ -1287,7 +1449,7 @@ export function MCPIntegrationSettings() {
                 ref={fileInputRef}
                 data-testid="knowledge-file-input"
                 type="file"
-                accept=".pdf,.docx,.doc,.txt"
+                accept=".pdf,.docx,.doc,.txt,.md,.csv,.html,.htm"
                 multiple
                 className="hidden"
                 onChange={handleFileSelect}
@@ -1310,7 +1472,7 @@ export function MCPIntegrationSettings() {
                 <p className="text-sm font-medium text-card-foreground">
                   {isDragging ? "Drop to upload" : "Drop files here or click to browse"}
                 </p>
-                <p className="text-xs text-muted-foreground">PDF, DOCX up to 10MB</p>
+                <p className="text-xs text-muted-foreground">PDF, DOCX, DOC, TXT, MD, CSV, HTML up to 10MB</p>
               </motion.div>
             </div>
 
@@ -1386,7 +1548,39 @@ export function MCPIntegrationSettings() {
                           >
                             {truncateFileName(file.name)}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <Badge variant="outline" className={getIndexingBadgeClasses(file.indexingStatus)}>
+                              {formatIndexingStatus(file.indexingStatus)}
+                            </Badge>
+                            {file.indexingStatus === "indexed" && (
+                              <Badge variant="outline" className="text-xs">
+                                {file.chunkCount} chunks
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {formatDocType(file.docType)}
+                            </Badge>
+                            {file.indexingStatus === "error" && file.extractionError && (
+                              <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center text-destructive"
+                                      onClick={(e) => e.stopPropagation()}
+                                      aria-label="Show extraction error"
+                                    >
+                                      <AlertCircle className="w-4 h-4" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-xs">
+                                    {file.extractionError}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
                             {file.size} · {formatCreatedAt(file.createdAt)}
                           </p>
                         </div>
@@ -1425,6 +1619,86 @@ export function MCPIntegrationSettings() {
               </>
             )}
           </>
+        )}
+      </div>
+
+      <div className="rounded-2xl bg-card apple-shadow mb-6 overflow-hidden">
+        <div className="p-5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold text-card-foreground">Query Log</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Last ChatGPT `search_knowledge` calls
+          </p>
+        </div>
+
+        {selectedPropertyId === "all" && (
+          <div className="p-5">
+            <Card className="rounded-xl border-dashed">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-base font-semibold text-foreground">Select a property to view query logs</h3>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && isQueryLogsLoading && queryLogs.length === 0 && (
+          <div className="px-5 py-4 space-y-3">
+            <Skeleton className="h-14 rounded-xl" />
+            <Skeleton className="h-14 rounded-xl" />
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && queryLogsError && (
+          <div className="p-5">
+            <Card className="rounded-xl border-destructive/30">
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">{queryLogsError}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {selectedPropertyId !== "all" && !queryLogsError && (
+          <div className="p-5 space-y-3">
+            {queryLogs.length === 0 && !isQueryLogsLoading && (
+              <Card className="rounded-xl border-dashed">
+                <CardContent className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">No `search_knowledge` queries yet.</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {queryLogs.map((entry) => (
+              <Card key={entry.id} className="rounded-xl">
+                <CardContent className="p-3.5">
+                  <p className="text-xs text-muted-foreground">{formatTimestamp(entry.createdAt)}</p>
+                  <p className="text-sm font-medium text-foreground mt-1">{extractQueryLogQuestion(entry)}</p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {extractQueryLogAnswerPreview(entry)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Chunks used: {extractQueryLogChunksCount(entry)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+
+            {queryLogsCursor && (
+              <Button
+                variant="outline"
+                className="w-full rounded-xl"
+                onClick={() => {
+                  void loadMoreQueryLogs();
+                }}
+                disabled={isQueryLogsLoading}
+              >
+                {isQueryLogsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Load more
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -1510,6 +1784,102 @@ export function MCPIntegrationSettings() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog
+        open={showUploadDialog}
+        onOpenChange={(nextOpen) => {
+          setShowUploadDialog(nextOpen);
+          if (!nextOpen && uploadingFiles.length === 0) {
+            setPendingUploadFiles([]);
+          }
+        }}
+      >
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Upload Knowledge Files</DialogTitle>
+            <DialogDescription>
+              Set metadata before indexing. {pendingUploadFiles.length} file(s) selected.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="max-h-28 overflow-auto rounded-xl border border-border p-2">
+              {pendingUploadFiles.map((file) => (
+                <p key={`${file.name}-${file.size}`} className="text-xs text-muted-foreground truncate">
+                  {file.name}
+                </p>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Language</Label>
+                <Select value={uploadLanguage} onValueChange={setUploadLanguage}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {languageOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Document Type</Label>
+                <Select value={uploadDocType} onValueChange={setUploadDocType}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {docTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="knowledge-effective-date" className="text-xs">Effective Date</Label>
+              <Input
+                id="knowledge-effective-date"
+                type="date"
+                value={uploadEffectiveDate}
+                onChange={(e) => setUploadEffectiveDate(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowUploadDialog(false);
+                setPendingUploadFiles([]);
+              }}
+              disabled={uploadingFiles.length > 0}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                void confirmUploadKnowledgeFiles();
+              }}
+              disabled={pendingUploadFiles.length === 0 || uploadingFiles.length > 0}
+            >
+              {uploadingFiles.length > 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              Upload & Index
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       {isMobile ? (

@@ -108,7 +108,13 @@ export type ApiKnowledgeFile = {
   name: string;
   size: string;
   storage_path: string | null;
-  mime_type: string;
+  mime_type: string | null;
+  language: string;
+  doc_type: string;
+  effective_date: string | null;
+  indexing_status: string;
+  extraction_error: string | null;
+  chunk_count: number;
   created_at: string;
 };
 
@@ -249,7 +255,13 @@ export type KnowledgeFile = {
   name: string;
   size: string;
   storagePath: string | null;
-  mimeType: string;
+  mimeType: string | null;
+  language: string;
+  docType: string;
+  effectiveDate: string | null;
+  indexingStatus: string;
+  extractionError: string | null;
+  chunkCount: number;
   createdAt: string;
 };
 
@@ -373,6 +385,13 @@ export type CreateKnowledgeFileInput = {
   mimeType: string;
 };
 
+export type UploadKnowledgeFileInput = {
+  file: File;
+  language: string;
+  docType: string;
+  effectiveDate?: string | null;
+};
+
 export type UpdatePmsConnectionInput = {
   enabled: boolean;
 };
@@ -460,6 +479,8 @@ export type AuditEntry = {
   toolName: string;
   description: string;
   status: string;
+  requestPayload?: unknown;
+  responsePayload?: unknown;
   createdAt: string;
 };
 
@@ -721,7 +742,18 @@ const isApiKnowledgeFile = (value: unknown): value is ApiKnowledgeFile => {
     typeof candidate.name === "string" &&
     typeof candidate.size === "string" &&
     (candidate.storage_path === null || typeof candidate.storage_path === "string") &&
-    typeof candidate.mime_type === "string" &&
+    (candidate.mime_type === null || typeof candidate.mime_type === "string") &&
+    (candidate.language === undefined || typeof candidate.language === "string") &&
+    (candidate.doc_type === undefined || typeof candidate.doc_type === "string") &&
+    (candidate.effective_date === undefined ||
+      candidate.effective_date === null ||
+      typeof candidate.effective_date === "string") &&
+    (candidate.indexing_status === undefined || typeof candidate.indexing_status === "string") &&
+    (candidate.extraction_error === undefined ||
+      candidate.extraction_error === null ||
+      typeof candidate.extraction_error === "string") &&
+    (candidate.chunk_count === undefined ||
+      (typeof candidate.chunk_count === "number" && Number.isFinite(candidate.chunk_count))) &&
     typeof candidate.created_at === "string"
   );
 };
@@ -1063,6 +1095,12 @@ const mapApiKnowledgeFile = (item: ApiKnowledgeFile): KnowledgeFile => {
     size: item.size,
     storagePath: item.storage_path,
     mimeType: item.mime_type,
+    language: item.language ?? "en",
+    docType: item.doc_type ?? "general",
+    effectiveDate: item.effective_date ?? null,
+    indexingStatus: item.indexing_status ?? "pending",
+    extractionError: item.extraction_error ?? null,
+    chunkCount: item.chunk_count ?? 0,
     createdAt: item.created_at,
   };
 };
@@ -1220,6 +1258,8 @@ const mapApiAuditEntry = (item: ApiAuditEntry): AuditEntry => {
     toolName: item.tool_name,
     description: item.description,
     status: item.status,
+    requestPayload: item.request_payload,
+    responsePayload: item.response_payload,
     createdAt: item.created_at,
   };
 };
@@ -1907,6 +1947,42 @@ export const createKnowledgeFile = async (
   const data = await res.json().catch(() => null);
   if (!isApiKnowledgeFile(data)) {
     throw new AuthApiError("Invalid knowledge file response", res.status);
+  }
+
+  return mapApiKnowledgeFile(data);
+};
+
+export const uploadKnowledgeFile = async (
+  accessToken: string,
+  propertyId: string,
+  input: UploadKnowledgeFileInput
+): Promise<KnowledgeFile> => {
+  const formData = new FormData();
+  formData.append("file", input.file);
+  formData.append("language", input.language);
+  formData.append("doc_type", input.docType);
+  if (input.effectiveDate && input.effectiveDate.length > 0) {
+    formData.append("effective_date", input.effectiveDate);
+  }
+
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/knowledge-files/upload`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiKnowledgeFile(data)) {
+    throw new AuthApiError("Invalid knowledge file upload response", res.status);
   }
 
   return mapApiKnowledgeFile(data);
