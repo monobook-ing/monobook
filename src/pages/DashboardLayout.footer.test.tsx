@@ -59,8 +59,8 @@ const renderLayout = (entry = "/dashboard") =>
           <Route path="/settings" element={<DashboardLayout />}>
             <Route index element={<div>settings-page</div>} />
           </Route>
-          <Route path="/audit" element={<DashboardLayout />}>
-            <Route index element={<div>audit-page</div>} />
+          <Route path="/settings/*" element={<DashboardLayout />}>
+            <Route path=":sectionId" element={<div>settings-section-page</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -171,7 +171,7 @@ describe("DashboardLayout footer host card", () => {
 
     const sidebar = screen.getByTestId("desktop-sidebar");
     expect(sidebar).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getByText("monobook.ing")).toBeInTheDocument();
+    expect(within(sidebar).getByRole("img")).toHaveAttribute("src", "/logo.png");
 
     fireEvent.click(screen.getByTestId("sidebar-collapse-button"));
 
@@ -179,7 +179,7 @@ describe("DashboardLayout footer host card", () => {
       expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "true");
     });
     expect(localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)).toBe("true");
-    expect(screen.queryByText("monobook.ing")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("desktop-sidebar")).queryByRole("img")).not.toBeInTheDocument();
     expect(within(screen.getByTestId("desktop-sidebar")).queryByText("Dashboard")).not.toBeInTheDocument();
   });
 
@@ -199,7 +199,7 @@ describe("DashboardLayout footer host card", () => {
       expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute("data-collapsed", "false");
     });
     expect(localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)).toBe("false");
-    expect(screen.getByText("monobook.ing")).toBeInTheDocument();
+    expect(within(screen.getByTestId("desktop-sidebar")).getByRole("img")).toHaveAttribute("src", "/logo.png");
   });
 
   it("shows tooltip with page name when hovering icon in collapsed sidebar", async () => {
@@ -222,7 +222,7 @@ describe("DashboardLayout footer host card", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Inventory");
   });
 
-  it.each(["/dashboard", "/inventory", "/rooms", "/settings", "/audit"])(
+  it.each(["/dashboard", "/inventory", "/rooms", "/settings", "/settings/audit-log"])(
     "shows mobile top property switcher on %s when no property is selected",
     async (entry) => {
       setViewport(390);
