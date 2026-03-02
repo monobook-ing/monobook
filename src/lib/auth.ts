@@ -76,7 +76,7 @@ type RoomsResponse = {
 export type ApiAuditEntry = {
   id: string;
   property_id: string;
-  conversation_id: string;
+  conversation_id: string | null;
   source: string;
   tool_name: string;
   description: string;
@@ -419,7 +419,7 @@ export type UpdateGuestInput = {
 
 export type AuditEntriesResponse = {
   items: ApiAuditEntry[];
-  next_cursor: string | null;
+  next_cursor?: string | null;
 };
 
 export type KnowledgeFilesResponse = {
@@ -455,7 +455,7 @@ export type DeleteRoomResponse = {
 export type AuditEntry = {
   id: string;
   propertyId: string;
-  conversationId: string;
+  conversationId: string | null;
   source: string;
   toolName: string;
   description: string;
@@ -678,7 +678,7 @@ const isApiAuditEntry = (value: unknown): value is ApiAuditEntry => {
   return (
     typeof candidate.id === "string" &&
     typeof candidate.property_id === "string" &&
-    typeof candidate.conversation_id === "string" &&
+    (candidate.conversation_id === null || typeof candidate.conversation_id === "string") &&
     typeof candidate.source === "string" &&
     typeof candidate.tool_name === "string" &&
     typeof candidate.description === "string" &&
@@ -910,7 +910,9 @@ const isValidAuditEntriesResponse = (value: unknown): value is AuditEntriesRespo
   return (
     Array.isArray(candidate.items) &&
     candidate.items.every(isApiAuditEntry) &&
-    (candidate.next_cursor === null || typeof candidate.next_cursor === "string")
+    (candidate.next_cursor === undefined ||
+      candidate.next_cursor === null ||
+      typeof candidate.next_cursor === "string")
   );
 };
 
@@ -1671,7 +1673,7 @@ export const fetchAuditEntries = async (
 
   return {
     items: data.items.map(mapApiAuditEntry),
-    nextCursor: data.next_cursor,
+    nextCursor: data.next_cursor ?? null,
   };
 };
 

@@ -160,6 +160,32 @@ describe("AuditLog", () => {
     });
   });
 
+  it("renders fallback conversation label when conversationId is null", async () => {
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchAuditEntriesMock.mockResolvedValue({
+      items: [
+        {
+          id: "audit-null-conv",
+          propertyId: "prop-1",
+          conversationId: null,
+          source: "chatgpt",
+          toolName: "book_confirm",
+          description: "Booking confirmed",
+          status: "success",
+          createdAt: "2026-03-02T13:12:56.000434Z",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(<AuditLog />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Booking confirmed")).toBeInTheDocument();
+      expect(screen.getByText("-")).toBeInTheDocument();
+    });
+  });
+
   it("applies source chip filter with API refetch", async () => {
     readAccessTokenMock.mockReturnValue("jwt");
     fetchAuditEntriesMock

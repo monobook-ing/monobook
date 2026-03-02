@@ -381,7 +381,7 @@ export function AuditLog() {
                         </div>
                         <p className="text-sm text-card-foreground">{entry.description}</p>
                         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                          <span className="font-mono">{entry.conversationId}</span>
+                          <span className="font-mono">{entry.conversationId ?? "-"}</span>
                           <span>{createdAtLabel}</span>
                         </div>
                       </div>

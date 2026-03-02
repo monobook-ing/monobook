@@ -383,6 +383,73 @@ describe("fetchAuditEntries", () => {
     });
   });
 
+  it("accepts null conversation_id and maps it", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "audit-1",
+              property_id: "prop-1",
+              conversation_id: null,
+              source: "chatgpt",
+              tool_name: "book_confirm",
+              description: "Booking confirmed",
+              status: "success",
+              created_at: "2026-03-02T13:12:56.000434Z",
+            },
+          ],
+          next_cursor: null,
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await fetchAuditEntries("jwt", "prop-1");
+
+    expect(result).toEqual({
+      items: [
+        {
+          id: "audit-1",
+          propertyId: "prop-1",
+          conversationId: null,
+          source: "chatgpt",
+          toolName: "book_confirm",
+          description: "Booking confirmed",
+          status: "success",
+          createdAt: "2026-03-02T13:12:56.000434Z",
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it("accepts omitted next_cursor and normalizes nextCursor to null", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "audit-1",
+              property_id: "prop-1",
+              conversation_id: "conv-1",
+              source: "mcp",
+              tool_name: "search_rooms",
+              description: "Searched available rooms",
+              status: "success",
+              created_at: "2026-02-22T14:32:00Z",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    const result = await fetchAuditEntries("jwt", "prop-1");
+
+    expect(result.nextCursor).toBeNull();
+  });
+
   it("applies source, from, to, limit, and cursor query params", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200 })
