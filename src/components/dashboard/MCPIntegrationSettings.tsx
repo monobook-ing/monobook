@@ -1832,9 +1832,19 @@ export function MCPIntegrationSettings({
                 transition={{ duration: 0.2 }}
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                  <h2 className="text-sm font-semibold text-foreground truncate">{previewFile.name}</h2>
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-foreground truncate">{previewFile.name}</h2>
+                      <p className="text-xs text-muted-foreground" data-testid="knowledge-preview-metadata">
+                        {previewFile.size} · Uploaded {formatCreatedAt(previewFile.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
                     <Popover>
                       <PopoverTrigger asChild>
                         <motion.button
@@ -1874,22 +1884,16 @@ export function MCPIntegrationSettings({
                 {/* Body */}
                 <div className="flex-1 flex items-center justify-center p-8">
                   <div className="flex flex-col items-center gap-3 text-center max-w-full">
-                    <div
-                      className="flex items-center justify-center gap-3 min-w-0 max-w-full"
-                      data-testid="knowledge-preview-title-row"
-                    >
+                    <div className="flex items-center justify-center" data-testid="knowledge-preview-title-row">
                       <div
                         className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center shrink-0"
                         data-testid="knowledge-preview-title-icon"
                       >
                         <FileText className="w-10 h-10 text-muted-foreground" />
                       </div>
-                      <p className="text-base font-semibold text-foreground break-words">
-                        {previewFile.name}
-                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground" data-testid="knowledge-preview-metadata">
-                      {previewFile.size} · Uploaded {formatCreatedAt(previewFile.createdAt)}
+                    <p className="text-base font-semibold text-foreground break-words">
+                      {previewFile.name}
                     </p>
                   </div>
                 </div>
