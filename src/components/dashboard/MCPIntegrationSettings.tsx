@@ -457,6 +457,7 @@ function HostDetailsSection() {
             <Button
               variant="ghost"
               size="sm"
+              aria-label="Edit host profile"
               className="rounded-xl gap-1.5 h-8"
               disabled={isLoading || isSaving}
               onClick={() => {
@@ -1770,13 +1771,23 @@ export function MCPIntegrationSettings() {
             </div>
 
             {/* Body */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-              <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center">
-                <FileText className="w-10 h-10 text-muted-foreground" />
-              </div>
-              <div className="text-center">
-                <p className="text-base font-semibold text-foreground">{previewFile.name}</p>
-                <p className="text-sm text-muted-foreground mt-1">
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="flex flex-col items-center gap-3 text-center max-w-full">
+                <div
+                  className="flex items-center justify-center gap-3 min-w-0 max-w-full"
+                  data-testid="knowledge-preview-title-row"
+                >
+                  <div
+                    className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center shrink-0"
+                    data-testid="knowledge-preview-title-icon"
+                  >
+                    <FileText className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <p className="text-base font-semibold text-foreground break-words">
+                    {previewFile.name}
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground" data-testid="knowledge-preview-metadata">
                   {previewFile.size} · Uploaded {formatCreatedAt(previewFile.createdAt)}
                 </p>
               </div>

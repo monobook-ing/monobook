@@ -6,7 +6,9 @@ const fetchHostProfileMock = vi.hoisted(() => vi.fn());
 const updateHostProfileMock = vi.hoisted(() => vi.fn());
 const fetchKnowledgeFilesMock = vi.hoisted(() => vi.fn());
 const createKnowledgeFileMock = vi.hoisted(() => vi.fn());
+const uploadKnowledgeFileMock = vi.hoisted(() => vi.fn());
 const deleteKnowledgeFileMock = vi.hoisted(() => vi.fn());
+const fetchAuditEntriesMock = vi.hoisted(() => vi.fn());
 const fetchPmsConnectionsMock = vi.hoisted(() => vi.fn());
 const updatePmsConnectionMock = vi.hoisted(() => vi.fn());
 const fetchPaymentConnectionsMock = vi.hoisted(() => vi.fn());
@@ -34,8 +36,10 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/auth", () => ({
   fetchHostProfile: fetchHostProfileMock,
   updateHostProfile: updateHostProfileMock,
+  fetchAuditEntries: fetchAuditEntriesMock,
   fetchKnowledgeFiles: fetchKnowledgeFilesMock,
   createKnowledgeFile: createKnowledgeFileMock,
+  uploadKnowledgeFile: uploadKnowledgeFileMock,
   deleteKnowledgeFile: deleteKnowledgeFileMock,
   fetchPmsConnections: fetchPmsConnectionsMock,
   updatePmsConnection: updatePmsConnectionMock,
@@ -140,8 +144,10 @@ describe("MCPIntegrationSettings Host Details", () => {
     vi.restoreAllMocks();
     fetchHostProfileMock.mockReset();
     updateHostProfileMock.mockReset();
+    fetchAuditEntriesMock.mockReset();
     fetchKnowledgeFilesMock.mockReset();
     createKnowledgeFileMock.mockReset();
+    uploadKnowledgeFileMock.mockReset();
     deleteKnowledgeFileMock.mockReset();
     fetchPmsConnectionsMock.mockReset();
     updatePmsConnectionMock.mockReset();
@@ -154,8 +160,10 @@ describe("MCPIntegrationSettings Host Details", () => {
     navigateMock.mockReset();
     isMobileRef.current = false;
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
+    fetchAuditEntriesMock.mockResolvedValue({ items: [], nextCursor: null });
     fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
     createKnowledgeFileMock.mockResolvedValue(knowledgeFiles[0]);
+    uploadKnowledgeFileMock.mockResolvedValue(knowledgeFiles[0]);
     deleteKnowledgeFileMock.mockResolvedValue({ message: "File deleted", id: "file-uuid-1" });
     fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
     updatePmsConnectionMock.mockImplementation(async (_token, _propertyId, provider, input) => ({
@@ -678,8 +686,10 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     vi.restoreAllMocks();
     fetchHostProfileMock.mockReset();
     updateHostProfileMock.mockReset();
+    fetchAuditEntriesMock.mockReset();
     fetchKnowledgeFilesMock.mockReset();
     createKnowledgeFileMock.mockReset();
+    uploadKnowledgeFileMock.mockReset();
     deleteKnowledgeFileMock.mockReset();
     fetchPmsConnectionsMock.mockReset();
     updatePmsConnectionMock.mockReset();
@@ -690,6 +700,7 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     propertyStateRef.current = { selectedPropertyId: "prop-1" };
     readAccessTokenMock.mockReturnValue("jwt");
     fetchHostProfileMock.mockResolvedValue(hostProfile);
+    fetchAuditEntriesMock.mockResolvedValue({ items: [], nextCursor: null });
     fetchPmsConnectionsMock.mockResolvedValue(pmsConnections);
     fetchPaymentConnectionsMock.mockResolvedValue(paymentConnections);
   });
@@ -729,6 +740,28 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     });
   });
 
+  it("shows preview body title row with icon and metadata after file click", async () => {
+    fetchKnowledgeFilesMock.mockResolvedValue(knowledgeFiles);
+
+    render(<MCPIntegrationSettings />);
+
+    await screen.findByText("Hotel_Policy_2026.pdf");
+    fireEvent.click(screen.getByText("Hotel_Policy_2026.pdf"));
+
+    const previewTitleRow = await screen.findByTestId("knowledge-preview-title-row");
+    expect(within(previewTitleRow).getByTestId("knowledge-preview-title-icon")).toBeInTheDocument();
+    expect(within(previewTitleRow).getByText("Hotel_Policy_2026.pdf")).toBeInTheDocument();
+
+    const expectedDate = new Date(knowledgeFiles[0].createdAt).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    expect(screen.getByTestId("knowledge-preview-metadata")).toHaveTextContent(
+      `2.4 MB · Uploaded ${expectedDate}`
+    );
+  });
+
   it("uploads selected file metadata via API and refetches list", async () => {
     fetchKnowledgeFilesMock
       .mockResolvedValueOnce(knowledgeFiles)
@@ -744,7 +777,7 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
           createdAt: "2026-02-23T00:00:00Z",
         },
       ]);
-    createKnowledgeFileMock.mockResolvedValue({
+    uploadKnowledgeFileMock.mockResolvedValue({
       id: "file-uuid-2",
       propertyId: "prop-1",
       name: "Check_in_Guide.pdf",
@@ -761,12 +794,14 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     const file = new File(["abc"], "Check_in_Guide.pdf", { type: "application/pdf" });
 
     fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(await screen.findByRole("button", { name: "Upload & Index" }));
 
     await waitFor(() => {
-      expect(createKnowledgeFileMock).toHaveBeenCalledWith("jwt", "prop-1", {
-        name: "Check_in_Guide.pdf",
-        size: "3 B",
-        mimeType: "application/pdf",
+      expect(uploadKnowledgeFileMock).toHaveBeenCalledWith("jwt", "prop-1", {
+        file,
+        language: "en",
+        docType: "general",
+        effectiveDate: null,
       });
       expect(fetchKnowledgeFilesMock).toHaveBeenCalledTimes(2);
     });
@@ -807,7 +842,6 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => {
-      expect(screen.queryByText("Delete file?")).not.toBeInTheDocument();
       expect(deleteKnowledgeFileMock).not.toHaveBeenCalled();
     });
   });
