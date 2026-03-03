@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight, Gift } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,7 @@ const navItems = [
   { id: "/inventory", label: "Inventory", icon: CalendarDays },
   { id: "/rooms", label: "Rooms", icon: BedDouble },
   { id: "/guests", label: "Guests", icon: Users },
+  { id: "/services", label: "Services", icon: Gift },
   { id: "/settings", label: "Settings", icon: Settings },
 ];
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
