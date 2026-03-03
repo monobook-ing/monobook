@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 const hydrateSessionFromStorageMock = vi.hoisted(() => vi.fn());
 const fetchPropertiesMock = vi.hoisted(() => vi.fn());
+const fetchUnreadNotificationsCountMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
 
@@ -15,6 +16,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
     ...actual,
     hydrateSessionFromStorage: hydrateSessionFromStorageMock,
     fetchProperties: fetchPropertiesMock,
+    fetchUnreadNotificationsCount: fetchUnreadNotificationsCountMock,
     readAccessToken: readAccessTokenMock,
   };
 });
@@ -72,6 +74,7 @@ describe("DashboardLayout footer host card", () => {
     vi.restoreAllMocks();
     hydrateSessionFromStorageMock.mockReset();
     fetchPropertiesMock.mockReset();
+    fetchUnreadNotificationsCountMock.mockReset();
     readAccessTokenMock.mockReset();
     localStorage.clear();
 
@@ -95,6 +98,7 @@ describe("DashboardLayout footer host card", () => {
     );
     readAccessTokenMock.mockReturnValue("jwt_key");
     fetchPropertiesMock.mockResolvedValue([]);
+    fetchUnreadNotificationsCountMock.mockResolvedValue(0);
     setViewport(1024);
   });
 
@@ -222,6 +226,27 @@ describe("DashboardLayout footer host card", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Inventory");
   });
 
+  it("shows desktop settings unread pointer when unread notifications exist", async () => {
+    fetchUnreadNotificationsCountMock.mockResolvedValue(2);
+
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("desktop-settings-unread-dot")).toBeInTheDocument();
+    });
+  });
+
+  it("hides settings unread pointers when there are no unread notifications", async () => {
+    fetchUnreadNotificationsCountMock.mockResolvedValue(0);
+
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("desktop-settings-unread-dot")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("mobile-settings-unread-dot")).not.toBeInTheDocument();
+    });
+  });
+
   it.each(["/dashboard", "/inventory", "/rooms", "/settings", "/settings/audit-log"])(
     "shows mobile top property switcher on %s when no property is selected",
     async (entry) => {
@@ -294,6 +319,17 @@ describe("DashboardLayout footer host card", () => {
       expect(screen.getByText("rooms-page")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("mobile-empty-property-switcher")).not.toBeInTheDocument();
+  });
+
+  it("shows mobile settings unread pointer when unread notifications exist", async () => {
+    setViewport(390);
+    fetchUnreadNotificationsCountMock.mockResolvedValue(1);
+
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("mobile-settings-unread-dot")).toBeInTheDocument();
+    });
   });
 
   it("keeps mobile bottom navigation fixed with safe-area classes", async () => {

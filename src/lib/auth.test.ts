@@ -12,10 +12,14 @@ import {
   fetchHostProfile,
   fetchKnowledgeFiles,
   fetchMe,
+  fetchNotifications,
   fetchPaymentConnections,
   fetchPmsConnections,
   fetchRoomById,
   fetchRooms,
+  fetchUnreadNotificationsCount,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
   readUserMe,
   updateBooking,
   updateGuest,
@@ -1122,6 +1126,181 @@ describe("updatePaymentConnection", () => {
       expect.stringContaining("/v1.0/properties/prop-1/payment-connections/jpmorgan"),
       expect.anything()
     );
+  });
+});
+
+describe("notifications api", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("fetches unread count", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ count: 3 }), { status: 200 })
+    );
+
+    await expect(fetchUnreadNotificationsCount("jwt")).resolves.toBe(3);
+  });
+
+  it("throws when unread count payload is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ count: "3" }), { status: 200 })
+    );
+
+    await expect(fetchUnreadNotificationsCount("jwt")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid notifications count response",
+      status: 200,
+    });
+  });
+
+  it("throws parsed API error for unread count non-2xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "forbidden" }), { status: 403 })
+    );
+
+    await expect(fetchUnreadNotificationsCount("jwt")).rejects.toEqual(
+      expect.objectContaining<AuthApiError>({
+        name: "AuthApiError",
+        message: "forbidden",
+        status: 403,
+      })
+    );
+  });
+
+  it("fetches notifications and maps pagination cursor", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "notif-1",
+              user_id: "user-1",
+              subject: "Welcome",
+              body: "Body",
+              type: "welcome",
+              details: null,
+              cta: null,
+              is_read: false,
+              read_at: null,
+              created_at: "2026-03-03T10:00:00Z",
+            },
+          ],
+          next_cursor: "cursor-1",
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(
+      fetchNotifications("jwt", { isRead: false, limit: 10, cursor: "cursor-0" })
+    ).resolves.toEqual({
+      items: [
+        {
+          id: "notif-1",
+          userId: "user-1",
+          subject: "Welcome",
+          body: "Body",
+          type: "welcome",
+          details: null,
+          cta: null,
+          isRead: false,
+          readAt: null,
+          createdAt: "2026-03-03T10:00:00Z",
+        },
+      ],
+      nextCursor: "cursor-1",
+    });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/notifications?");
+    expect(url).toContain("is_read=false");
+    expect(url).toContain("limit=10");
+    expect(url).toContain("cursor=cursor-0");
+  });
+
+  it("throws when notifications list payload is invalid", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items: [{ id: "notif-1" }], next_cursor: null }), {
+        status: 200,
+      })
+    );
+
+    await expect(fetchNotifications("jwt")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid notifications response",
+      status: 200,
+    });
+  });
+
+  it("maps single notification mark-as-read response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "notif-1",
+          user_id: "user-1",
+          subject: "Welcome",
+          body: "Body",
+          type: "welcome",
+          details: null,
+          cta: null,
+          is_read: true,
+          read_at: "2026-03-03T11:00:00Z",
+          created_at: "2026-03-03T10:00:00Z",
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(markNotificationAsRead("jwt", "notif-1")).resolves.toEqual({
+      id: "notif-1",
+      userId: "user-1",
+      subject: "Welcome",
+      body: "Body",
+      type: "welcome",
+      details: null,
+      cta: null,
+      isRead: true,
+      readAt: "2026-03-03T11:00:00Z",
+      createdAt: "2026-03-03T10:00:00Z",
+    });
+  });
+
+  it("maps mark-all-as-read response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "notif-1",
+            user_id: "user-1",
+            subject: "Welcome",
+            body: "Body",
+            type: "welcome",
+            details: null,
+            cta: null,
+            is_read: true,
+            read_at: "2026-03-03T11:00:00Z",
+            created_at: "2026-03-03T10:00:00Z",
+          },
+        ]),
+        { status: 200 }
+      )
+    );
+
+    await expect(markAllNotificationsAsRead("jwt")).resolves.toEqual([
+      {
+        id: "notif-1",
+        userId: "user-1",
+        subject: "Welcome",
+        body: "Body",
+        type: "welcome",
+        details: null,
+        cta: null,
+        isRead: true,
+        readAt: "2026-03-03T11:00:00Z",
+        createdAt: "2026-03-03T10:00:00Z",
+      },
+    ]);
   });
 });
 

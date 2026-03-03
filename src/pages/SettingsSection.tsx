@@ -1,11 +1,13 @@
 import { Navigate, Link, useParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { AuditLog } from "@/components/dashboard/AuditLog";
+import { NotificationsSettings } from "@/components/dashboard/NotificationsSettings";
 import {
   MCPIntegrationSettings,
   type SettingsSection as MCPSettingsSection,
 } from "@/components/dashboard/MCPIntegrationSettings";
 import { cn } from "@/lib/utils";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { settingsSections } from "./Settings";
 
 const mcpSectionById: Record<string, MCPSettingsSection> = {
@@ -19,6 +21,7 @@ const mcpSectionById: Record<string, MCPSettingsSection> = {
 
 export default function SettingsSectionPage() {
   const { sectionId } = useParams<{ sectionId: string }>();
+  const { hasUnread } = useNotifications();
   const section = settingsSections.find((item) => item.id === sectionId);
 
   if (!sectionId || !section) {
@@ -51,7 +54,16 @@ export default function SettingsSectionPage() {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {item.title}
+              <span className="inline-flex items-center gap-2">
+                {item.title}
+                {item.id === "notifications" && hasUnread && (
+                  <span
+                    data-testid="settings-section-notifications-unread-dot"
+                    aria-hidden="true"
+                    className="h-2 w-2 rounded-full bg-destructive"
+                  />
+                )}
+              </span>
             </Link>
           ))}
         </div>
@@ -59,6 +71,8 @@ export default function SettingsSectionPage() {
 
       {sectionId === "audit-log" ? (
         <AuditLog showHeader={false} />
+      ) : sectionId === "notifications" ? (
+        <NotificationsSettings showHeader={false} />
       ) : (
         <MCPIntegrationSettings section={mcpSectionById[sectionId]} showHeader={false} />
       )}

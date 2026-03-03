@@ -143,6 +143,25 @@ export type ApiPaymentConnection = {
   updated_at: string;
 };
 
+export type ApiNotificationType =
+  | "welcome"
+  | "news"
+  | "updates"
+  | "invite_accepted";
+
+export type ApiNotification = {
+  id: string;
+  user_id: string;
+  subject: string;
+  body: string;
+  type: ApiNotificationType;
+  details: string | null;
+  cta: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+};
+
 export type ApiBookingStatus = "confirmed" | "pending" | "ai_pending" | "cancelled";
 
 export type ApiBooking = {
@@ -293,6 +312,19 @@ export type PaymentConnection = {
   config: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+};
+
+export type Notification = {
+  id: string;
+  userId: string;
+  subject: string;
+  body: string;
+  type: ApiNotificationType;
+  details: string | null;
+  cta: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
 };
 
 export type Booking = {
@@ -461,6 +493,15 @@ export type PmsConnectionsResponse = {
 
 export type PaymentConnectionsResponse = {
   items: ApiPaymentConnection[];
+};
+
+export type NotificationsResponse = {
+  items: ApiNotification[];
+  next_cursor?: string | null;
+};
+
+export type NotificationCountResponse = {
+  count: number;
 };
 
 export type BookingsResponse = {
@@ -808,6 +849,32 @@ const isApiPaymentConnection = (value: unknown): value is ApiPaymentConnection =
   );
 };
 
+const isApiNotificationType = (value: unknown): value is ApiNotificationType => {
+  return (
+    value === "welcome" ||
+    value === "news" ||
+    value === "updates" ||
+    value === "invite_accepted"
+  );
+};
+
+const isApiNotification = (value: unknown): value is ApiNotification => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.user_id === "string" &&
+    typeof candidate.subject === "string" &&
+    typeof candidate.body === "string" &&
+    isApiNotificationType(candidate.type) &&
+    (candidate.details === null || typeof candidate.details === "string") &&
+    (candidate.cta === null || typeof candidate.cta === "string") &&
+    typeof candidate.is_read === "boolean" &&
+    (candidate.read_at === null || typeof candidate.read_at === "string") &&
+    typeof candidate.created_at === "string"
+  );
+};
+
 const isApiBookingStatus = (value: unknown): value is ApiBookingStatus => {
   return (
     value === "confirmed" ||
@@ -992,6 +1059,28 @@ const isValidPaymentConnectionsResponse = (
   return Array.isArray(candidate.items) && candidate.items.every(isApiPaymentConnection);
 };
 
+const isValidNotificationsResponse = (
+  value: unknown
+): value is NotificationsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    Array.isArray(candidate.items) &&
+    candidate.items.every(isApiNotification) &&
+    (candidate.next_cursor === undefined ||
+      candidate.next_cursor === null ||
+      typeof candidate.next_cursor === "string")
+  );
+};
+
+const isValidNotificationCountResponse = (
+  value: unknown
+): value is NotificationCountResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.count === "number" && Number.isFinite(candidate.count);
+};
+
 const isValidBookingsResponse = (value: unknown): value is BookingsResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -1161,6 +1250,21 @@ const mapApiPaymentConnection = (item: ApiPaymentConnection): PaymentConnection 
     config: item.config,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
+  };
+};
+
+const mapApiNotification = (item: ApiNotification): Notification => {
+  return {
+    id: item.id,
+    userId: item.user_id,
+    subject: item.subject,
+    body: item.body,
+    type: item.type,
+    details: item.details,
+    cta: item.cta,
+    isRead: item.is_read,
+    readAt: item.read_at,
+    createdAt: item.created_at,
   };
 };
 
@@ -1940,6 +2044,119 @@ export const fetchPaymentConnections = async (
   }
 
   return data.items.map(mapApiPaymentConnection);
+};
+
+export const fetchNotifications = async (
+  accessToken: string,
+  options?: { isRead?: boolean; limit?: number; cursor?: string | null }
+): Promise<{ items: Notification[]; nextCursor: string | null }> => {
+  const params = new URLSearchParams();
+  if (typeof options?.isRead === "boolean") {
+    params.set("is_read", String(options.isRead));
+  }
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    params.set("limit", String(options.limit));
+  }
+  if (typeof options?.cursor === "string" && options.cursor.length > 0) {
+    params.set("cursor", options.cursor);
+  }
+
+  const query = params.toString();
+  const url = `${API_BASE}/v1.0/notifications${query ? `?${query}` : ""}`;
+
+  const res = await requestWithAuthInterceptor(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidNotificationsResponse(data)) {
+    throw new AuthApiError("Invalid notifications response", res.status);
+  }
+
+  return {
+    items: data.items.map(mapApiNotification),
+    nextCursor: data.next_cursor ?? null,
+  };
+};
+
+export const fetchUnreadNotificationsCount = async (
+  accessToken: string
+): Promise<number> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/notifications/count?is_read=false`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidNotificationCountResponse(data)) {
+    throw new AuthApiError("Invalid notifications count response", res.status);
+  }
+
+  return data.count;
+};
+
+export const markNotificationAsRead = async (
+  accessToken: string,
+  notificationId: string
+): Promise<Notification> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/notifications/${notificationId}/read`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiNotification(data)) {
+    throw new AuthApiError("Invalid notification response", res.status);
+  }
+
+  return mapApiNotification(data);
+};
+
+export const markAllNotificationsAsRead = async (
+  accessToken: string
+): Promise<Notification[]> => {
+  const res = await requestWithAuthInterceptor(`${API_BASE}/v1.0/notifications/read`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!Array.isArray(data) || !data.every(isApiNotification)) {
+    throw new AuthApiError("Invalid notifications response", res.status);
+  }
+
+  return data.map(mapApiNotification);
 };
 
 export const updatePaymentConnection = async (

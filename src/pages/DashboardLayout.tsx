@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PropertyProvider, useProperty } from "@/contexts/PropertyContext";
+import { NotificationsProvider, useNotifications } from "@/contexts/NotificationsContext";
 import { type Property, type PropertyAddress, formatAddress, formatAddressShort } from "@/data/mockPropertyData";
 import { clearAuthStorage, hydrateSessionFromStorage, readUserMe, type UserMe } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -255,6 +256,7 @@ function DashboardInner() {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedPropertyId } = useProperty();
+  const { hasUnread } = useNotifications();
   const isMobile = useIsMobile();
   const activeTab =
     navItems.find(
@@ -340,7 +342,16 @@ function DashboardInner() {
                   whileTap={{ scale: 0.97 }}
                   onClick={() => navigate(item.id)}
                 >
-                  <item.icon className="w-5 h-5" />
+                  <span className="relative inline-flex">
+                    <item.icon className="w-5 h-5" />
+                    {item.id === "/settings" && hasUnread && (
+                      <span
+                        data-testid="desktop-settings-unread-dot"
+                        aria-hidden="true"
+                        className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive"
+                      />
+                    )}
+                  </span>
                   {!isSidebarCollapsed && item.label}
                 </motion.button>
               </TooltipTrigger>
@@ -424,7 +435,16 @@ function DashboardInner() {
               whileTap={{ scale: 0.9 }}
               onClick={() => navigate(item.id)}
             >
-              <item.icon className="w-5 h-5" />
+              <span className="relative inline-flex">
+                <item.icon className="w-5 h-5" />
+                {item.id === "/settings" && hasUnread && (
+                  <span
+                    data-testid="mobile-settings-unread-dot"
+                    aria-hidden="true"
+                    className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive"
+                  />
+                )}
+              </span>
               <span className="text-[10px] font-medium">{item.label}</span>
             </motion.button>
           ))}
@@ -475,7 +495,9 @@ export default function DashboardLayout() {
 
   return (
     <PropertyProvider>
-      <DashboardInner />
+      <NotificationsProvider>
+        <DashboardInner />
+      </NotificationsProvider>
     </PropertyProvider>
   );
 }

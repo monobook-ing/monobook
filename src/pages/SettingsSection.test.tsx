@@ -1,7 +1,21 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SettingsSectionPage from "@/pages/SettingsSection";
+
+const useNotificationsMock = vi.hoisted(() =>
+  vi.fn(() => ({
+    unreadCount: 0,
+    hasUnread: false,
+    isLoading: false,
+    error: null,
+    refreshUnreadCount: vi.fn(),
+  }))
+);
+
+vi.mock("@/contexts/NotificationsContext", () => ({
+  useNotifications: useNotificationsMock,
+}));
 
 vi.mock("@/components/dashboard/MCPIntegrationSettings", () => ({
   MCPIntegrationSettings: () => <div data-testid="mcp-settings-content">settings content</div>,
@@ -9,6 +23,10 @@ vi.mock("@/components/dashboard/MCPIntegrationSettings", () => ({
 
 vi.mock("@/components/dashboard/AuditLog", () => ({
   AuditLog: () => <div data-testid="audit-log-content">audit log</div>,
+}));
+
+vi.mock("@/components/dashboard/NotificationsSettings", () => ({
+  NotificationsSettings: () => <div data-testid="notifications-settings-content">notifications content</div>,
 }));
 
 const renderSettingsSection = (entry: string) =>
@@ -21,6 +39,16 @@ const renderSettingsSection = (entry: string) =>
   );
 
 describe("SettingsSection mobile layout contracts", () => {
+  beforeEach(() => {
+    useNotificationsMock.mockReturnValue({
+      unreadCount: 0,
+      hasUnread: false,
+      isLoading: false,
+      error: null,
+      refreshUnreadCount: vi.fn(),
+    });
+  });
+
   it("uses overflow-safe root container and horizontal tab scroller", () => {
     renderSettingsSection("/settings/query-log");
 
@@ -51,5 +79,20 @@ describe("SettingsSection mobile layout contracts", () => {
 
     expect(paymentTab).toHaveClass("shrink-0", "whitespace-nowrap");
     expect(knowledgeTab).toHaveClass("shrink-0", "whitespace-nowrap");
+  });
+
+  it("renders notifications page and unread tab pointer when notifications are unread", () => {
+    useNotificationsMock.mockReturnValue({
+      unreadCount: 2,
+      hasUnread: true,
+      isLoading: false,
+      error: null,
+      refreshUnreadCount: vi.fn(),
+    });
+
+    renderSettingsSection("/settings/notifications");
+
+    expect(screen.getByTestId("notifications-settings-content")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-section-notifications-unread-dot")).toBeInTheDocument();
   });
 });
