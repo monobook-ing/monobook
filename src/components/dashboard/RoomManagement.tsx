@@ -883,10 +883,10 @@ export function RoomManagement() {
 
             <TabsContent value="paste-link" className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label htmlFor="airbnb-url">Airbnb listing URL</Label>
+                <Label htmlFor="listing-url">Airbnb or Booking.com listing URL</Label>
                 <Input
-                  id="airbnb-url"
-                  placeholder="https://www.airbnb.com/rooms/12345678"
+                  id="listing-url"
+                  placeholder="https://www.booking.com/hotel/gb/example.en-gb.html"
                   value={importUrl}
                   onChange={(e) => {
                     setImportUrl(e.target.value);

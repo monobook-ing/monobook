@@ -2,8 +2,8 @@ import { useState, useCallback, useRef } from "react";
 import {
   createChatSession,
   sendChatMessage,
-  type ChatMessage,
   type SSEEvent,
+  type RestaurantSearchResult,
   type RoomSearchResult,
 } from "@/lib/chatApi";
 
@@ -13,7 +13,9 @@ export interface DisplayMessage {
   content: string;
   isStreaming?: boolean;
   isSearching?: boolean;
+  searchingLabel?: string;
   toolResults?: RoomSearchResult[];
+  restaurantResults?: RestaurantSearchResult[];
   timestamp: string;
 }
 
@@ -94,7 +96,15 @@ export function useChat(propertyId: string) {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, isSearching: true }
+                      ? { ...m, isSearching: true, searchingLabel: "Searching rooms..." }
+                      : m,
+                  ),
+                );
+              } else if (event.tool === "tool_search_restaurants" || event.tool === "tool_get_curated_restaurants") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, isSearching: true, searchingLabel: "Searching restaurants..." }
                       : m,
                   ),
                 );
@@ -108,7 +118,27 @@ export function useChat(propertyId: string) {
                       ? {
                           ...m,
                           isSearching: false,
-                          toolResults: [...(m.toolResults || []), event.data!],
+                          searchingLabel: undefined,
+                          toolResults: [
+                            ...(m.toolResults || []),
+                            event.data as RoomSearchResult,
+                          ],
+                        }
+                      : m,
+                  ),
+                );
+              } else if (event.data && event.tool === "search_places_nearby") {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          isSearching: false,
+                          searchingLabel: undefined,
+                          restaurantResults: [
+                            ...(m.restaurantResults || []),
+                            event.data as RestaurantSearchResult,
+                          ],
                         }
                       : m,
                   ),
@@ -121,7 +151,13 @@ export function useChat(propertyId: string) {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
-                    ? { ...m, isStreaming: false, isSearching: false, content: m.content || event.content || "" }
+                    ? {
+                        ...m,
+                        isStreaming: false,
+                        isSearching: false,
+                        searchingLabel: undefined,
+                        content: m.content || event.content || "",
+                      }
                     : m,
                 ),
               );

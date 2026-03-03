@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Bot, User } from "lucide-react";
 import type { DisplayMessage } from "@/hooks/useChat";
 import { RoomResultsCarousel } from "./RoomResultsCarousel";
+import { RestaurantResultsCarousel } from "./RestaurantResultsCarousel";
 
 interface ChatMessageProps {
   message: DisplayMessage;
@@ -10,7 +11,10 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message, onBookRoom }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const hasToolResults = message.toolResults && message.toolResults.length > 0;
+  const hasToolResults = (
+    (message.toolResults && message.toolResults.length > 0) ||
+    (message.restaurantResults && message.restaurantResults.length > 0)
+  );
 
   return (
     <motion.div
@@ -59,7 +63,7 @@ export function ChatMessage({ message, onBookRoom }: ChatMessageProps) {
 
         {/* Searching indicator */}
         {message.isSearching && !hasToolResults && (
-          <SearchingIndicator />
+          <SearchingIndicator label={message.searchingLabel} />
         )}
 
         {/* Room results carousel */}
@@ -69,6 +73,11 @@ export function ChatMessage({ message, onBookRoom }: ChatMessageProps) {
             result={result}
             onBookNow={onBookRoom}
           />
+        ))}
+
+        {/* Restaurant results carousel */}
+        {message.restaurantResults?.map((result, i) => (
+          <RestaurantResultsCarousel key={`restaurants-${i}`} result={result} />
         ))}
       </div>
     </motion.div>
@@ -112,7 +121,7 @@ function TypingIndicator() {
   );
 }
 
-function SearchingIndicator() {
+function SearchingIndicator({ label }: { label?: string }) {
   return (
     <motion.div
       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/60 text-xs text-muted-foreground"
@@ -124,7 +133,7 @@ function SearchingIndicator() {
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       />
-      Searching rooms...
+      {label || "Searching..."}
     </motion.div>
   );
 }
