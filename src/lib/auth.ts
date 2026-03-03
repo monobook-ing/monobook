@@ -118,6 +118,11 @@ export type ApiKnowledgeFile = {
   created_at: string;
 };
 
+export type ApiKnowledgeFileContent = {
+  content: string;
+  chunk_count: number;
+};
+
 export type ApiPmsConnection = {
   id: string;
   property_id: string;
@@ -263,6 +268,11 @@ export type KnowledgeFile = {
   extractionError: string | null;
   chunkCount: number;
   createdAt: string;
+};
+
+export type KnowledgeFileContent = {
+  content: string;
+  chunkCount: number;
 };
 
 export type PmsConnection = {
@@ -758,6 +768,16 @@ const isApiKnowledgeFile = (value: unknown): value is ApiKnowledgeFile => {
   );
 };
 
+const isApiKnowledgeFileContent = (value: unknown): value is ApiKnowledgeFileContent => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.content === "string" &&
+    typeof candidate.chunk_count === "number" &&
+    Number.isFinite(candidate.chunk_count)
+  );
+};
+
 const isApiPmsConnection = (value: unknown): value is ApiPmsConnection => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
@@ -1102,6 +1122,15 @@ const mapApiKnowledgeFile = (item: ApiKnowledgeFile): KnowledgeFile => {
     extractionError: item.extraction_error ?? null,
     chunkCount: item.chunk_count ?? 0,
     createdAt: item.created_at,
+  };
+};
+
+const mapApiKnowledgeFileContent = (
+  item: ApiKnowledgeFileContent
+): KnowledgeFileContent => {
+  return {
+    content: item.content,
+    chunkCount: item.chunk_count,
   };
 };
 
@@ -1800,6 +1829,33 @@ export const fetchKnowledgeFiles = async (
   }
 
   return data.items.map(mapApiKnowledgeFile);
+};
+
+export const fetchKnowledgeFileContent = async (
+  accessToken: string,
+  propertyId: string,
+  fileId: string
+): Promise<KnowledgeFileContent> => {
+  const res = await requestWithAuthInterceptor(
+    `${API_BASE}/v1.0/properties/${propertyId}/knowledge-files/${fileId}/content`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiKnowledgeFileContent(data)) {
+    throw new AuthApiError("Invalid knowledge file content response", res.status);
+  }
+
+  return mapApiKnowledgeFileContent(data);
 };
 
 export const fetchPmsConnections = async (

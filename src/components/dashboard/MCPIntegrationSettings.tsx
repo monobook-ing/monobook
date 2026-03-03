@@ -16,6 +16,7 @@ import { triggerSelectionHaptic } from "@/lib/haptics";
 import {
   deleteKnowledgeFile,
   fetchAuditEntries,
+  fetchKnowledgeFileContent,
   fetchPaymentConnections,
   fetchKnowledgeFiles,
   fetchHostProfile,
@@ -307,6 +308,14 @@ const formatIndexingStatus = (status: string) => {
   if (status === "indexed") return "Indexed";
   if (status === "error") return "Error";
   return "Pending";
+};
+
+const getPreviewIndexingState = (status: string) => {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "indexed") return "indexed";
+  if (normalized === "in_progress" || normalized === "processing") return "processing";
+  if (normalized === "error" || normalized === "failed") return "failed";
+  return "queued";
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
@@ -712,6 +721,9 @@ export function MCPIntegrationSettings({
   const [uploadDocType, setUploadDocType] = useState("general");
   const [uploadEffectiveDate, setUploadEffectiveDate] = useState("");
   const [previewFile, setPreviewFile] = useState<KnowledgeFile | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [pendingDeleteFile, setPendingDeleteFile] = useState<KnowledgeFile | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
@@ -723,6 +735,8 @@ export function MCPIntegrationSettings({
   const pmsRequestIdRef = useRef(0);
   const paymentRequestIdRef = useRef(0);
   const requestIdRef = useRef(0);
+  const previewFileId = previewFile?.id ?? null;
+  const previewFileIndexingStatus = previewFile?.indexingStatus ?? "";
 
   const syncPreviewFile = useCallback((items: KnowledgeFile[], deletedId?: string) => {
     setPreviewFile((prev) => {
@@ -974,6 +988,63 @@ export function MCPIntegrationSettings({
       setIsQueryLogsLoading(false);
     }
   }, [selectedPropertyId, showKnowledgeSection, showQueryLogsSection, syncPreviewFile]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!previewFileId || previewFileIndexingStatus !== "indexed") {
+      setPreviewContent("");
+      setPreviewError(null);
+      setIsPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (selectedPropertyId === "all") {
+      setPreviewContent("");
+      setPreviewError(null);
+      setIsPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const accessToken = readAccessToken();
+    if (!accessToken) {
+      setPreviewContent("");
+      setPreviewError("missing_token");
+      setIsPreviewLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setPreviewContent("");
+    setPreviewError(null);
+    setIsPreviewLoading(true);
+
+    fetchKnowledgeFileContent(accessToken, selectedPropertyId, previewFileId)
+      .then((result) => {
+        if (cancelled) return;
+        setPreviewContent(result.content);
+      })
+      .catch((loadError) => {
+        if (cancelled) return;
+        const message = loadError instanceof Error ? loadError.message : "Failed to load file content";
+        setPreviewContent("");
+        setPreviewError(message);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsPreviewLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewFileId, previewFileIndexingStatus, selectedPropertyId]);
 
   const refreshKnowledgeFiles = useCallback(
     async (accessToken: string, propertyId: string, deletedId?: string) => {
@@ -1882,25 +1953,70 @@ export function MCPIntegrationSettings({
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="flex flex-col items-center gap-3 text-center max-w-full">
-                    <div className="flex items-center justify-center" data-testid="knowledge-preview-title-row">
-                      <div
-                        className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center shrink-0"
-                        data-testid="knowledge-preview-title-icon"
-                      >
-                        <FileText className="w-10 h-10 text-muted-foreground" />
+                <div className="flex-1 overflow-y-auto p-8">
+                  {getPreviewIndexingState(previewFile.indexingStatus) !== "indexed" && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3 text-center max-w-md">
+                        {getPreviewIndexingState(previewFile.indexingStatus) === "failed" ? (
+                          <AlertCircle className="w-10 h-10 text-destructive" />
+                        ) : (
+                          <Loader2 className="w-10 h-10 text-muted-foreground animate-spin" />
+                        )}
+                        <p className="text-base font-semibold text-foreground">
+                          {getPreviewIndexingState(previewFile.indexingStatus)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {getPreviewIndexingState(previewFile.indexingStatus) === "failed"
+                            ? "This file failed to index, so preview content is unavailable."
+                            : "This file is still being indexed. Preview content will appear once indexing is complete."}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-base font-semibold text-foreground break-words">
-                      {previewFile.name}
-                    </p>
-                  </div>
+                  )}
+
+                  {getPreviewIndexingState(previewFile.indexingStatus) === "indexed" && isPreviewLoading && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3 text-center max-w-md">
+                        <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+                        <p className="text-sm text-muted-foreground">Loading content...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {getPreviewIndexingState(previewFile.indexingStatus) === "indexed" && !isPreviewLoading && previewError && (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-3 text-center max-w-md">
+                        <AlertCircle className="w-8 h-8 text-destructive" />
+                        <p className="text-sm text-muted-foreground">{formatKnowledgeFilesError(previewError)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {getPreviewIndexingState(previewFile.indexingStatus) === "indexed" &&
+                    !isPreviewLoading &&
+                    !previewError &&
+                    previewContent.trim().length === 0 && (
+                    <div className="h-full flex items-center justify-center">
+                      <p className="text-sm text-muted-foreground">No text content extracted</p>
+                    </div>
+                  )}
+
+                  {getPreviewIndexingState(previewFile.indexingStatus) === "indexed" &&
+                    !isPreviewLoading &&
+                    !previewError &&
+                    previewContent.trim().length > 0 && (
+                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                      {previewContent}
+                    </pre>
+                  )}
+                  <p className="mt-5 text-xs text-muted-foreground text-center break-words">
+                    {previewFile.name}
+                  </p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-
+          
           <Dialog
             open={showUploadDialog}
             onOpenChange={(nextOpen) => {
