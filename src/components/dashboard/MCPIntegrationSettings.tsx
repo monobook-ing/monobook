@@ -310,8 +310,8 @@ const formatIndexingStatus = (status: string) => {
   return "Pending";
 };
 
-const getPreviewIndexingState = (status: string) => {
-  const normalized = status.trim().toLowerCase();
+const getPreviewIndexingState = (status?: string | null) => {
+  const normalized = (status ?? "").trim().toLowerCase();
   if (normalized === "indexed") return "indexed";
   if (normalized === "in_progress" || normalized === "processing") return "processing";
   if (normalized === "error" || normalized === "failed") return "failed";
@@ -1414,6 +1414,7 @@ export function MCPIntegrationSettings({
 
   return (
     <motion.div
+      className="w-full max-w-full min-w-0 overflow-x-hidden"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -1831,7 +1832,7 @@ export function MCPIntegrationSettings({
         )}
 
         {selectedPropertyId !== "all" && !queryLogsError && (
-          <div className="p-5 space-y-3">
+          <div className="p-5 space-y-3 w-full min-w-0 overflow-x-hidden">
             {queryLogs.length === 0 && !isQueryLogsLoading && (
               <Card className="rounded-xl border-dashed">
                 <CardContent className="p-6 text-center">
@@ -1841,11 +1842,13 @@ export function MCPIntegrationSettings({
             )}
 
             {queryLogs.map((entry) => (
-              <Card key={entry.id} className="rounded-xl">
-                <CardContent className="p-3.5">
+              <Card key={entry.id} className="rounded-xl w-full min-w-0 overflow-hidden">
+                <CardContent className="p-3.5 w-full min-w-0">
                   <p className="text-xs text-muted-foreground">{formatTimestamp(entry.createdAt)}</p>
-                  <p className="text-sm font-medium text-foreground mt-1">{extractQueryLogQuestion(entry)}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  <p className="text-sm font-medium text-foreground mt-1 break-words">
+                    {extractQueryLogQuestion(entry)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words overflow-hidden">
                     {extractQueryLogAnswerPreview(entry)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
@@ -1904,8 +1907,11 @@ export function MCPIntegrationSettings({
               >
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-3 min-w-0" data-testid="knowledge-preview-title-row">
+                    <div
+                      className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0"
+                      data-testid="knowledge-preview-title-icon"
+                    >
                       <FileText className="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">

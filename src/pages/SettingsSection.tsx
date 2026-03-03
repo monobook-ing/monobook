@@ -26,7 +26,7 @@ export default function SettingsSectionPage() {
   }
 
   return (
-    <div>
+    <div className="w-full max-w-full min-w-0 overflow-x-hidden">
       <Link
         to="/settings"
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3"
@@ -38,14 +38,14 @@ export default function SettingsSectionPage() {
       <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">{section.title}</h1>
       <p className="text-sm text-muted-foreground mb-5">{section.description}</p>
 
-      <div className="mb-6 overflow-x-auto">
-        <div className="inline-flex items-center gap-1 rounded-xl bg-secondary p-1 min-w-full md:min-w-0">
+      <div className="mb-6 w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden hide-scrollbar">
+        <div className="inline-flex w-max items-center gap-1 rounded-xl bg-secondary p-1">
           {settingsSections.map((item) => (
             <Link
               key={item.id}
               to={item.path}
               className={cn(
-                "px-3 py-2 text-xs rounded-lg transition-colors whitespace-nowrap",
+                "px-3 py-2 text-xs rounded-lg transition-colors whitespace-nowrap shrink-0",
                 item.id === sectionId
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"

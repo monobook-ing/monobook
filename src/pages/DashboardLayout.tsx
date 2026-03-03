@@ -295,7 +295,7 @@ function DashboardInner() {
   }, [isSidebarCollapsed]);
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen w-full bg-background flex overflow-x-hidden">
       {/* Desktop Sidebar */}
       <aside
         data-testid="desktop-sidebar"
@@ -401,8 +401,8 @@ function DashboardInner() {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 pb-24 md:pb-6 transition-[margin] duration-200 ${isSidebarCollapsed ? "md:ml-20" : "md:ml-64"}`}>
-        <div className="max-w-4xl mx-auto p-4 md:p-8">
+      <main className={`flex-1 w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-6 transition-[margin] duration-200 ${isSidebarCollapsed ? "md:ml-20" : "md:ml-64"}`}>
+        <div className="w-full min-w-0 max-w-4xl mx-auto p-4 md:p-8">
           {isMobile && selectedPropertyId === "all" && (
             <div className="mb-4" data-testid="mobile-empty-property-switcher">
               <PropertySwitcher compact testIdPrefix="mobile-property-switcher" />
@@ -413,8 +413,8 @@ function DashboardInner() {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 glass-strong border-t border-border z-30">
-        <div className="flex items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <nav className="md:hidden fixed inset-x-0 bottom-0 w-full glass-strong border-t border-border z-40">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {navItems.map((item) => (
             <motion.button
               key={item.id}

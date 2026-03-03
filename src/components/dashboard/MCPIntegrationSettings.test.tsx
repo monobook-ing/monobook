@@ -896,3 +896,59 @@ describe("MCPIntegrationSettings Knowledge Base", () => {
     });
   });
 });
+
+describe("MCPIntegrationSettings Query Log mobile wrapping contracts", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    fetchHostProfileMock.mockReset();
+    updateHostProfileMock.mockReset();
+    fetchAuditEntriesMock.mockReset();
+    fetchKnowledgeFilesMock.mockReset();
+    createKnowledgeFileMock.mockReset();
+    uploadKnowledgeFileMock.mockReset();
+    deleteKnowledgeFileMock.mockReset();
+    fetchPmsConnectionsMock.mockReset();
+    updatePmsConnectionMock.mockReset();
+    fetchPaymentConnectionsMock.mockReset();
+    updatePaymentConnectionMock.mockReset();
+    readAccessTokenMock.mockReset();
+    clearAuthStorageMock.mockReset();
+    toastErrorMock.mockReset();
+    triggerSelectionHapticMock.mockReset();
+    navigateMock.mockReset();
+    isMobileRef.current = false;
+    propertyStateRef.current = { selectedPropertyId: "prop-1" };
+  });
+
+  it("applies break-word and overflow guards to query log text blocks", async () => {
+    const longQuestion =
+      "WhatAreTheCancellationPolicyRulesForThisPropertyWhenGuestsBookVeryLateAtNightAndNeedAnUrgentChangeImmediately";
+    const longAnswer =
+      "NoMatchingPolicyWasIndexedYetPleaseUploadPolicyDocumentsToAnswerThisQuestionWithoutAnyUnexpectedOverflow";
+
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchAuditEntriesMock.mockResolvedValue({
+      items: [
+        {
+          id: "audit-1",
+          propertyId: "prop-1",
+          source: "chatgpt",
+          toolName: "search_knowledge",
+          description: "query log item",
+          requestPayload: { question: longQuestion },
+          responsePayload: { answer: longAnswer, chunks_used: [] },
+          createdAt: "2026-03-03T00:18:00Z",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(<MCPIntegrationSettings section="query-log" showHeader={false} />);
+
+    const question = await screen.findByText(longQuestion);
+    const answer = screen.getByText(longAnswer);
+
+    expect(question).toHaveClass("break-words");
+    expect(answer).toHaveClass("line-clamp-2", "break-words", "overflow-hidden");
+  });
+});

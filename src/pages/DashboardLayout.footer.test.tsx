@@ -295,4 +295,36 @@ describe("DashboardLayout footer host card", () => {
     });
     expect(screen.queryByTestId("mobile-empty-property-switcher")).not.toBeInTheDocument();
   });
+
+  it("keeps mobile bottom navigation fixed with safe-area classes", async () => {
+    setViewport(390);
+
+    renderLayout("/settings/query-log");
+
+    await waitFor(() => {
+      expect(screen.getByText("settings-section-page")).toBeInTheDocument();
+    });
+
+    const mobileNav = document.querySelector("nav.md\\:hidden.fixed") as HTMLElement | null;
+    expect(mobileNav).toBeInTheDocument();
+    expect(mobileNav).toHaveClass("inset-x-0", "bottom-0", "w-full", "z-40");
+
+    const navInner = mobileNav?.firstElementChild as HTMLElement | null;
+    expect(navInner).toBeInTheDocument();
+    expect(navInner).toHaveClass("pb-[max(0.5rem,env(safe-area-inset-bottom))]");
+  });
+
+  it("reserves enough mobile bottom padding for fixed navigation", async () => {
+    setViewport(390);
+
+    renderLayout("/settings/query-log");
+
+    await waitFor(() => {
+      expect(screen.getByText("settings-section-page")).toBeInTheDocument();
+    });
+
+    const main = document.querySelector("main") as HTMLElement | null;
+    expect(main).toBeInTheDocument();
+    expect(main).toHaveClass("pb-[calc(6rem+env(safe-area-inset-bottom))]");
+  });
 });
