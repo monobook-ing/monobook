@@ -14,10 +14,13 @@ export default function ServicesLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Hide tabs on create/edit/detail routes
-  const isSubPage =
-    location.pathname.includes("/services/new") ||
-    /\/services\/svc-/.test(location.pathname);
+  const pathParts = location.pathname.split("/").filter(Boolean);
+  const staticSections = new Set(["categories", "partners", "analytics", "new"]);
+  const isRecordPage =
+    pathParts[0] === "services" &&
+    pathParts.length >= 2 &&
+    !staticSections.has(pathParts[1]);
+  const isSubPage = location.pathname.includes("/services/new") || isRecordPage;
 
   const activeTab =
     tabs.find((t) => t.path === location.pathname)?.path ?? "/services";
