@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SettingsSectionPage from "@/pages/SettingsSection";
@@ -95,5 +95,25 @@ describe("SettingsSection mobile layout contracts", () => {
 
     expect(screen.getByTestId("notifications-settings-content")).toBeInTheDocument();
     expect(screen.getByTestId("settings-section-notifications-unread-dot")).toBeInTheDocument();
+  });
+
+  it("renders AI Providers tab as disabled with Soon badge", () => {
+    renderSettingsSection("/settings/query-log");
+
+    const aiTab = screen.getByTestId("settings-tab-ai-providers");
+    expect(aiTab).toHaveAttribute("aria-disabled", "true");
+    expect(within(aiTab).getByText("Soon")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /ai providers/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps direct AI Providers route accessible while tab stays disabled", () => {
+    renderSettingsSection("/settings/ai-providers");
+
+    expect(screen.getByRole("heading", { name: "AI Providers" })).toBeInTheDocument();
+    expect(screen.getByTestId("mcp-settings-content")).toBeInTheDocument();
+
+    const aiTab = screen.getByTestId("settings-tab-ai-providers");
+    expect(aiTab).toHaveAttribute("aria-disabled", "true");
+    expect(aiTab).toHaveClass("bg-background", "text-foreground", "shadow-sm");
   });
 });

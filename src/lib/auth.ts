@@ -147,7 +147,8 @@ export type ApiNotificationType =
   | "welcome"
   | "news"
   | "updates"
-  | "invite_accepted";
+  | "invite_accepted"
+  | "booking_success";
 
 export type ApiNotification = {
   id: string;
@@ -854,7 +855,8 @@ const isApiNotificationType = (value: unknown): value is ApiNotificationType => 
     value === "welcome" ||
     value === "news" ||
     value === "updates" ||
-    value === "invite_accepted"
+    value === "invite_accepted" ||
+    value === "booking_success"
   );
 };
 

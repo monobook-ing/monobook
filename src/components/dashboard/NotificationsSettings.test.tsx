@@ -72,6 +72,31 @@ describe("NotificationsSettings", () => {
     expect(fetchNotificationsMock).toHaveBeenCalledWith("jwt_key", { limit: 20 });
   });
 
+  it("renders booking success notification type label", async () => {
+    fetchNotificationsMock.mockResolvedValue({
+      items: [
+        {
+          id: "notif-1",
+          userId: "user-1",
+          subject: "New confirmed booking",
+          body: "Guest: John Doe. Room: Ocean Suite.",
+          type: "booking_success",
+          details: null,
+          cta: null,
+          isRead: false,
+          readAt: null,
+          createdAt: "2026-03-03T10:00:00Z",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(<NotificationsSettings showHeader={false} />);
+
+    expect(await screen.findByText("New confirmed booking")).toBeInTheDocument();
+    expect(await screen.findByText(/Booking success/)).toBeInTheDocument();
+  });
+
   it("marks a single notification as read and refreshes unread count", async () => {
     fetchNotificationsMock.mockResolvedValue({
       items: [

@@ -1219,6 +1219,49 @@ describe("notifications api", () => {
     expect(url).toContain("cursor=cursor-0");
   });
 
+  it("accepts booking_success notification type", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: "notif-2",
+              user_id: "user-1",
+              subject: "New confirmed booking",
+              body: "Guest: John Doe. Room: Ocean Suite.",
+              type: "booking_success",
+              details: null,
+              cta: null,
+              is_read: false,
+              read_at: null,
+              created_at: "2026-03-03T10:00:00Z",
+            },
+          ],
+          next_cursor: null,
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchNotifications("jwt")).resolves.toEqual({
+      items: [
+        {
+          id: "notif-2",
+          userId: "user-1",
+          subject: "New confirmed booking",
+          body: "Guest: John Doe. Room: Ocean Suite.",
+          type: "booking_success",
+          details: null,
+          cta: null,
+          isRead: false,
+          readAt: null,
+          createdAt: "2026-03-03T10:00:00Z",
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
   it("throws when notifications list payload is invalid", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ items: [{ id: "notif-1" }], next_cursor: null }), {

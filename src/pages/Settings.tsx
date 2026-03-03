@@ -12,8 +12,10 @@ import {
   User,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNotifications } from "@/contexts/NotificationsContext";
+import { cn } from "@/lib/utils";
 
 export interface SettingsSectionLink {
   id: string;
@@ -21,6 +23,8 @@ export interface SettingsSectionLink {
   description: string;
   path: string;
   icon: LucideIcon;
+  disabled?: boolean;
+  badgeText?: string;
 }
 
 export const settingsSections: SettingsSectionLink[] = [
@@ -44,13 +48,6 @@ export const settingsSections: SettingsSectionLink[] = [
     description: "Connect payment gateways",
     path: "/settings/payment-providers",
     icon: CreditCard,
-  },
-  {
-    id: "ai-providers",
-    title: "AI Providers",
-    description: "Configure AI model integrations",
-    path: "/settings/ai-providers",
-    icon: Bot,
   },
   {
     id: "knowledge-base",
@@ -80,6 +77,15 @@ export const settingsSections: SettingsSectionLink[] = [
     path: "/settings/audit-log",
     icon: ScrollText,
   },
+  {
+    id: "ai-providers",
+    title: "AI Providers",
+    description: "Configure AI model integrations",
+    path: "/settings/ai-providers",
+    icon: Bot,
+    disabled: true,
+    badgeText: "Soon",
+  },
 ];
 
 export default function SettingsHome() {
@@ -95,16 +101,26 @@ export default function SettingsHome() {
       <p className="text-sm text-muted-foreground mb-6">Open a settings page to manage a specific area</p>
 
       <div className="space-y-3">
-        {settingsSections.map((section) => (
-          <Link key={section.id} to={section.path} className="block">
-            <Card className="rounded-2xl bg-card apple-shadow transition-colors hover:bg-secondary/40">
+        {settingsSections.map((section) => {
+          const card = (
+            <Card
+              className={cn(
+                "rounded-2xl bg-card apple-shadow",
+                section.disabled ? "opacity-70" : "transition-colors hover:bg-secondary/40"
+              )}
+            >
               <CardContent className="p-4 md:p-5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center shrink-0">
                   <section.icon className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-card-foreground inline-flex items-center gap-2">
+                  <div className="text-sm font-semibold text-card-foreground inline-flex items-center gap-2">
                     {section.title}
+                    {section.badgeText && (
+                      <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                        {section.badgeText}
+                      </Badge>
+                    )}
                     {section.id === "notifications" && hasUnread && (
                       <span
                         data-testid="settings-notifications-unread-dot"
@@ -112,14 +128,38 @@ export default function SettingsHome() {
                         className="h-2 w-2 rounded-full bg-destructive"
                       />
                     )}
-                  </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">{section.description}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                {!section.disabled && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          );
+
+          if (section.disabled) {
+            return (
+              <div
+                key={section.id}
+                data-testid={`settings-section-${section.id}`}
+                aria-disabled="true"
+                className="block cursor-not-allowed"
+              >
+                {card}
+              </div>
+            );
+          }
+
+          return (
+            <Link
+              key={section.id}
+              data-testid={`settings-section-${section.id}`}
+              to={section.path}
+              className="block"
+            >
+              {card}
+            </Link>
+          );
+        })}
       </div>
     </motion.div>
   );

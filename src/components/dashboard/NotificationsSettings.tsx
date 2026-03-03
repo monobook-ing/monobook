@@ -11,6 +11,7 @@ const PAGE_SIZE = 20;
 
 const formatNotificationType = (type: Notification["type"]) => {
   if (type === "invite_accepted") return "Invite accepted";
+  if (type === "booking_success") return "Booking success";
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 

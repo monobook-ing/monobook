@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import SettingsHome from "@/pages/Settings";
@@ -24,7 +24,7 @@ const renderSettingsHome = () =>
     </MemoryRouter>
   );
 
-describe("SettingsHome notifications section", () => {
+describe("SettingsHome", () => {
   beforeEach(() => {
     useNotificationsMock.mockReturnValue({
       unreadCount: 0,
@@ -56,5 +56,16 @@ describe("SettingsHome notifications section", () => {
     renderSettingsHome();
 
     expect(screen.getByTestId("settings-notifications-unread-dot")).toBeInTheDocument();
+  });
+
+  it("places AI Providers at the bottom as a disabled Soon card", () => {
+    renderSettingsHome();
+
+    const sections = screen.getAllByTestId(/settings-section-/);
+    const lastSection = sections[sections.length - 1];
+    expect(lastSection).toHaveAttribute("data-testid", "settings-section-ai-providers");
+    expect(lastSection).toHaveAttribute("aria-disabled", "true");
+    expect(within(lastSection).getByText("Soon")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /ai providers/i })).not.toBeInTheDocument();
   });
 });
