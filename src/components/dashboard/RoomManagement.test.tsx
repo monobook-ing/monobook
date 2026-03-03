@@ -148,6 +148,27 @@ describe("RoomManagement", () => {
     expect(screen.getByRole("button", { name: /delete/i })).toBeEnabled();
   });
 
+  it("shows booking and airbnb URL copy in the add-room dialog", async () => {
+    propertyStateRef.current.selectedPropertyId = "prop-1";
+    readAccessTokenMock.mockReturnValue("jwt");
+    fetchRoomsMock.mockResolvedValue([apiRoom]);
+
+    render(<RoomManagement />);
+
+    await waitFor(() => {
+      expect(fetchRoomsMock).toHaveBeenCalledWith("jwt", "prop-1");
+    });
+
+    fireEvent.click(screen.getByTestId("add-room-button"));
+    expect(await screen.findByRole("heading", { name: "Add Room" })).toBeInTheDocument();
+
+    const input = screen.getByLabelText("Airbnb or Booking.com listing URL");
+    expect(input).toHaveAttribute(
+      "placeholder",
+      "https://www.booking.com/hotel/gb/example.en-gb.html"
+    );
+  });
+
   it("shows delete confirmation and deletes room on yes", async () => {
     isMobileRef.current = false;
     propertyStateRef.current.selectedPropertyId = "prop-1";

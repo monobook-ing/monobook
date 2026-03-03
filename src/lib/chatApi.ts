@@ -37,13 +37,42 @@ export interface RoomSearchResult {
   count: number;
 }
 
+export interface RestaurantResult {
+  place_id: string;
+  source: "google" | "curated";
+  name: string;
+  address: string | null;
+  rating: number | null;
+  review_count: number | null;
+  price_level: number | null;
+  cuisine: string[];
+  phone: string | null;
+  website: string | null;
+  photo_url: string | null;
+  is_open_now: boolean | null;
+  walking_minutes: number | null;
+  distance_m: number | null;
+  best_for: string[];
+  is_curated: boolean;
+  is_sponsored: boolean;
+  maps_url: string | null;
+}
+
+export interface RestaurantSearchResult {
+  property_id: string;
+  curated: RestaurantResult[];
+  nearby: RestaurantResult[];
+  count_curated: number;
+  count_nearby: number;
+}
+
 export interface SSEEvent {
   type: "message_start" | "text_delta" | "tool_use" | "agent_handoff" | "message_end" | "tool_result";
   delta?: string;
   content?: string;
   tool?: string;
   agent?: string;
-  data?: RoomSearchResult;
+  data?: RoomSearchResult | RestaurantSearchResult;
 }
 
 export async function createChatSession(
