@@ -1,56 +1,109 @@
 
 
-## Guests Page
+# Services & Add-ons Module
 
-A new "Guests" section in the dashboard that shows a list of guests with their latest booking info, and allows clicking into a guest detail view with booking history and conversation history.
+## Overview
+A comprehensive services management module for the hotelier dashboard, covering service CRUD, categories, partners, analytics, and guest preview. All UI-only with mock data.
 
-### What You'll Get
+## File Structure
 
-- A **Guests** nav item in the sidebar/bottom nav (using the `Users` icon)
-- A **guest list** showing each guest's name, email, phone, last booking dates, room, and status
-- A **guest detail panel** (sheet on desktop, drawer on mobile -- matching the Rooms page pattern) with:
-  - Guest profile header (name, email, phone, total stays count)
-  - Latest booking details (room, dates, status, price)
-  - Booking history table showing all past bookings
-  - Conversation history showing AI and widget interactions tied to this guest
-- Mock data for guests, their bookings, and conversation messages
+```text
+src/
+├── data/
+│   └── mockServiceData.ts          # Mock data for services, categories, partners
+├── components/dashboard/services/
+│   ├── ServicesPage.tsx             # Main page with sub-tabs + table/card views
+│   ├── ServiceCreateEdit.tsx       # Multi-step form with vertical stepper
+│   ├── ServiceDetail.tsx           # Detail view with tabs (overview/bookings/analytics/settings)
+│   ├── CategoriesManagement.tsx    # CRUD with drag-and-drop reorder
+│   ├── PartnersPage.tsx            # Partners table + Add Partner dialog
+│   ├── ServicesAnalytics.tsx       # Charts page (recharts)
+│   └── GuestPreviewModal.tsx       # Modal simulating AI widget card
+└── pages/
+    └── ServicesLayout.tsx          # Sub-navigation wrapper (tabs for All/Categories/Partners/Analytics)
+```
 
----
+## Routing Changes (App.tsx)
 
-### Technical Details
+Add inside the `<DashboardLayout>` route group:
+```
+/services          → ServicesLayout with ServicesPage (All Services tab default)
+/services/categories → CategoriesManagement
+/services/partners   → PartnersPage  
+/services/analytics  → ServicesAnalytics
+/services/new        → ServiceCreateEdit
+/services/:id        → ServiceDetail
+/services/:id/edit   → ServiceCreateEdit (edit mode)
+```
 
-**1. New file: `src/data/mockGuestData.ts`**
+## Navigation Changes (DashboardLayout.tsx)
 
-Define interfaces and mock data:
-- `Guest` interface: `id`, `name`, `email`, `phone`, `totalStays`, `lastStayDate`, `notes`
-- `GuestBooking` interface: `id`, `guestId`, `roomName`, `checkIn`, `checkOut`, `status`, `totalPrice`, `aiHandled`
-- `GuestConversation` interface: `id`, `guestId`, `channel` (widget/chatGPT/claude), `messages[]` (role, text, timestamp)
-- ~6 mock guests with 2-4 bookings each and 1-2 conversation threads
+Add to `navItems` array:
+```ts
+{ id: "/services", label: "Services", icon: Gift }  // or Layers icon
+```
 
-**2. New file: `src/components/dashboard/GuestManagement.tsx`**
+This adds "Services" to both desktop sidebar and mobile bottom nav (making it 6 items).
 
-Follow `RoomManagement.tsx` patterns:
-- Guest list as cards with `motion` animations
-- Search/filter input at top
-- Click a guest card to open detail panel
-- Desktop: `Sheet` side panel; Mobile: `Drawer` bottom panel (same as Rooms)
-- Detail panel sections:
-  - Profile header with avatar (initials), name, email, phone
-  - "Latest Booking" card with room, dates, status badge, price
-  - "Booking History" section with a compact list/table of past bookings
-  - "Conversations" section showing conversation threads with expandable message lists
-- Loading skeletons matching the existing skeleton patterns
-- Property filtering via `useProperty()` context (if bookings are tied to properties)
+## Key Components
 
-**3. Update `src/App.tsx`**
+### 1. ServicesLayout.tsx
+- Page title "Services & Add-ons" + "+ Create Service" button
+- Horizontal tabs: All Services | Categories | Partners | Analytics
+- Each tab navigates to the corresponding sub-route
+- Renders `<Outlet />` for child content
 
-Add route: `<Route path="/guests" element={<GuestManagement />} />`  inside the dashboard layout group.
+### 2. ServicesPage.tsx (All Services)
+- Filter bar: Type dropdown, Category dropdown, Status dropdown, Search input
+- Toggle: table view / card grid view (using state)
+- **Table mode**: columns for Name, Type, Category, Price, Availability, Attach Rate, Status badge, Actions (Edit/Duplicate/Archive)
+- **Card mode**: card grid with image, title, price, status badge, action menu
+- Empty state illustration when no services
 
-**4. Update `src/pages/DashboardLayout.tsx`**
+### 3. ServiceCreateEdit.tsx (Multi-step form)
+- Left vertical stepper (6 steps), main form area center, sticky preview panel on right (desktop)
+- Steps: Basic Info → Pricing → Availability → Booking & Upsell → Partner Settings (conditional) → Knowledge Base
+- Each step is a section of the form; stepper highlights active step
+- Step 5 only visible when service type is "Partner Service"
+- Live preview card on right side during Step 2
 
-Add nav item `{ id: "/guests", label: "Guests", icon: Users }` to `navItems` array (after "Rooms").
+### 4. ServiceDetail.tsx
+- Header: image, title, status badge, 4 quick stat cards (Revenue, Attach Rate, Bookings, Conversion)
+- Tabs: Overview, Bookings, Analytics, Settings
+- Overview: description, pricing summary, availability preview, upsell rules
+- Bookings: table with Booking ID, Guest, Date, Quantity, Total, Status
 
-**5. Fix existing build errors**
+### 5. CategoriesManagement.tsx
+- Simple list with drag handle, icon, name, description, order
+- Add/Edit inline or via dialog
+- Drag-and-drop reorder (using native drag events, no extra dependency)
 
-- `InventoryCalendar.test.tsx`: Add type assertions for `ReactNode` issues
-- `AgenticCheckout.tsx`: Add null check before accessing `.total` and `.confirmationId` on the `void | CheckoutResult` union
+### 6. PartnersPage.tsx
+- Table: Partner Name, Active Services, Revenue Share %, Revenue Generated, Status
+- "Add Partner" button opens dialog with form fields
+
+### 7. ServicesAnalytics.tsx
+- Date range selector at top
+- 4 charts using recharts: Revenue line chart, Attach rate bar chart, Revenue per booking uplift, Top performing services list
+- Consistent with existing DashboardHome chart styling
+
+### 8. GuestPreviewModal.tsx
+- Toggle button "Preview Guest Experience" on ServicesPage
+- Opens Dialog simulating the AI widget card: service image, title, price, Add button, slot selector
+
+### 9. mockServiceData.ts
+- `mockServices[]` with ~6 sample services covering all types/statuses
+- `mockServiceCategories[]` with ~5 categories
+- `mockPartners[]` with ~3 partners
+- `mockServiceBookings[]` for detail view
+- Types/interfaces exported
+
+## UI States
+All components include: empty state, loading skeletons, draft/disabled/error banners, and "fully booked" badge for slot-based services.
+
+## Design Consistency
+- All cards: `rounded-2xl`, subtle borders `border-border`
+- Buttons: `rounded-xl` or `rounded-full` (pill)
+- Same glassmorphic patterns, motion animations, and color system as existing dashboard
+- Responsive: desktop-first, stacks to single column on mobile
+
