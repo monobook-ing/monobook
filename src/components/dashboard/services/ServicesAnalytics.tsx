@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Area,
@@ -18,23 +18,121 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  mockServiceRevenueByMonth,
-  mockAttachRateByService,
-  mockServices,
-} from "@/data/mockServiceData";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useProperty } from "@/contexts/PropertyContext";
+import { readAccessToken } from "@/lib/auth";
+import { fetchServiceAnalytics, type ServiceAnalytics } from "@/lib/servicesApi";
+
+function AnalyticsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {Array.from({ length: 4 }).map((_, idx) => (
+        <Skeleton key={`analytics-skeleton-${idx}`} className="h-72 w-full rounded-2xl" />
+      ))}
+    </div>
+  );
+}
 
 export function ServicesAnalytics() {
+  const { selectedPropertyId } = useProperty();
   const [range, setRange] = useState("6m");
+  const [analytics, setAnalytics] = useState<ServiceAnalytics>({
+    revenueByMonth: [],
+    attachRateByService: [],
+    topServices: [],
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const topServices = [...mockServices]
-    .sort((a, b) => b.revenue30d - a.revenue30d)
-    .slice(0, 5);
+  useEffect(() => {
+    let active = true;
 
-  const upliftData = mockServiceRevenueByMonth.map((d) => ({
-    month: d.month,
-    uplift: +(d.revenue / 50).toFixed(1),
+    const load = async () => {
+      if (selectedPropertyId === "all") {
+        if (!active) return;
+        setAnalytics({
+          revenueByMonth: [],
+          attachRateByService: [],
+          topServices: [],
+        });
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        if (!active) return;
+        setAnalytics({
+          revenueByMonth: [],
+          attachRateByService: [],
+          topServices: [],
+        });
+        setError("You are not authenticated. Please sign in again.");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      try {
+        const nextAnalytics = await fetchServiceAnalytics(accessToken, selectedPropertyId, range);
+        if (!active) return;
+        setAnalytics(nextAnalytics);
+      } catch (loadError) {
+        if (!active) return;
+        const message =
+          loadError instanceof Error ? loadError.message : "Failed to load analytics";
+        setAnalytics({
+          revenueByMonth: [],
+          attachRateByService: [],
+          topServices: [],
+        });
+        setError(message);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [range, selectedPropertyId]);
+
+  const upliftData = analytics.revenueByMonth.map((point) => ({
+    month: point.month,
+    uplift: +(point.revenue / 50).toFixed(1),
   }));
+
+  if (selectedPropertyId === "all") {
+    return (
+      <Card className="rounded-xl border-dashed">
+        <CardContent className="p-8 text-center">
+          <h3 className="text-base font-semibold text-foreground">
+            Select a property to view analytics
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose one property from the switcher to load analytics from the API.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) return <AnalyticsSkeleton />;
+
+  if (error) {
+    return (
+      <Card className="rounded-xl border-destructive/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-semibold text-foreground">Could not load analytics</h3>
+          <p className="text-sm text-muted-foreground mt-1">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -53,7 +151,6 @@ export function ServicesAnalytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Revenue */}
         <motion.div
           className="rounded-2xl bg-card apple-shadow p-5"
           initial={{ opacity: 0, y: 10 }}
@@ -62,7 +159,7 @@ export function ServicesAnalytics() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Revenue from Services</h3>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockServiceRevenueByMonth}>
+              <AreaChart data={analytics.revenueByMonth}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(211, 100%, 50%)" stopOpacity={0.2} />
@@ -73,13 +170,18 @@ export function ServicesAnalytics() {
                 <XAxis dataKey="month" className="text-xs" tick={{ fill: "hsl(240, 2%, 53%)" }} />
                 <YAxis className="text-xs" tick={{ fill: "hsl(240, 2%, 53%)" }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="revenue" stroke="hsl(211, 100%, 50%)" strokeWidth={2} fill="url(#revGrad)" />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="hsl(211, 100%, 50%)"
+                  strokeWidth={2}
+                  fill="url(#revGrad)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Attach rate */}
         <motion.div
           className="rounded-2xl bg-card apple-shadow p-5"
           initial={{ opacity: 0, y: 10 }}
@@ -89,7 +191,7 @@ export function ServicesAnalytics() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Attach Rate per Service</h3>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockAttachRateByService}>
+              <BarChart data={analytics.attachRateByService}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="name" className="text-xs" tick={{ fill: "hsl(240, 2%, 53%)" }} />
                 <YAxis className="text-xs" tick={{ fill: "hsl(240, 2%, 53%)" }} />
@@ -100,7 +202,6 @@ export function ServicesAnalytics() {
           </div>
         </motion.div>
 
-        {/* Uplift */}
         <motion.div
           className="rounded-2xl bg-card apple-shadow p-5"
           initial={{ opacity: 0, y: 10 }}
@@ -121,13 +222,18 @@ export function ServicesAnalytics() {
                 <XAxis dataKey="month" className="text-xs" tick={{ fill: "hsl(240, 2%, 53%)" }} />
                 <YAxis className="text-xs" tick={{ fill: "hsl(240, 2%, 53%)" }} />
                 <Tooltip />
-                <Area type="monotone" dataKey="uplift" stroke="hsl(32, 95%, 55%)" strokeWidth={2} fill="url(#upliftGrad)" />
+                <Area
+                  type="monotone"
+                  dataKey="uplift"
+                  stroke="hsl(32, 95%, 55%)"
+                  strokeWidth={2}
+                  fill="url(#upliftGrad)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </motion.div>
 
-        {/* Top performing */}
         <motion.div
           className="rounded-2xl bg-card apple-shadow p-5"
           initial={{ opacity: 0, y: 10 }}
@@ -136,17 +242,26 @@ export function ServicesAnalytics() {
         >
           <h3 className="text-sm font-semibold text-foreground mb-4">Top Performing Services</h3>
           <div className="space-y-3">
-            {topServices.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-muted-foreground w-5">{i + 1}</span>
-                <img src={s.imageUrl} alt={s.name} className="w-9 h-9 rounded-lg object-cover" />
+            {analytics.topServices.map((service, index) => (
+              <div key={service.id} className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-muted-foreground w-5">{index + 1}</span>
+                <img
+                  src={service.imageUrl ?? ""}
+                  alt={service.name}
+                  className="w-9 h-9 rounded-lg object-cover bg-muted"
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">{s.attachRate}% attach</p>
+                  <p className="text-sm font-medium text-foreground truncate">{service.name}</p>
+                  <p className="text-xs text-muted-foreground">{service.attachRate}% attach</p>
                 </div>
-                <p className="text-sm font-semibold text-foreground">${s.revenue30d.toLocaleString()}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  ${service.revenue30d.toLocaleString()}
+                </p>
               </div>
             ))}
+            {analytics.topServices.length === 0 && (
+              <p className="text-sm text-muted-foreground">No analytics data yet.</p>
+            )}
           </div>
         </motion.div>
       </div>

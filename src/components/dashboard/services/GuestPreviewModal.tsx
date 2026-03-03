@@ -7,28 +7,28 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { mockServices } from "@/data/mockServiceData";
 import { Clock, Plus, Minus } from "lucide-react";
+import type { Service } from "@/lib/servicesApi";
 
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  serviceId: string | null;
+  service: Service | null;
 }
 
-export function GuestPreviewModal({ open, onOpenChange, serviceId }: Props) {
-  const service = mockServices.find((s) => s.id === serviceId);
+export function GuestPreviewModal({ open, onOpenChange, service }: Props) {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
 
   if (!service) return null;
+  const heroImage = service.imageUrls[0] ?? "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm rounded-2xl p-0 overflow-hidden">
         <div className="relative">
           <img
-            src={service.imageUrl}
+            src={heroImage}
             alt={service.name}
             className="w-full h-44 object-cover"
           />
@@ -48,7 +48,7 @@ export function GuestPreviewModal({ open, onOpenChange, serviceId }: Props) {
             <div>
               <p className="text-2xl font-bold text-foreground">${service.price}</p>
               <p className="text-xs text-muted-foreground capitalize">
-                {service.pricingType.replace("_", " ")}
+                {service.pricingType.replace(/_/g, " ")}
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-xl border p-1">
@@ -68,7 +68,7 @@ export function GuestPreviewModal({ open, onOpenChange, serviceId }: Props) {
             </div>
           </div>
 
-          {service.slots && service.slots.length > 0 && (
+          {service.slots.length > 0 && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Select a time</p>
               <div className="grid grid-cols-2 gap-2">
