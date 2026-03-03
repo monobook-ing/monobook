@@ -248,22 +248,21 @@ export function NotificationsSettings({ showHeader = true }: NotificationsSettin
                             {formatNotificationType(item.type)} · {formatNotificationDate(item.createdAt)}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 rounded-lg px-2.5 text-xs"
-                          onClick={() => void handleMarkAsRead(item)}
-                          disabled={item.isRead || isMarking || isMarkingAll}
-                        >
-                          {isMarking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                          Mark as read
-                        </Button>
+                        {!item.isRead && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 rounded-lg px-2.5 text-xs"
+                            onClick={() => void handleMarkAsRead(item)}
+                            disabled={isMarking || isMarkingAll}
+                          >
+                            {isMarking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                            Mark as read
+                          </Button>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">{item.body}</p>
-                      {item.details && (
-                        <p className="text-xs text-muted-foreground">{item.details}</p>
-                      )}
                       {item.cta && (
                         <p className="text-xs font-medium text-foreground">CTA: {item.cta}</p>
                       )}

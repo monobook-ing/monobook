@@ -32,7 +32,7 @@ export default function SettingsSectionPage() {
     <div className="w-full max-w-full min-w-0 overflow-x-hidden">
       <Link
         to="/settings"
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3"
+        className="mb-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground md:hidden"
       >
         <ChevronLeft className="w-3.5 h-3.5" />
         All settings

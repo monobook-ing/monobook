@@ -111,6 +111,10 @@ describe("NotificationsSettings", () => {
       expect(markNotificationAsReadMock).toHaveBeenCalledWith("jwt_key", "notif-1");
       expect(refreshUnreadCountMock).toHaveBeenCalledTimes(1);
     });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /mark as read/i })).not.toBeInTheDocument();
+    });
   });
 
   it("marks all notifications as read and refreshes unread count", async () => {
@@ -170,6 +174,31 @@ describe("NotificationsSettings", () => {
     render(<NotificationsSettings showHeader={false} />);
 
     expect(await screen.findByText("Failed to fetch notifications")).toBeInTheDocument();
+  });
+
+  it("does not render notification details field", async () => {
+    fetchNotificationsMock.mockResolvedValue({
+      items: [
+        {
+          id: "notif-1",
+          userId: "user-1",
+          subject: "Welcome",
+          body: "Body text",
+          type: "welcome",
+          details: "Should not be shown",
+          cta: null,
+          isRead: false,
+          readAt: null,
+          createdAt: "2026-03-03T10:00:00Z",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(<NotificationsSettings showHeader={false} />);
+
+    expect(await screen.findByText("Body text")).toBeInTheDocument();
+    expect(screen.queryByText("Should not be shown")).not.toBeInTheDocument();
   });
 
   it("loads next page when load more is clicked", async () => {

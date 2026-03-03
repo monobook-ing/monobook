@@ -53,6 +53,7 @@ describe("SettingsSection mobile layout contracts", () => {
     renderSettingsSection("/settings/query-log");
 
     const allSettingsLink = screen.getByRole("link", { name: /all settings/i });
+    expect(allSettingsLink).toHaveClass("md:hidden");
     const rootContainer = allSettingsLink.parentElement;
     expect(rootContainer).toHaveClass("w-full", "max-w-full", "min-w-0", "overflow-x-hidden");
 
