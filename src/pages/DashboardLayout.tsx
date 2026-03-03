@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LayoutDashboard, CalendarDays, Settings, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Settings, MessageSquare, ChevronsUpDown, LogOut, CircleHelp, ArrowUpCircle, BedDouble, Building2, Check, Plus, Trash2, Pencil, Loader2, Users, ChevronsLeft, ChevronsRight, PanelLeft, PanelRight, Download } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -28,6 +28,24 @@ const navItems = [
   { id: "/settings", label: "Settings", icon: Settings },
 ];
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
+const aiLayerCards = [
+  {
+    title: "Direct AI Booking",
+    description: "Capture direct demand with an AI journey that helps guests book faster.",
+  },
+  {
+    title: "AI Concierge",
+    description: "Answer guest questions instantly and guide every stay from pre-arrival to checkout.",
+  },
+  {
+    title: "Revenue Automation",
+    description: "Continuously optimize rates and upsells with adaptive automation.",
+  },
+  {
+    title: "Knowledge Base",
+    description: "Centralize policies and property know-how so AI responses stay accurate.",
+  },
+];
 
 const readStoredSidebarCollapsed = () => {
   try {
@@ -264,6 +282,7 @@ function DashboardInner() {
     )?.id || "/dashboard";
   const me = readUserMe();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(readStoredSidebarCollapsed);
+  const [isAiLayerDialogOpen, setIsAiLayerDialogOpen] = useState(false);
 
   const buildDisplayName = (user: UserMe | null) => {
     if (!user) return "StayAI Hotel";
@@ -286,6 +305,10 @@ function DashboardInner() {
   const handleLogout = () => {
     clearAuthStorage();
     navigate("/auth", { replace: true });
+  };
+  const handleActivateAiLayer = () => {
+    toast.success("AI Layer activation is coming soon.");
+    setIsAiLayerDialogOpen(false);
   };
 
   useEffect(() => {
@@ -365,51 +388,163 @@ function DashboardInner() {
         </nav>
 
         {/* User Footer */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              aria-label={isSidebarCollapsed ? "Account menu" : undefined}
-              className={`mt-auto flex items-center w-full rounded-xl hover:bg-secondary transition-colors min-h-[44px] ${isSidebarCollapsed ? "justify-center px-2 py-2 max-w-[44px] mx-auto" : "gap-3 px-3 py-2.5"}`}
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">{avatarInitials}</AvatarFallback>
-              </Avatar>
-              {!isSidebarCollapsed && (
-                <>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
-                    <p className="text-[10px] text-muted-foreground">Pro plan</p>
+        <div className={`mt-auto ${isSidebarCollapsed ? "flex flex-col items-center gap-1.5" : "space-y-1.5"}`}>
+          {isSidebarCollapsed ? (
+            <>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    data-testid="ai-layer-trigger"
+                    aria-label="Get apps and extensions"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    onClick={() => setIsAiLayerDialogOpen(true)}
+                  >
+                    <Download className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" align="center">
+                  Get apps and extensions
+                </TooltipContent>
+              </Tooltip>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    aria-label="Account menu"
+                    className="flex items-center justify-center rounded-xl px-2 py-2 transition-colors hover:bg-secondary min-h-[44px] max-w-[44px] mx-auto"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">{avatarInitials}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="start" className="w-56 rounded-2xl p-1.5">
+                  <div className="px-3 py-2">
+                    <p className="text-xs text-muted-foreground">{displayEmail}</p>
                   </div>
-                  <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
-                </>
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="top" align="start" className="w-56 rounded-2xl p-1.5">
-            <div className="px-3 py-2">
-              <p className="text-xs text-muted-foreground">{displayEmail}</p>
+                  <Separator />
+                  <button onClick={() => navigate("/settings")} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+                    <Settings className="w-4 h-4" /> Settings
+                  </button>
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+                    <CircleHelp className="w-4 h-4" /> Get help
+                  </button>
+                  <Separator />
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+                    <ArrowUpCircle className="w-4 h-4" /> Upgrade plan
+                  </button>
+                  <Separator />
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary text-destructive transition-colors min-h-[44px]"
+                  >
+                    <LogOut className="w-4 h-4" /> Log out
+                  </button>
+                </PopoverContent>
+              </Popover>
+            </>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="flex flex-1 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-secondary min-h-[44px]"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">{avatarInitials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-medium text-foreground leading-tight">{displayName}</p>
+                      <p className="text-[10px] text-muted-foreground">Pro plan</p>
+                    </div>
+                    <ChevronsUpDown className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="start" className="w-56 rounded-2xl p-1.5">
+                  <div className="px-3 py-2">
+                    <p className="text-xs text-muted-foreground">{displayEmail}</p>
+                  </div>
+                  <Separator />
+                  <button onClick={() => navigate("/settings")} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+                    <Settings className="w-4 h-4" /> Settings
+                  </button>
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+                    <CircleHelp className="w-4 h-4" /> Get help
+                  </button>
+                  <Separator />
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
+                    <ArrowUpCircle className="w-4 h-4" /> Upgrade plan
+                  </button>
+                  <Separator />
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary text-destructive transition-colors min-h-[44px]"
+                  >
+                    <LogOut className="w-4 h-4" /> Log out
+                  </button>
+                </PopoverContent>
+              </Popover>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    data-testid="ai-layer-trigger"
+                    aria-label="Get apps and extensions"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    onClick={() => setIsAiLayerDialogOpen(true)}
+                  >
+                    <Download className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" align="center">
+                  Get apps and extensions
+                </TooltipContent>
+              </Tooltip>
             </div>
-            <Separator />
-            <button onClick={() => navigate("/settings")} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
-              <Settings className="w-4 h-4" /> Settings
-            </button>
-            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
-              <CircleHelp className="w-4 h-4" /> Get help
-            </button>
-            <Separator />
-            <button className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[44px]">
-              <ArrowUpCircle className="w-4 h-4" /> Upgrade plan
-            </button>
-            <Separator />
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary text-destructive transition-colors min-h-[44px]"
-            >
-              <LogOut className="w-4 h-4" /> Log out
-            </button>
-          </PopoverContent>
-        </Popover>
+          )}
+        </div>
       </aside>
+
+      <Dialog open={isAiLayerDialogOpen} onOpenChange={setIsAiLayerDialogOpen}>
+        <DialogContent
+          data-testid="ai-layer-dialog"
+          className="h-screen w-screen max-w-none rounded-none border-0 bg-[#f3f2ee] p-0 overflow-hidden"
+        >
+          <div className="h-full overflow-y-auto px-6 py-16 sm:px-10 lg:px-14">
+            <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col">
+              <DialogHeader className="text-center">
+                <DialogTitle className="text-center text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                  Do more with Estio, everywhere
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Activate your AI layer across booking, concierge, pricing, and knowledge workflows.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2">
+                {aiLayerCards.map((card) => (
+                  <section
+                    key={card.title}
+                    className="rounded-3xl border border-border/60 bg-background/80 p-6 shadow-sm sm:p-8"
+                  >
+                    <h3 className="text-xl font-semibold text-foreground">{card.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{card.description}</p>
+                  </section>
+                ))}
+              </div>
+              <div className="mt-10 flex justify-center pb-4">
+                <Button
+                  type="button"
+                  data-testid="ai-layer-activate-button"
+                  className="h-12 rounded-xl px-8 text-sm font-semibold"
+                  onClick={handleActivateAiLayer}
+                >
+                  Activate AI Layer
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content */}
       <main className={`flex-1 w-full min-w-0 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-6 transition-[margin] duration-200 ${isSidebarCollapsed ? "md:ml-20" : "md:ml-64"}`}>

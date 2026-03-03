@@ -8,6 +8,8 @@ const hydrateSessionFromStorageMock = vi.hoisted(() => vi.fn());
 const fetchPropertiesMock = vi.hoisted(() => vi.fn());
 const fetchUnreadNotificationsCountMock = vi.hoisted(() => vi.fn());
 const readAccessTokenMock = vi.hoisted(() => vi.fn());
+const toastSuccessMock = vi.hoisted(() => vi.fn());
+const toastErrorMock = vi.hoisted(() => vi.fn());
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "dashboard_sidebar_collapsed";
 
 vi.mock("@/lib/auth", async (importOriginal) => {
@@ -23,8 +25,8 @@ vi.mock("@/lib/auth", async (importOriginal) => {
 
 vi.mock("sonner", () => ({
   toast: {
-    success: vi.fn(),
-    error: vi.fn(),
+    success: toastSuccessMock,
+    error: toastErrorMock,
   },
 }));
 
@@ -76,6 +78,8 @@ describe("DashboardLayout footer host card", () => {
     fetchPropertiesMock.mockReset();
     fetchUnreadNotificationsCountMock.mockReset();
     readAccessTokenMock.mockReset();
+    toastSuccessMock.mockReset();
+    toastErrorMock.mockReset();
     localStorage.clear();
 
     hydrateSessionFromStorageMock.mockResolvedValue({
@@ -120,6 +124,63 @@ describe("DashboardLayout footer host card", () => {
     });
     expect(screen.getByText("Pro plan")).toBeInTheDocument();
     expect(screen.getByText("MM")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("microsaas.farm MicroSaas Farm"));
+    expect(await screen.findByText("microsaas.farm@gmail.com")).toBeInTheDocument();
+  });
+
+  it("renders AI trigger in desktop sidebar footer", async () => {
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByText("dashboard-home")).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("ai-layer-trigger")).toBeInTheDocument();
+  });
+
+  it("opens AI dialog from sidebar trigger and renders all requested content", async () => {
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByText("dashboard-home")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("ai-layer-trigger"));
+
+    expect(await screen.findByTestId("ai-layer-dialog")).toBeInTheDocument();
+    expect(screen.getByText("Do more with Estio, everywhere")).toBeInTheDocument();
+    expect(screen.getByText("Direct AI Booking")).toBeInTheDocument();
+    expect(screen.getByText("AI Concierge")).toBeInTheDocument();
+    expect(screen.getByText("Revenue Automation")).toBeInTheDocument();
+    expect(screen.getByText("Knowledge Base")).toBeInTheDocument();
+    expect(screen.getByTestId("ai-layer-activate-button")).toBeInTheDocument();
+  });
+
+  it("closes AI dialog and shows toast after activate click", async () => {
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByText("dashboard-home")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("ai-layer-trigger"));
+    expect(await screen.findByTestId("ai-layer-dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("ai-layer-activate-button"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("ai-layer-dialog")).not.toBeInTheDocument();
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith("AI Layer activation is coming soon.");
+  });
+
+  it("keeps account popover functional after adding AI trigger", async () => {
+    renderLayout("/dashboard");
+
+    await waitFor(() => {
+      expect(screen.getByText("microsaas.farm MicroSaas Farm")).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByText("microsaas.farm MicroSaas Farm"));
     expect(await screen.findByText("microsaas.farm@gmail.com")).toBeInTheDocument();
