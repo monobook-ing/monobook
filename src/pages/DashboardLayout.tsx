@@ -159,7 +159,7 @@ export function PropertySwitcher({
   collapsed?: boolean;
   testIdPrefix?: string;
 }) {
-  const { selectedPropertyId, setSelectedPropertyId, properties, isPropertiesLoading, propertiesError } = useProperty();
+  const { selectedPropertyId, properties, isPropertiesLoading, propertiesError } = useProperty();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const isManageDisabled = true;
@@ -201,8 +201,10 @@ export function PropertySwitcher({
         </PopoverTrigger>
         <PopoverContent side="bottom" align="start" className={`w-56 rounded-2xl ${compact ? "p-1" : "p-1.5"}`}>
           <button
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[40px] ${selectedPropertyId === "all" ? "bg-secondary font-medium" : ""}`}
-            onClick={() => { setSelectedPropertyId("all"); setPopoverOpen(false); }}
+            type="button"
+            aria-disabled
+            disabled
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl min-h-[40px] cursor-default ${selectedPropertyId === "all" ? "bg-secondary font-medium" : ""}`}
           >
             <Building2 className="w-4 h-4 text-muted-foreground" />
             <span className="flex-1 text-left">All Properties</span>
@@ -222,8 +224,10 @@ export function PropertySwitcher({
           {!isPropertiesLoading && !propertiesError && properties.map((p) => (
             <button
               key={p.id}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl hover:bg-secondary transition-colors min-h-[40px] ${selectedPropertyId === p.id ? "bg-secondary font-medium" : ""}`}
-              onClick={() => { setSelectedPropertyId(p.id); setPopoverOpen(false); }}
+              type="button"
+              aria-disabled
+              disabled
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl min-h-[40px] cursor-default ${selectedPropertyId === p.id ? "bg-secondary font-medium" : ""}`}
             >
               <Building2 className="w-4 h-4 text-muted-foreground" />
               <span className="flex-1 text-left truncate">{p.name}</span>

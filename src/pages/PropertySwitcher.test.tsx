@@ -92,7 +92,7 @@ describe("PropertySwitcher", () => {
     expect(manageButton).toHaveTextContent("Read-only");
   });
 
-  it("persists property selection changes and restores on startup", async () => {
+  it("renders properties as read-only and does not change selection on click", async () => {
     fetchPropertiesMock.mockResolvedValue([
       {
         id: "prop-1",
@@ -118,29 +118,27 @@ describe("PropertySwitcher", () => {
       },
     ]);
 
-    const { unmount } = renderSwitcher();
-
-    await waitFor(() => {
-      expect(screen.queryByTestId("property-switcher-trigger-skeleton")).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
-    fireEvent.click(screen.getByText("City Loft"));
-    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("prop-2");
-    expect(screen.getByText("City Loft")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
-    fireEvent.click(screen.getAllByText("All Properties")[0]);
-    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("all");
-    expect(screen.getByText("All Properties")).toBeInTheDocument();
-
-    localStorage.setItem("selected_property_id:acct-1", "prop-2");
-    unmount();
     renderSwitcher();
 
     await waitFor(() => {
       expect(screen.queryByTestId("property-switcher-trigger-skeleton")).not.toBeInTheDocument();
     });
-    expect(screen.getByText("City Loft")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("property-switcher-trigger"));
+    const cityLoftOption = screen.getByRole("button", { name: /city loft/i });
+    const triggerButton = screen.getByTestId("property-switcher-trigger");
+    const allPropertiesOption = screen
+      .getAllByRole("button", { name: /all properties/i })
+      .find((button) => button !== triggerButton);
+    expect(cityLoftOption).toBeDisabled();
+    expect(allPropertiesOption).toBeDefined();
+    if (!allPropertiesOption) {
+      throw new Error("Missing All Properties menu option");
+    }
+    expect(allPropertiesOption).toBeDisabled();
+
+    fireEvent.click(cityLoftOption);
+    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("all");
+    expect(triggerButton).toHaveTextContent("All Properties");
   });
 });
