@@ -92,7 +92,7 @@ describe("PropertySwitcher", () => {
     expect(manageButton).toHaveTextContent("Read-only");
   });
 
-  it("renders properties as read-only and does not change selection on click", async () => {
+  it("allows selecting a property from the menu", async () => {
     fetchPropertiesMock.mockResolvedValue([
       {
         id: "prop-1",
@@ -130,15 +130,13 @@ describe("PropertySwitcher", () => {
     const allPropertiesOption = screen
       .getAllByRole("button", { name: /all properties/i })
       .find((button) => button !== triggerButton);
-    expect(cityLoftOption).toBeDisabled();
     expect(allPropertiesOption).toBeDefined();
     if (!allPropertiesOption) {
       throw new Error("Missing All Properties menu option");
     }
-    expect(allPropertiesOption).toBeDisabled();
 
     fireEvent.click(cityLoftOption);
-    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("all");
-    expect(triggerButton).toHaveTextContent("All Properties");
+    expect(localStorage.getItem("selected_property_id:acct-1")).toBe("prop-2");
+    expect(triggerButton).toHaveTextContent("City Loft");
   });
 });
