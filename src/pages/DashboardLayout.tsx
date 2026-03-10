@@ -310,9 +310,11 @@ function DashboardInner() {
         className={`hidden md:flex flex-col glass border-r border-border p-4 fixed inset-y-0 left-0 z-30 transition-[width] duration-200 ${isSidebarCollapsed ? "w-20" : "w-64"}`}
       >
         <div className={`flex items-center mb-2 ${isSidebarCollapsed ? "justify-center" : "gap-2 px-0"}`}>
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <MessageSquare className="w-4 h-4 text-primary-foreground" />
-          </div>
+          {!isSidebarCollapsed && (
+            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-primary-foreground" />
+            </div>
+          )}
           {/*<h2 className="font-bold text-foreground text-md tracking-tight">monobook.ing</h2>*/}
           {!isSidebarCollapsed && <img src="/logo.png" className="w-36" />}
           <button
