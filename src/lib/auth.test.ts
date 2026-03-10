@@ -7,6 +7,7 @@ import {
   fetchAuditEntries,
   fetchBookingById,
   fetchBookings,
+  fetchDashboardMetrics,
   fetchGuestById,
   fetchGuests,
   fetchHostProfile,
@@ -15,6 +16,7 @@ import {
   fetchNotifications,
   fetchPaymentConnections,
   fetchPmsConnections,
+  fetchRecentActivity,
   fetchRoomById,
   fetchRooms,
   fetchUnreadNotificationsCount,
@@ -1344,6 +1346,155 @@ describe("notifications api", () => {
         createdAt: "2026-03-03T10:00:00Z",
       },
     ]);
+  });
+});
+
+describe("dashboard api", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("fetches dashboard metrics with range query and maps payload", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ai_direct_bookings: 47,
+          commission_saved: 4650,
+          occupancy_rate: 87,
+          revenue: 22120,
+          ai_direct_bookings_trend: [12, 18, 47],
+          commission_saved_trend: [1200, 1800, 4650],
+          occupancy_trend: [72, 84, 87],
+          revenue_trend: [12000, 18000, 22120],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchDashboardMetrics("jwt", "prop-1", { range: "week" })).resolves.toEqual({
+      aiDirectBookings: 47,
+      commissionSaved: 4650,
+      occupancyRate: 87,
+      revenue: 22120,
+      aiDirectBookingsTrend: [12, 18, 47],
+      commissionSavedTrend: [1200, 1800, 4650],
+      occupancyTrend: [72, 84, 87],
+      revenueTrend: [12000, 18000, 22120],
+    });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/properties/prop-1/metrics?range=week");
+  });
+
+  it("includes custom date query parameters for dashboard metrics", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ai_direct_bookings: 0,
+          commission_saved: 0,
+          occupancy_rate: 0,
+          revenue: 0,
+          ai_direct_bookings_trend: [],
+          commission_saved_trend: [],
+          occupancy_trend: [],
+          revenue_trend: [],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await fetchDashboardMetrics("jwt", "prop-1", {
+      range: "custom",
+      startDate: "2026-02-01",
+      endDate: "2026-02-28",
+    });
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/properties/prop-1/metrics?");
+    expect(url).toContain("range=custom");
+    expect(url).toContain("start_date=2026-02-01");
+    expect(url).toContain("end_date=2026-02-28");
+  });
+
+  it("rejects invalid dashboard metrics payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ai_direct_bookings: "47",
+          commission_saved: 4650,
+          occupancy_rate: 87,
+          revenue: 22120,
+          ai_direct_bookings_trend: [],
+          commission_saved_trend: [],
+          occupancy_trend: [],
+          revenue_trend: [],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchDashboardMetrics("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid dashboard metrics response",
+      status: 200,
+    });
+  });
+
+  it("fetches recent activity with limit and maps payload", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              booking_id: "booking-1",
+              guest_name: null,
+              check_in: "2026-03-15",
+              check_out: "2026-03-20",
+              ai_handled: true,
+              status: "ai_pending",
+              created_at: "2026-02-22T14:33:12Z",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchRecentActivity("jwt", "prop-1", { limit: 7 })).resolves.toEqual([
+      {
+        id: "booking-1",
+        guestName: "Guest",
+        checkIn: "2026-03-15",
+        checkOut: "2026-03-20",
+        aiHandled: true,
+        status: "ai_pending",
+        createdAt: "2026-02-22T14:33:12Z",
+      },
+    ]);
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/v1.0/properties/prop-1/recent-activity?limit=7");
+  });
+
+  it("rejects invalid recent activity payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              booking_id: "booking-1",
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(fetchRecentActivity("jwt", "prop-1")).rejects.toMatchObject({
+      name: "AuthApiError",
+      message: "Invalid recent activity response",
+      status: 200,
+    });
   });
 });
 

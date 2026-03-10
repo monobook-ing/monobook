@@ -185,6 +185,27 @@ export type ApiBooking = {
   cancelled_at: string | null;
 };
 
+export type ApiDashboardMetrics = {
+  ai_direct_bookings: number;
+  commission_saved: number;
+  occupancy_rate: number;
+  revenue: number;
+  ai_direct_bookings_trend: number[];
+  commission_saved_trend: number[];
+  occupancy_trend: number[];
+  revenue_trend: number[];
+};
+
+export type ApiRecentActivityItem = {
+  booking_id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  ai_handled: boolean;
+  status: string;
+  created_at: string;
+};
+
 export type ApiGuestBookingStatus =
   | ApiBookingStatus
   | "checked_in"
@@ -348,6 +369,29 @@ export type Booking = {
   cancelledAt: string | null;
 };
 
+export type DashboardMetricsRange = "week" | "month" | "year" | "custom";
+
+export type DashboardMetrics = {
+  aiDirectBookings: number;
+  commissionSaved: number;
+  occupancyRate: number;
+  revenue: number;
+  aiDirectBookingsTrend: number[];
+  commissionSavedTrend: number[];
+  occupancyTrend: number[];
+  revenueTrend: number[];
+};
+
+export type RecentActivityItem = {
+  id: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  aiHandled: boolean;
+  status: string;
+  createdAt: string;
+};
+
 export type GuestLatestBooking = {
   id: string;
   roomId: string;
@@ -507,6 +551,10 @@ export type NotificationCountResponse = {
 
 export type BookingsResponse = {
   items: ApiBooking[];
+};
+
+export type RecentActivityResponse = {
+  items: ApiRecentActivityItem[];
 };
 
 export type GuestsResponse = {
@@ -912,6 +960,43 @@ const isApiBooking = (value: unknown): value is ApiBooking => {
   );
 };
 
+const isApiDashboardMetrics = (value: unknown): value is ApiDashboardMetrics => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  const isNumberArray = (arr: unknown) =>
+    Array.isArray(arr) &&
+    arr.every((item) => typeof item === "number" && Number.isFinite(item));
+
+  return (
+    typeof candidate.ai_direct_bookings === "number" &&
+    Number.isFinite(candidate.ai_direct_bookings) &&
+    typeof candidate.commission_saved === "number" &&
+    Number.isFinite(candidate.commission_saved) &&
+    typeof candidate.occupancy_rate === "number" &&
+    Number.isFinite(candidate.occupancy_rate) &&
+    typeof candidate.revenue === "number" &&
+    Number.isFinite(candidate.revenue) &&
+    isNumberArray(candidate.ai_direct_bookings_trend) &&
+    isNumberArray(candidate.commission_saved_trend) &&
+    isNumberArray(candidate.occupancy_trend) &&
+    isNumberArray(candidate.revenue_trend)
+  );
+};
+
+const isApiRecentActivityItem = (value: unknown): value is ApiRecentActivityItem => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.booking_id === "string" &&
+    (candidate.guest_name === null || typeof candidate.guest_name === "string") &&
+    typeof candidate.check_in === "string" &&
+    typeof candidate.check_out === "string" &&
+    typeof candidate.ai_handled === "boolean" &&
+    typeof candidate.status === "string" &&
+    typeof candidate.created_at === "string"
+  );
+};
+
 const isApiGuestBookingStatus = (value: unknown): value is ApiGuestBookingStatus => {
   return (
     isApiBookingStatus(value) ||
@@ -1087,6 +1172,14 @@ const isValidBookingsResponse = (value: unknown): value is BookingsResponse => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return Array.isArray(candidate.items) && candidate.items.every(isApiBooking);
+};
+
+const isValidRecentActivityResponse = (
+  value: unknown
+): value is RecentActivityResponse => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return Array.isArray(candidate.items) && candidate.items.every(isApiRecentActivityItem);
 };
 
 const isValidGuestsResponse = (value: unknown): value is GuestsResponse => {
@@ -1292,6 +1385,31 @@ const mapApiBooking = (item: ApiBooking): Booking => {
     createdAt: item.created_at,
     updatedAt: item.updated_at,
     cancelledAt: item.cancelled_at,
+  };
+};
+
+const mapApiDashboardMetrics = (item: ApiDashboardMetrics): DashboardMetrics => {
+  return {
+    aiDirectBookings: item.ai_direct_bookings,
+    commissionSaved: item.commission_saved,
+    occupancyRate: item.occupancy_rate,
+    revenue: item.revenue,
+    aiDirectBookingsTrend: item.ai_direct_bookings_trend,
+    commissionSavedTrend: item.commission_saved_trend,
+    occupancyTrend: item.occupancy_trend,
+    revenueTrend: item.revenue_trend,
+  };
+};
+
+const mapApiRecentActivityItem = (item: ApiRecentActivityItem): RecentActivityItem => {
+  return {
+    id: item.booking_id,
+    guestName: item.guest_name ?? "Guest",
+    checkIn: item.check_in,
+    checkOut: item.check_out,
+    aiHandled: item.ai_handled,
+    status: item.status,
+    createdAt: item.created_at,
   };
 };
 
@@ -1553,6 +1671,83 @@ export const deleteRoom = async (
   }
 
   return data;
+};
+
+export const fetchDashboardMetrics = async (
+  accessToken: string,
+  propertyId: string,
+  options?: {
+    range?: DashboardMetricsRange;
+    startDate?: string;
+    endDate?: string;
+  }
+): Promise<DashboardMetrics> => {
+  const params = new URLSearchParams();
+  if (options?.range) {
+    params.set("range", options.range);
+  }
+  if (options?.startDate && options.startDate.trim()) {
+    params.set("start_date", options.startDate.trim());
+  }
+  if (options?.endDate && options.endDate.trim()) {
+    params.set("end_date", options.endDate.trim());
+  }
+
+  const query = params.toString();
+  const url = `${API_BASE}/v1.0/properties/${propertyId}/metrics${query ? `?${query}` : ""}`;
+
+  const res = await requestWithAuthInterceptor(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isApiDashboardMetrics(data)) {
+    throw new AuthApiError("Invalid dashboard metrics response", res.status);
+  }
+
+  return mapApiDashboardMetrics(data);
+};
+
+export const fetchRecentActivity = async (
+  accessToken: string,
+  propertyId: string,
+  options?: { limit?: number }
+): Promise<RecentActivityItem[]> => {
+  const params = new URLSearchParams();
+  if (
+    typeof options?.limit === "number" &&
+    Number.isFinite(options.limit) &&
+    options.limit > 0
+  ) {
+    params.set("limit", String(options.limit));
+  }
+  const query = params.toString();
+  const url = `${API_BASE}/v1.0/properties/${propertyId}/recent-activity${query ? `?${query}` : ""}`;
+
+  const res = await requestWithAuthInterceptor(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw await parseError(res);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!isValidRecentActivityResponse(data)) {
+    throw new AuthApiError("Invalid recent activity response", res.status);
+  }
+
+  return data.items.map(mapApiRecentActivityItem);
 };
 
 export const fetchBookings = async (
