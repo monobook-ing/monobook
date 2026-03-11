@@ -162,7 +162,6 @@ export function PropertySwitcher({
   const { selectedPropertyId, setSelectedPropertyId, properties, isPropertiesLoading, propertiesError } = useProperty();
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
-  const isManageDisabled = true;
 
   const selectedProperty = properties.find((p) => p.id === selectedPropertyId);
   const label = selectedProperty?.name || "All Properties";
@@ -241,18 +240,14 @@ export function PropertySwitcher({
           <Separator className="my-1" />
           <button
             data-testid={`${testIdPrefix}-manage`}
-            aria-disabled={isManageDisabled}
-            disabled={isManageDisabled}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors text-muted-foreground min-h-[40px] opacity-60 cursor-not-allowed"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors text-muted-foreground min-h-[40px] hover:bg-secondary"
             onClick={() => {
-              if (isManageDisabled) return;
               setManageOpen(true);
               setPopoverOpen(false);
             }}
           >
             <Settings className="w-4 h-4" />
             <span className="flex-1 text-left">Manage Properties</span>
-            <span className="text-[10px] uppercase tracking-wide">Read-only</span>
           </button>
         </PopoverContent>
       </Popover>

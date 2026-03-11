@@ -73,7 +73,7 @@ describe("PropertySwitcher", () => {
     expect(await screen.findByText("Mountain Lodge Retreat")).toBeInTheDocument();
   });
 
-  it("keeps only All Properties on fetch failure and disables manage action", async () => {
+  it("keeps only All Properties on fetch failure and keeps manage action enabled", async () => {
     fetchPropertiesMock.mockRejectedValue(new Error("failed"));
 
     renderSwitcher();
@@ -88,8 +88,8 @@ describe("PropertySwitcher", () => {
     expect(screen.queryByText("Mountain Lodge Retreat")).not.toBeInTheDocument();
 
     const manageButton = screen.getByTestId("property-switcher-manage");
-    expect(manageButton).toBeDisabled();
-    expect(manageButton).toHaveTextContent("Read-only");
+    expect(manageButton).toBeEnabled();
+    expect(manageButton).not.toHaveTextContent("Read-only");
   });
 
   it("allows selecting a property from the menu", async () => {
